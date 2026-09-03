@@ -15,6 +15,11 @@ export interface OpaqueTokenPort {
   digest(rawToken: string): string | null;
 }
 
+export interface VerificationCodePort {
+  issue(): IssuedOpaqueToken;
+  digest(rawCode: string): string | null;
+}
+
 export interface SelfHostedAuthRepositoryPort {
   createAccount(
     input: Readonly<{

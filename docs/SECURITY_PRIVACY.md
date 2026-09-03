@@ -1,5 +1,7 @@
 # RentProof 安全與隱私規格
 
+> D-097 Auth challenge：Email驗證與密碼重設使用CSPRNG 6位ASCII數字碼，15分鐘、單次、最多5次，僅保存server-keyed HMAC-SHA-256 digest；resend／verify受rate limit與minimum response floor保護。Account session仍為32-byte CSPRNG opaque token，不得降級。
+
 - 狀態：目前安全基線＋LAN HTTPS私有案件基線
 - 適用範圍：瀏覽器、RentProof server、外部 Demo／runtime data、OpenAI Cloud API
 

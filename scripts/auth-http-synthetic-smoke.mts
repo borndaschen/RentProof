@@ -384,7 +384,7 @@ async function readMailbox(
     redirect: "error",
   });
   expectStatus(response, 200, phase);
-  const code = /<code>([A-Za-z0-9_-]{43})<\/code>/u.exec(await response.text())?.[1];
+  const code = /<code>([0-9]{6})<\/code>/u.exec(await response.text())?.[1];
   assertSmoke(Boolean(code));
   return code;
 }

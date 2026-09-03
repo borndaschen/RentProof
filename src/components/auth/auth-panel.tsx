@@ -184,9 +184,10 @@ export function AuthPanel() {
                   <input
                     name="code"
                     autoComplete="one-time-code"
-                    pattern="[A-Za-z0-9_-]{43}"
-                    minLength={43}
-                    maxLength={43}
+                    inputMode="numeric"
+                    pattern="[0-9]{6}"
+                    minLength={6}
+                    maxLength={6}
                     required
                   />
                 </label>

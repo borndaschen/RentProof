@@ -5,11 +5,13 @@ import type {
   PasswordHasherPort,
   PasswordResetDeliveryPort,
   SelfHostedAuthRepositoryPort,
+  VerificationCodePort,
 } from "./self-hosted-ports";
 import { SelfHostedAuthService } from "./self-hosted-auth-service";
 
 const now = new Date("2026-09-03T00:00:00.000Z");
 const validRawToken = "A".repeat(43);
+const validVerificationCode = "123456";
 const validDigest = "a".repeat(64);
 const deliveryContextDigest = "b".repeat(64);
 const passwordHash = "$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$ZGlnaWVzdA";
@@ -19,6 +21,7 @@ describe("SelfHostedAuthService", () => {
   let repository: SelfHostedAuthRepositoryPort;
   let passwords: PasswordHasherPort;
   let tokens: OpaqueTokenPort;
+  let verificationCodes: VerificationCodePort;
   let delivery: PasswordResetDeliveryPort;
   let responseFloor: EnumerationResistancePort;
 
@@ -63,6 +66,14 @@ describe("SelfHostedAuthService", () => {
         .fn()
         .mockImplementation((value: string) => (value === validRawToken ? validDigest : null)),
     };
+    verificationCodes = {
+      issue: vi.fn().mockReturnValue({ rawToken: validVerificationCode, digest: validDigest }),
+      digest: vi
+        .fn()
+        .mockImplementation((value: string) =>
+          value === validVerificationCode ? validDigest : null,
+        ),
+    };
     delivery = {
       sendEmailVerification: vi.fn().mockResolvedValue(undefined),
       sendPasswordReset: vi.fn().mockResolvedValue(undefined),
@@ -75,6 +86,7 @@ describe("SelfHostedAuthService", () => {
       repository,
       passwords,
       tokens,
+      verificationCodes,
       delivery,
       { now: () => now },
       passwordHash,
@@ -104,7 +116,7 @@ describe("SelfHostedAuthService", () => {
     });
     expect(delivery.sendEmailVerification).toHaveBeenCalledWith({
       normalizedEmail: "demo.user@example.com",
-      rawToken: validRawToken,
+      rawToken: validVerificationCode,
       deliveryContextDigest,
     });
   });
@@ -268,7 +280,9 @@ describe("SelfHostedAuthService", () => {
       status: "verified",
       userId,
     });
-    await expect(service().verifyEmail(validRawToken)).resolves.toEqual({ status: "verified" });
+    await expect(service().verifyEmail(validVerificationCode)).resolves.toEqual({
+      status: "verified",
+    });
     expect(repository.consumeEmailVerificationChallenge).toHaveBeenCalledWith({
       tokenDigest: validDigest,
       now,
@@ -366,6 +380,7 @@ describe("SelfHostedAuthService", () => {
       repository,
       passwords,
       tokens,
+      verificationCodes,
       delivery,
       { now: () => current },
       passwordHash,
@@ -444,7 +459,7 @@ describe("SelfHostedAuthService", () => {
     });
     expect(delivery.sendPasswordReset).toHaveBeenCalledWith({
       normalizedEmail: "demo@example.com",
-      rawToken: validRawToken,
+      rawToken: validVerificationCode,
       deliveryContextDigest,
     });
 
@@ -454,7 +469,7 @@ describe("SelfHostedAuthService", () => {
     });
     await expect(
       service().completePasswordReset({
-        rawToken: validRawToken,
+        rawToken: validVerificationCode,
         newPassword: "new correct horse battery",
       }),
     ).resolves.toEqual({ status: "completed" });

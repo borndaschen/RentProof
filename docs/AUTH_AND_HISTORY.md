@@ -72,6 +72,8 @@ type ActorContext =
 - 註冊、登入與忘記密碼採generic回應、固定response floor與Actor／IP rate limit。Synthetic dev mailbox另綁高熵pre-auth browser context，Browser B不能取走Browser A的code。
 - D-095選定個人Gmail API作為目前低量Transactional Email adapter，只使用`gmail.send` OAuth scope；Application不得保存Gmail密碼或App Password。實際OAuth app、寄件帳戶、處理地區、Google條款／隱私、退信與濫用處理仍是外部Gate；loopback Demo outbox不代表可寄真實Email。
 
+依D-097，Email verification與password-reset challenge為CSPRNG產生的恰好6位ASCII數字碼，15分鐘後失效、僅可成功消費一次，最多5次嘗試；只保存server-keyed HMAC-SHA-256 digest。Resend與驗證採Actor／IP／identifier rate limit，回應使用generic wording與minimum response floor，不洩漏帳戶是否存在。這些短碼不得取代32-byte CSPRNG opaque account session token。
+
 ## 4. 單一入口與選用註冊
 
 ```mermaid

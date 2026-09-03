@@ -3,6 +3,7 @@ import { SelfHostedAuthService } from "@/application/auth";
 import {
   createInstalledArgon2idPasswordHasher,
   HmacOpaqueTokenService,
+  HmacNumericVerificationCodeService,
   LocalSyntheticPasswordResetOutbox,
   MinimumResponseFloor,
   parseAccountTokenKey,
@@ -76,6 +77,9 @@ async function composeRuntime(): Promise<SelfHostedAuthRuntime> {
       : null;
   const delivery =
     outbox ?? new PersonalGmailPasswordResetDelivery(parsePersonalGmailConfiguration(process.env));
+  const verificationCodes = new HmacNumericVerificationCodeService(
+    parseAccountTokenKey(process.env["RENTPROOF_AUTH_TOKEN_KEY"]),
+  );
   const dummyPasswordHash = await passwords.hash(`dummy-${tokens.issue().rawToken}`);
   postgresRuntime = createPostgresRuntime(config);
   return {
@@ -83,6 +87,7 @@ async function composeRuntime(): Promise<SelfHostedAuthRuntime> {
       new PostgresSelfHostedAuthRepository(postgresRuntime.database),
       passwords,
       tokens,
+      verificationCodes,
       delivery,
       { now: () => new Date() },
       dummyPasswordHash,

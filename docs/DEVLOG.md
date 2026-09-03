@@ -2,6 +2,26 @@
 
 本檔記錄已完成的事實與驗證，不把規劃中的工作寫成已完成。最新紀錄放最上方。
 
+## 2026-09-03 — D-097 六位數字Email驗證碼與登入診斷
+
+### 已完成
+
+- 記錄CSPRNG 6位ASCII數字碼、15分鐘TTL、單次consume、最多5次attempt、server-keyed HMAC digest、rate／resend limit與minimum response floor。
+- 明確保留32-byte CSPRNG opaque account session token；同步更新Auth、Security、Technical Design與隱私草案（政策仍為DRAFT）。
+- 新增domain-separated HMAC數字碼service；註冊驗證與密碼重設改用`000000`至`999999`，UI固定`inputmode=numeric`、6位pattern及one-time-code autocomplete。Account／Guest Session、CSRF與pre-auth token仍維持原本256-bit opaque格式。
+- HTTPS Production Build已重新啟動。唯讀資料庫診斷確認操作者指定帳號存在、啟用且Email已驗證；未讀取或輸出密碼hash。登入失敗不屬帳號缺失，應使用正確的12–128字元既有密碼，或以新6位碼完成密碼重設。
+
+### 驗證
+
+- `pnpm test:coverage`：138 files／1,252 tests通過；statements 85.17%、branches 80.03%、functions 89.33%、lines 87.99%。
+- Production Build、Prettier、ESLint、TypeScript及573-file Security Gate通過。
+- Playwright desktop／mobile為21 passed／3個既有mobile singleton mutation案例依設計skip。
+
+### 尚未完成／風險
+
+- Gmail連線先前已完成實寄；本次密碼重設表單已填入指定Email，但尚未送出重設要求，等待外部寄信動作的即時確認。
+- 正式Email配額／退信監控、資料地區確認與法務／隱私審閱仍是Gate。
+
 ## 2026-09-03 — Guest保存、Retention Worker與個人Gmail寄送邊界
 
 ### 已完成

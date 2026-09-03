@@ -342,6 +342,7 @@ Production不建立另一套會員API。相同case routes一律接收server-reso
 - Production guest data 仍放 private storage，使用短期 guest session 與 owner-scoped query；「未登入」只是不提供歷史紀錄，不能降低 upload、encryption、OpenAI notice 或 deletion controls。
 - 註冊／登入不是分析入口門檻；D-089改採窄ports／adapters的self-hosted Email／密碼Auth，code／session token／密碼不進OpenAI、browser storage或log。Server route仍以RentProof owner query授權，不信任Client登入畫面狀態。
 - Password adapter固定鎖版`argon2` Argon2id `m=19456 KiB／t=2／p=1`；PostgreSQL保存PHC password hash及account session的server-keyed HMAC digest，不保存原始Cookie／code。合格使用原子延長7天idle expiry並刷新Cookie，passive查詢不滑動。
+- 依D-097，verification／password-reset challenge由infrastructure CSPRNG產生6位ASCII數字碼，TTL 15分鐘、單次consume、最多5次attempt；repository只保存server-keyed HMAC-SHA-256 digest，resend／verify採rate limit與minimum response floor。Account session仍為32-byte CSPRNG opaque token，不得降級或共用短碼格式。
 - 政策文件與事件使用 version＋content hash；Cookie purpose preferences 另行建模。三份草案在 placeholder 與法務／隱私 Gate 完成前不視為正式政策。
 - 本機HTTP固定loopback；需要手機／其他電腦測試時使用`lan_secure_demo` HTTPS。它拒絕wildcard／public bind並使用exact Host／Origin allowlist。
 - LAN Live的OpenAI key留在server，並強制request／cost limit。Browser不得取得key、帳戶Cookie或OTP。

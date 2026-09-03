@@ -174,7 +174,7 @@ describe("self-hosted auth HTTP routes", () => {
   });
 
   it("uses indistinguishable accepted responses for registration verification and reset", async () => {
-    const code = "v".repeat(43);
+    const code = "123456";
     const responses = await Promise.all([
       register(
         mutation("/api/auth/register", {
@@ -266,7 +266,7 @@ describe("self-hosted auth HTTP routes", () => {
     mocks.digestPreAuthContext.mockImplementation((raw: string) =>
       raw === browserA ? digestA : "2".repeat(64),
     );
-    mocks.consumeLatestVerificationToken.mockReturnValue("v".repeat(43));
+    mocks.consumeLatestVerificationToken.mockReturnValue("123456");
     const body = new URLSearchParams({
       csrf,
       email: "new@example.test",
@@ -286,7 +286,7 @@ describe("self-hosted auth HTTP routes", () => {
     );
     expect(response.status).toBe(200);
     expect(mocks.consumeLatestVerificationToken).toHaveBeenCalledWith("new@example.test", digestA);
-    expect(await response.text()).toContain("v".repeat(43));
+    expect(await response.text()).toContain("123456");
   });
 
   it("never exposes the synthetic mailbox in secure LAN or Gmail delivery mode", async () => {
@@ -312,7 +312,7 @@ describe("self-hosted auth HTTP routes", () => {
   });
 
   it("distinguishes infrastructure failure from an invalid verification challenge", async () => {
-    const code = "v".repeat(43);
+    const code = "123456";
     mocks.verifyEmail.mockResolvedValueOnce({ status: "invalid_or_expired" });
     expect(
       (await verifyRegistration(mutation("/api/auth/registration/verify", { code }))).status,

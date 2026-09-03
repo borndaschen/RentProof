@@ -712,6 +712,14 @@ Server templates、deterministic policy、Fixture adapter、validation failure�
 
 ## 新決策模板
 
+### D-097：Email驗證與密碼重設採6位數字碼
+
+- 日期：2026-09-03
+- 狀態：accepted
+- 決策：Email驗證與密碼重設 challenge 使用 CSPRNG 產生恰好6位 ASCII 數字碼，效期15分鐘、單次消費，最多5次驗證嘗試；資料庫只保存 server-keyed HMAC-SHA-256 digest。註冊／登入／重設維持 generic response、rate limit、resend limit 與 minimum response floor。Account session token 仍為32-byte CSPRNG opaque token，不得降級為6位碼或可猜測格式。
+- 理由／證據：6位數字碼符合使用者操作需求，但短碼必須由短效、單次、限次、不可逆保存及速率控制共同保護；session token 承擔持久 owner authorization，不能共用 challenge 的低熵格式。
+- 影響與遷移：同步更新 Auth、Security、Technical Design 與隱私草案現況描述；政策仍維持 DRAFT，正式服務前仍需供應商、資料地區與法務／隱私審閱。
+
 ```md
 ### D-XXX：標題
 

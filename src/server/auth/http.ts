@@ -110,11 +110,11 @@ export const LoginBodySchema = z
 export const RegisterBodySchema = LoginBodySchema.extend({
   demoPolicyAcknowledged: z.literal(true),
 }).strict();
-export const CodeBodySchema = z.object({ code: z.string().regex(/^[A-Za-z0-9_-]{43}$/u) }).strict();
+export const CodeBodySchema = z.object({ code: z.string().regex(/^\d{6}$/u) }).strict();
 export const ResetRequestBodySchema = z.object({ email: z.string().max(254) }).strict();
 export const ResetCompleteBodySchema = z
   .object({
-    code: z.string().regex(/^[A-Za-z0-9_-]{43}$/u),
+    code: z.string().regex(/^\d{6}$/u),
     newPassword: z.string().max(128),
   })
   .strict();

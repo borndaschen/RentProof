@@ -143,9 +143,15 @@ describe("AuthPanel", () => {
     await user.type(screen.getByLabelText("Email"), "nobody@example.invalid");
     await user.click(screen.getByRole("button", { name: "建立重設要求" }));
     expect(await screen.findByText(/若帳戶存在/u)).toBeVisible();
-    expect(screen.getByLabelText("Email 驗證碼")).toBeVisible();
-    const resetCode = "r".repeat(43);
-    await user.type(screen.getByLabelText("Email 驗證碼"), resetCode);
+    const codeInput = screen.getByLabelText("Email 驗證碼");
+    expect(codeInput).toBeVisible();
+    expect(codeInput).toHaveAttribute("inputmode", "numeric");
+    expect(codeInput).toHaveAttribute("autocomplete", "one-time-code");
+    expect(codeInput).toHaveAttribute("pattern", "[0-9]{6}");
+    expect(codeInput).toHaveAttribute("minlength", "6");
+    expect(codeInput).toHaveAttribute("maxlength", "6");
+    const resetCode = "123456";
+    await user.type(codeInput, resetCode);
     await user.type(screen.getByLabelText("新密碼"), "replacement-password");
     await user.click(screen.getByRole("button", { name: "設定新密碼並撤銷工作階段" }));
     expect(await screen.findByText(/若重設要求有效/u)).toBeVisible();

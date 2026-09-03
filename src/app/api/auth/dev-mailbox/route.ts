@@ -80,7 +80,7 @@ export async function POST(request: Request): Promise<Response> {
 
 function htmlResponse(code: string | null): Response {
   // A same-shape decoy prevents the verification center from becoming an account oracle.
-  const value = code ?? randomBytes(32).toString("base64url");
+  const value = code ?? String(randomBytes(4).readUInt32BE(0) % 1_000_000).padStart(6, "0");
   const html = `<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><meta name="robots" content="noindex,nofollow"><title>RentProof 帳戶驗證</title><body><main><h1>帳戶驗證中心</h1><p>一次性驗證碼：</p><code>${value}</code><p>顯示後已移除；請勿重新整理或分享。</p><a href="/auth">返回登入／註冊</a></main></body></html>`;
   return new Response(html, {
     status: 200,

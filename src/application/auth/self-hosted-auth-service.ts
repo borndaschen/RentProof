@@ -14,6 +14,7 @@ import type {
   PasswordHasherPort,
   PasswordResetDeliveryPort,
   SelfHostedAuthRepositoryPort,
+  VerificationCodePort,
 } from "./self-hosted-ports";
 
 export type AuthenticationResult =
@@ -78,6 +79,7 @@ export class SelfHostedAuthService {
     private readonly repository: SelfHostedAuthRepositoryPort,
     private readonly passwords: PasswordHasherPort,
     private readonly tokens: OpaqueTokenPort,
+    private readonly verificationCodes: VerificationCodePort,
     private readonly resetDelivery: PasswordResetDeliveryPort,
     private readonly clock: AuthClockPort,
     private readonly dummyPasswordHash: string,
@@ -133,7 +135,7 @@ export class SelfHostedAuthService {
         let issued: ReturnType<OpaqueTokenPort["issue"]>;
         try {
           const now = this.clock.now();
-          issued = this.tokens.issue();
+          issued = this.verificationCodes.issue();
           await this.repository.createEmailVerificationChallenge({
             userId: credential.userId,
             tokenDigest: issued.digest,
@@ -167,7 +169,7 @@ export class SelfHostedAuthService {
   }
 
   async verifyEmail(rawToken: string): Promise<{ status: "verified" | "invalid_or_expired" }> {
-    const tokenDigest = this.tokens.digest(rawToken);
+    const tokenDigest = this.verificationCodes.digest(rawToken);
     if (!tokenDigest) return { status: "invalid_or_expired" };
     const result = await this.repository.consumeEmailVerificationChallenge({
       tokenDigest,
@@ -336,7 +338,7 @@ export class SelfHostedAuthService {
       const credential = await this.repository.findCredentialByEmail(normalizedEmail);
       if (credential?.status === "active" && credential.emailVerified) {
         const now = this.clock.now();
-        const issued = this.tokens.issue();
+        const issued = this.verificationCodes.issue();
         await this.repository.createPasswordResetChallenge({
           userId: credential.userId,
           tokenDigest: issued.digest,
@@ -361,7 +363,7 @@ export class SelfHostedAuthService {
       newPassword: string;
     }>,
   ): Promise<{ status: "completed" | "invalid_or_expired" }> {
-    const tokenDigest = this.tokens.digest(input.rawToken);
+    const tokenDigest = this.verificationCodes.digest(input.rawToken);
     if (!tokenDigest) return { status: "invalid_or_expired" };
     const password = AccountPasswordSchema.parse(input.newPassword);
     const now = this.clock.now();
