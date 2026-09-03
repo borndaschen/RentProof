@@ -106,6 +106,7 @@ export class PostgresSelfHostedAuthRepository implements SelfHostedAuthRepositor
       tokenDigest: string;
       now: Date;
       idleExpiresAt: Date;
+      reverifiedUntil: Date;
     }>,
   ): Promise<AccountSessionRecord> {
     const tokenDigest = TokenDigestSchema.parse(input.tokenDigest);
@@ -130,7 +131,7 @@ export class PostgresSelfHostedAuthRepository implements SelfHostedAuthRepositor
           created_at: input.now,
           last_used_at: input.now,
           idle_expires_at: input.idleExpiresAt,
-          reverified_until: null,
+          reverified_until: input.reverifiedUntil,
           revoked_at: null,
         })
         .returning(["id", "user_id", "idle_expires_at", "reverified_until"])

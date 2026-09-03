@@ -14,7 +14,7 @@ export default function PrivacyPage() {
         結束或案件刪除等較短期限優先。到期後只保留不含內容的 opaque metadata 與已驗證 typed
         references。
       </p>
-      <h2>OpenAI Cloud Processing</h2>
+      <h2 id="cloud-processing">OpenAI Cloud Processing</h2>
       <p>
         Live 模式只會由 Server 將必要、經 schema 驗證的內容送至 OpenAI Responses API，固定設定
         store: false。這項設定不等同 Zero Data Retention，也不代表正式資料治理已完成。

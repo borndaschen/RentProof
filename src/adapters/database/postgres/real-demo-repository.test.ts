@@ -217,7 +217,167 @@ describe("PostgresRealDemoRepository", () => {
     expect(fixture.pool.queries.some((query) => /^rollback$/iu.test(query.text.trim()))).toBe(true);
     await fixture.destroy();
   });
+
+  it("atomically transfers a live guest case and every artifact to a recently verified user", async () => {
+    const fixture = createDatabaseFixture();
+    const repository = new PostgresRealDemoRepository(fixture.database);
+    fixture.pool.enqueue(
+      [{ id: guestActor.guestSessionId }],
+      [{ id: actor.sessionId }],
+      [{ owner_type: "guest", owner_subject_id: guestActor.guestSessionId, deleted_at: null }],
+      [],
+      [{ id: caseId }],
+      [],
+    );
+    await expect(
+      repository.transferGuestCase({ guest: guestActor, user: actor, caseId, now }),
+    ).resolves.toBe("transferred");
+    const updates = fixture.pool.queries.filter((query) => /^update /iu.test(query.text.trim()));
+    expect(updates.some((query) => query.text.includes('"case_artifacts"'))).toBe(true);
+    expect(updates.some((query) => query.text.includes('"rental_cases"'))).toBe(true);
+    expect(
+      fixture.pool.queries.some((query) => query.text.includes('"security_audit_events"')),
+    ).toBe(true);
+    await fixture.destroy();
+  });
+
+  it("does not reveal a case when either transfer session is no longer valid", async () => {
+    const fixture = createDatabaseFixture();
+    const repository = new PostgresRealDemoRepository(fixture.database);
+    fixture.pool.enqueue([], [{ id: actor.sessionId }]);
+    await expect(
+      repository.transferGuestCase({ guest: guestActor, user: actor, caseId, now }),
+    ).resolves.toBe("not_found_or_forbidden");
+    expect(fixture.pool.queries.some((query) => query.text.includes('update "rental_cases"'))).toBe(
+      false,
+    );
+    await fixture.destroy();
+  });
+
+  it("loads an owner-scoped conversation context including a confirmed listing URL", async () => {
+    const fixture = createDatabaseFixture();
+    fixture.pool.enqueue(
+      [
+        {
+          revision: 3,
+          status: "draft",
+          state: {
+            listingUrlSource: {
+              sourceUrl: "https://rent.example/item/1",
+              text: "月租 12000 元",
+              contentHash: "a".repeat(64),
+            },
+          },
+        },
+      ],
+      [{ artifact_kind: "contract_pdf" }],
+    );
+    await expect(repositoryFor(fixture).getConversationContext({ actor, caseId })).resolves.toEqual(
+      {
+        revision: 3,
+        status: "draft",
+        artifactKinds: ["contract_pdf"],
+        listingUrlAvailable: true,
+      },
+    );
+    await fixture.destroy();
+  });
+
+  it("stores listing URL text with owner and revision compare-and-swap", async () => {
+    const fixture = createDatabaseFixture();
+    fixture.pool.enqueue(
+      [{ revision: 2, state: { schemaVersion: "rentproof.real-case-state.v1" } }],
+      [{ id: caseId }],
+    );
+    await expect(
+      repositoryFor(fixture).saveListingUrlSource({
+        actor,
+        caseId,
+        expectedRevision: 2,
+        sourceUrl: "https://rent.example/item/1",
+        text: "月租 12000 元",
+        contentHash: "a".repeat(64),
+        now,
+      }),
+    ).resolves.toBe("saved");
+    const update = fixture.pool.queries.find((query) =>
+      query.text.includes('update "rental_cases"'),
+    );
+    expect(update?.parameters).toContain(actor.userId);
+    expect(update?.parameters).toContain(2);
+    await fixture.destroy();
+  });
+
+  it("reads only a valid listing URL source from the owned case state", async () => {
+    const fixture = createDatabaseFixture();
+    fixture.pool.enqueue([
+      {
+        state: {
+          listingUrlSource: {
+            sourceUrl: "https://rent.example/1",
+            text: "租金",
+            contentHash: "b".repeat(64),
+          },
+        },
+      },
+    ]);
+    await expect(repositoryFor(fixture).getListingUrlSource({ actor, caseId })).resolves.toEqual({
+      sourceUrl: "https://rent.example/1",
+      text: "租金",
+      contentHash: "b".repeat(64),
+    });
+    await fixture.destroy();
+  });
+
+  it("fails closed for stale or missing listing URL compare-and-swap state", async () => {
+    const staleFixture = createDatabaseFixture();
+    staleFixture.pool.enqueue([{ revision: 3, state: {} }]);
+    await expect(
+      repositoryFor(staleFixture).saveListingUrlSource({
+        actor,
+        caseId,
+        expectedRevision: 2,
+        sourceUrl: "https://rent.example/1",
+        text: "租金",
+        contentHash: "c".repeat(64),
+        now,
+      }),
+    ).resolves.toBe("stale");
+    await staleFixture.destroy();
+
+    const missingFixture = createDatabaseFixture();
+    missingFixture.pool.enqueue([]);
+    await expect(
+      repositoryFor(missingFixture).saveListingUrlSource({
+        actor,
+        caseId,
+        expectedRevision: 2,
+        sourceUrl: "https://rent.example/1",
+        text: "租金",
+        contentHash: "c".repeat(64),
+        now,
+      }),
+    ).resolves.toBe("not_found_or_forbidden");
+    await missingFixture.destroy();
+  });
+
+  it("returns no listing source for missing or malformed state", async () => {
+    const malformed = createDatabaseFixture();
+    malformed.pool.enqueue([{ state: { listingUrlSource: { sourceUrl: "http://private/" } } }]);
+    await expect(
+      repositoryFor(malformed).getListingUrlSource({ actor, caseId }),
+    ).resolves.toBeNull();
+    await malformed.destroy();
+    const missing = createDatabaseFixture();
+    missing.pool.enqueue([]);
+    await expect(repositoryFor(missing).getListingUrlSource({ actor, caseId })).resolves.toBeNull();
+    await missing.destroy();
+  });
 });
+
+function repositoryFor(fixture: ReturnType<typeof createDatabaseFixture>) {
+  return new PostgresRealDemoRepository(fixture.database);
+}
 
 type RecordedQuery = { text: string; parameters: readonly unknown[] };
 

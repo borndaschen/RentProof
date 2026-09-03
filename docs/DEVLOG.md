@@ -2,6 +2,36 @@
 
 本檔記錄已完成的事實與驗證，不把規劃中的工作寫成已完成。最新紀錄放最上方。
 
+## 2026-09-03 — Guest保存、Retention Worker與個人Gmail寄送邊界
+
+### 已完成
+
+- Guest案件可在同一瀏覽器同時持有有效guest session與最近15分鐘account session時，經明確「保存此案件」操作原子轉移；PostgreSQL同一transaction鎖定兩種session、case與artifacts，更新owner、增加revision並寫入最小audit event。跨owner、過期、撤銷、未reverify與重播分開fail closed。
+- 登入建立的session視為最近驗證，`reverified_until`固定15分鐘；Guest UI以新分頁登入保留原工作階段，再由原頁發出CSRF／Origin保護的明確transfer。
+- 新增可重試retention purge service、PostgreSQL claim／complete／fail adapter與明確opt-in CLI。流程先刪除repository外加密案件目錄，再原子清除到期guest或case／account內容；完成tombstone保存21天，security audit保存180天。
+- Production raw conversation persistence尚未啟用，因此worker明確回報0筆raw text，不會誤刪typed case state；未來啟用raw text table時須先新增7日target與24小時purge測試。
+- 依D-095新增個人Gmail API adapter：server-only OAuth refresh token、最小`gmail.send`用途、固定MIME範本、bounded response、10秒timeout及stable failure。Fixture／local synthetic outbox不組裝Gmail，Gmail secrets出現在未啟用profile時fail closed；synthetic mailbox僅在明確`local_synthetic`模式開放並持續綁定同瀏覽器pre-auth context。
+- 個人Gmail OAuth設定已在受ACL保護的secure-LAN env完成形狀驗證；獨立explicit-opt-in smoke寄出一封不含驗證碼、密碼或租屋資料的連線測試信至操作者指定信箱，CLI只輸出`GMAIL_SMOKE_SENT`。首次執行發現Node 24 strip-only不支援parameter property，修正adapter建構式後成功重試。
+- 新增Screen Reader人工驗收清單；自動axe／Playwright不得取代人工Narrator結果。
+- 依D-096將真實資料首頁改為單一自由文字composer，移除逐步表單卡作為主要輸入；同一輪可同時送出自然語言與附件，文字安全辨識成功後才開始upload，避免附件在文字hard block時部分成功。
+- Conversation route加入8 KiB／2,000 code-point限制、strict JSON、auth-secret hard block、一般PII一次性ack、actor／IP rate limit、per-case concurrency、opaque idempotency與payload-hash binding。Prompt injection文字只能成為inert note，不能指定stage、結果或跳過owner／confirmation Gate。
+- 公開租屋網址採Server exact-host allowlist、HTTPS 443、每次redirect重驗、DNS public-address檢查及IP-pinned TLS socket，拒絕userinfo／fragment、private／reserved addresses、非HTML、超過1 MiB、非UTF-8與timeout。擷取結果需在10分鐘內以自然語言再次確認，才以revision CAS加入案件並作為listing text送入既有Terra schema／locator流程。
+- 依實際畫面回饋調整桌面版為對話主欄＋sticky案件摘要，移除厚重訊息卡；Header只顯示具按鈕外觀的「登入」。Auth政策連結改為藍色底線超連結；驗證中心的顯示驗證碼與返回改為明確主／次按鈕，並修正HTTPS LAN synthetic mailbox前後端Gate不一致。
+
+### 尚待外部完成
+
+- Gmail連線已實寄成功；正式寄送仍需持續監控配額、退信與帳號風控，不保存Gmail密碼或App Password。
+- 使用者在對話提供的密碼不符合12–128字元政策且屬auth secret，未寫入任何檔案、命令、log或OpenAI request。帳號建立需由使用者在頁面自行輸入新的合規密碼。
+- 尚未指定真實素材檔案，故未執行OpenAI逐檔外送或產生費用。
+- Screen Reader仍待人工執行；政策仍缺營運者法定資訊並待台灣法務／隱私專業審閱，持續為DRAFT。
+
+### 驗證
+
+- `pnpm test:coverage`：137 files／1,242 tests通過；statements 85.16%、branches 80.02%、functions 89.30%、lines 87.99%，全域門檻通過。
+- Prettier、TypeScript、ESLint、570-file Security Gate及Production Build通過；Playwright desktop／mobile為21 passed／3個既有mobile singleton mutation案例依設計skip。
+
+---
+
 ## 2026-09-03 — 全文件現況稽核
 
 ### 已完成

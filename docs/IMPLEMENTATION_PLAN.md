@@ -5,7 +5,7 @@
 
 ## 目前可用
 
-- Conversation-first網站，以自由文字與引導卡整理廣告、看屋照片、租約及補件。
+- Conversation-first網站，以單一自由文字 composer 整理廣告、看屋照片、租約及補件；卡片／quick replies 僅作輔助。
 - JPEG／PNG安全處理、文字型PDF解析、來源定位、三態比較、10條官方規則及可列印報告。
 - OpenAI Responses API的server-only整合；對話使用Luna，證據抽取使用Terra，所有輸出通過schema與locator驗證。
 - HTTP本機開發只綁`127.0.0.1`；區域網路展示只使用`lan_secure_demo` HTTPS、精確Host／Origin及Private-profile Firewall。
@@ -30,10 +30,9 @@
 
 | 工作                | 驗收重點                                                                         |
 | ------------------- | -------------------------------------------------------------------------------- |
-| Guest-to-user轉移   | 使用者明確確認、單一transaction改owner、失敗不產生半完成狀態                     |
-| 資料清除排程        | Guest 24小時、案件／帳戶7日、raw conversation 7日；可重試、可觀測、逾期告警      |
+| Retention排程部署   | Purge worker已實作；仍需在正式host設定週期、監控失敗與逾期告警                   |
 | 異地備份與還原      | 最多14天加密保存；restore前重播21天content-free tombstone                        |
-| Transactional Email | generic response、單次短效challenge、供應商／地區／DPA揭露，不新增SMS route      |
+| Transactional Email | 個人Gmail API adapter、OAuth設定與連線實寄已完成；仍需配額／退信監控與法務揭露   |
 | 正式部署            | 正式網域與憑證、production secrets、最小權限roles、private storage與事件處理演練 |
 | 政策與法務          | 填妥營運者、聯絡、未成年人、保存及爭議欄位；台灣法律／隱私審閱後才轉為生效文件   |
 | 功能擴充            | 掃描PDF OCR、影片抽幀、口頭承諾、報告版本、其餘防詐訊號與受控外部查詢            |
@@ -55,6 +54,6 @@
 - 不做臉部辨識、信用評分、人物／帳戶黑名單、自動付款或簽約。
 - 帳戶不是使用門檻；訪客沒有歷史查詢，Cookie遺失後不以內容或case ID協助找回。
 - API key、密碼、OTP、session token、完整金融帳號與私人金鑰不保存於案件、不寫log，也不送OpenAI。
-- 不抓取任意廣告網址；URL只作來源metadata。
+- 不抓取任意網址；僅受控擷取公開 allowlisted HTTPS 租屋頁面，失敗時要求截圖／貼文，其他 URL 只作來源 metadata。
 
 實際架構與安全細節以[SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md)、[SERVER_CONFIGURATION.md](SERVER_CONFIGURATION.md)、[SECURITY_PRIVACY.md](SECURITY_PRIVACY.md)及[AUTH_AND_HISTORY.md](AUTH_AND_HISTORY.md)為準；最新驗證結果記錄於[DEVLOG.md](DEVLOG.md)。

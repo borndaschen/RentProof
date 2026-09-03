@@ -60,8 +60,8 @@ const outputs = {
           type: "text",
           locatorId: "listing_locator_analysis_001",
           artifactId: listingArtifactId,
-          start: 10,
-          end: 15,
+          start: 9,
+          end: 13,
           excerpt: "附洗衣機",
         },
       },
@@ -398,6 +398,56 @@ describe("OpenAITerraAnalysisAdapter", () => {
     await expect(
       new OpenAITerraAnalysisAdapter(locatorClient).analyze(inputs.listing),
     ).rejects.toMatchObject({ code: "ANALYSIS_LOCATOR_INVALID" });
+  });
+
+  it("requires listing text locators to match the captured page text exactly", async () => {
+    const invalid = structuredClone(outputs.listing);
+    const claim = invalid.claims.at(0);
+    if (!claim) throw new Error("CLAIM_MISSING");
+    claim.locator.excerpt = "不存在的文字";
+    const client = new FakeClient(async () => ({
+      response: providerResponse(invalid),
+      attempts: 1,
+    }));
+    await expect(
+      new OpenAITerraAnalysisAdapter(client).analyze(inputs.listing),
+    ).rejects.toMatchObject({
+      code: "ANALYSIS_LOCATOR_INVALID",
+    });
+  });
+
+  it("keeps image listing locators on the existing ownership path", async () => {
+    const input = {
+      stage: "listing.extract",
+      caseId,
+      artifact: {
+        kind: "image",
+        image: { artifactId: listingArtifactId, mime: "image/jpeg", base64: "AA==" },
+      },
+    } as const;
+    const baseClaim = outputs.listing.claims.at(0);
+    if (!baseClaim) throw new Error("CLAIM_MISSING");
+    const output = {
+      stage: "listing.extract" as const,
+      claims: [
+        {
+          ...baseClaim,
+          locator: {
+            type: "image" as const,
+            locatorId: "listing_locator_analysis_001",
+            artifactId: listingArtifactId,
+            bbox: { xMin: 0.1, yMin: 0.1, xMax: 0.9, yMax: 0.9 },
+          },
+        },
+      ],
+    };
+    const client = new FakeClient(async () => ({
+      response: providerResponse(output),
+      attempts: 1,
+    }));
+    await expect(new OpenAITerraAnalysisAdapter(client).analyze(input)).resolves.toMatchObject({
+      output: { stage: "listing.extract" },
+    });
   });
 
   it("maps only explicit, located contract disclosure statements into the domain shape", async () => {

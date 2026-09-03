@@ -10,7 +10,8 @@ export default async function AccountVerificationCenterPage() {
   const environment = getServerEnvironment();
   if (
     !isSelfHostedAuthRouteEnabled(environment) ||
-    !["local_development", "lan_secure_demo"].includes(environment.RENTPROOF_DEPLOYMENT_PROFILE)
+    !["local_development", "lan_secure_demo"].includes(environment.RENTPROOF_DEPLOYMENT_PROFILE) ||
+    environment.RENTPROOF_EMAIL_DELIVERY_MODE !== "local_synthetic"
   ) {
     notFound();
   }
@@ -35,12 +36,16 @@ export default async function AccountVerificationCenterPage() {
                 <option value="password_reset">密碼重設</option>
               </select>
             </label>
-            <button type="submit">顯示一次性驗證碼</button>
+            <button className="auth-primary-action" type="submit">
+              顯示一次性驗證碼
+            </button>
           </form>
         ) : (
           <p role="alert">請先返回帳戶頁，讓伺服器建立短效CSRF保護後再開啟信箱。</p>
         )}
-        <Link href="/auth">返回</Link>
+        <Link className="auth-option-link auth-back-link" href="/auth">
+          返回
+        </Link>
         <p className="auth-safety-note">驗證碼只顯示一次，不會出現在網址或瀏覽器儲存區。</p>
       </section>
     </main>

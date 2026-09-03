@@ -257,6 +257,20 @@ function validateDisclosureProviderOwnership(
   });
 }
 
+function validateListingTextLocators(
+  input: TerraAnalysisInput,
+  output: TerraAnalysisProviderOutput,
+): boolean {
+  if (input.stage !== "listing.extract" || input.artifact.kind !== "text") return true;
+  if (output.stage !== "listing.extract") return false;
+  const listingText = input.artifact.text;
+  return output.claims.every(
+    (claim) =>
+      claim.locator.type === "text" &&
+      exactPageExcerpt(listingText, claim.locator.start, claim.locator.end, claim.locator.excerpt),
+  );
+}
+
 function exactPageExcerpt(
   pageText: string | undefined,
   start: number,
@@ -377,6 +391,9 @@ export class OpenAITerraAnalysisAdapter {
     }
     const providerOutput = providerOutputResult.data;
     if (!validateDisclosureProviderOwnership(input, providerOutput)) {
+      throw new OpenAIAnalysisError("ANALYSIS_LOCATOR_INVALID", clientResult.attempts, response.id);
+    }
+    if (!validateListingTextLocators(input, providerOutput)) {
       throw new OpenAIAnalysisError("ANALYSIS_LOCATOR_INVALID", clientResult.attempts, response.id);
     }
     const normalizedOutput = TerraAnalysisOutputSchema.safeParse(

@@ -1,6 +1,7 @@
 import type { ActorContext } from "@/application/repositories";
 import type {
   AvailableRealArtifact,
+  RealArtifactKind,
   RealAnalysisSnapshot,
   RealArtifactReservation,
   StoredArtifactPaths,
@@ -32,6 +33,31 @@ export interface RealDemoRepositoryPort {
   }): Promise<void>;
   deleteCase(input: { actor: ActorContext; caseId: string; now: Date }): Promise<boolean>;
   completeCaseDeletion(input: { actor: ActorContext; caseId: string; now: Date }): Promise<void>;
+  transferGuestCase(input: {
+    guest: ActorContext & { kind: "guest" };
+    user: ActorContext & { kind: "user" };
+    caseId: string;
+    now: Date;
+  }): Promise<"transferred" | "not_found_or_forbidden" | "already_transferred">;
+  getConversationContext(input: { actor: ActorContext; caseId: string }): Promise<{
+    revision: number;
+    status: "draft" | "analyzing" | "needs_attention" | "ready";
+    artifactKinds: readonly RealArtifactKind[];
+    listingUrlAvailable: boolean;
+  }>;
+  saveListingUrlSource(input: {
+    actor: ActorContext;
+    caseId: string;
+    expectedRevision: number;
+    sourceUrl: string;
+    text: string;
+    contentHash: string;
+    now: Date;
+  }): Promise<"saved" | "stale" | "not_found_or_forbidden">;
+  getListingUrlSource(input: {
+    actor: ActorContext;
+    caseId: string;
+  }): Promise<{ sourceUrl: string; text: string; contentHash: string } | null>;
   listAvailableArtifacts(input: {
     actor: ActorContext;
     caseId: string;

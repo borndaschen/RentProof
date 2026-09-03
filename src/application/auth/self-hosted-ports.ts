@@ -32,6 +32,7 @@ export interface SelfHostedAuthRepositoryPort {
       tokenDigest: string;
       now: Date;
       idleExpiresAt: Date;
+      reverifiedUntil: Date;
     }>,
   ): Promise<AccountSessionRecord>;
   resolveAndTouchSession(

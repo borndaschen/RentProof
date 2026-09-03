@@ -152,6 +152,80 @@ export class RealDemoService {
     }
   }
 
+  async transferGuestCase(
+    guest: (ActorContext & { kind: "guest" }) | null,
+    user: (ActorContext & { kind: "user" }) | null,
+    caseId: unknown,
+    explicitlyConfirmed: unknown,
+  ): Promise<void> {
+    if (!guest || !user) throw new RealDemoAccessError("REAL_DEMO_AUTH_REQUIRED");
+    const parsed = OpaqueIdSchema.safeParse(caseId);
+    if (!parsed.success || explicitlyConfirmed !== "SAVE_GUEST_CASE_TO_ACCOUNT") {
+      throw new RealDemoAccessError("REAL_DEMO_REQUEST_INVALID");
+    }
+    const result = await this.repository.transferGuestCase({
+      guest,
+      user,
+      caseId: parsed.data,
+      now: this.now(),
+    });
+    if (result === "already_transferred") {
+      throw new RealDemoAccessError("REAL_DEMO_TRANSFER_ALREADY_COMPLETED");
+    }
+    if (result !== "transferred") {
+      throw new RealDemoAccessError("REAL_DEMO_CASE_NOT_FOUND_OR_FORBIDDEN");
+    }
+  }
+
+  async getConversationContext(actor: ActorContext | null, caseId: unknown) {
+    if (!actor) throw new RealDemoAccessError("REAL_DEMO_AUTH_REQUIRED");
+    const parsed = OpaqueIdSchema.safeParse(caseId);
+    if (!parsed.success) throw new RealDemoAccessError("REAL_DEMO_CASE_NOT_FOUND_OR_FORBIDDEN");
+    return this.repository.getConversationContext({ actor, caseId: parsed.data });
+  }
+
+  async saveListingUrlSource(
+    actor: ActorContext | null,
+    input: {
+      caseId: unknown;
+      expectedRevision: unknown;
+      sourceUrl: unknown;
+      text: unknown;
+      contentHash: unknown;
+    },
+  ): Promise<void> {
+    if (!actor) throw new RealDemoAccessError("REAL_DEMO_AUTH_REQUIRED");
+    const caseId = OpaqueIdSchema.safeParse(input.caseId);
+    const contentHash = Sha256Schema.safeParse(input.contentHash);
+    const sourceUrl = parseHttpsUrl(input.sourceUrl);
+    if (
+      !caseId.success ||
+      !contentHash.success ||
+      !sourceUrl ||
+      typeof input.expectedRevision !== "number" ||
+      !Number.isSafeInteger(input.expectedRevision) ||
+      input.expectedRevision < 0 ||
+      typeof input.text !== "string" ||
+      input.text.length === 0 ||
+      [...input.text].length > 100_000
+    ) {
+      throw new RealDemoAccessError("REAL_DEMO_REQUEST_INVALID");
+    }
+    const result = await this.repository.saveListingUrlSource({
+      actor,
+      caseId: caseId.data,
+      expectedRevision: input.expectedRevision,
+      sourceUrl,
+      text: input.text,
+      contentHash: contentHash.data,
+      now: this.now(),
+    });
+    if (result === "stale") throw new RealDemoAccessError("REAL_DEMO_CASE_REVISION_STALE");
+    if (result !== "saved") {
+      throw new RealDemoAccessError("REAL_DEMO_CASE_NOT_FOUND_OR_FORBIDDEN");
+    }
+  }
+
   async loadAnalysisPayloads(
     actor: ActorContext | null,
     caseId: unknown,
@@ -159,13 +233,21 @@ export class RealDemoService {
     if (!actor) throw new RealDemoAccessError("REAL_DEMO_AUTH_REQUIRED");
     const parsed = OpaqueIdSchema.safeParse(caseId);
     if (!parsed.success) throw new RealDemoAccessError("REAL_DEMO_CASE_NOT_FOUND_OR_FORBIDDEN");
-    const artifacts = await this.repository.listAvailableArtifacts({ actor, caseId: parsed.data });
+    const [artifacts, listingUrl] = await Promise.all([
+      this.repository.listAvailableArtifacts({ actor, caseId: parsed.data }),
+      this.repository.getListingUrlSource({ actor, caseId: parsed.data }),
+    ]);
     const listingCount = artifacts.filter((item) => item.kind === "listing_image").length;
     const viewingCount = artifacts.filter(
       (item) => item.kind === "viewing_image" || item.kind === "follow_up_image",
     ).length;
     const contractCount = artifacts.filter((item) => item.kind === "contract_pdf").length;
-    if (listingCount !== 1 || viewingCount < 1 || viewingCount > 12 || contractCount !== 1) {
+    if (
+      listingCount + (listingUrl ? 1 : 0) !== 1 ||
+      viewingCount < 1 ||
+      viewingCount > 12 ||
+      contractCount !== 1
+    ) {
       throw new RealDemoAccessError("REAL_DEMO_ARTIFACT_SET_INCOMPLETE");
     }
     const selections = artifacts.map((artifact) => {
@@ -200,7 +282,17 @@ export class RealDemoService {
         };
       }),
     );
-    return payloads;
+    return listingUrl
+      ? [
+          ...payloads,
+          {
+            artifactId: `listing_url_${listingUrl.contentHash.slice(0, 32)}`,
+            kind: "listing_text" as const,
+            mime: "text/plain" as const,
+            bytes: new TextEncoder().encode(listingUrl.text),
+          },
+        ]
+      : payloads;
   }
 
   async commitAnalysis(
@@ -224,5 +316,17 @@ export class RealDemoService {
       snapshot: parsedSnapshot.data,
       now: this.now(),
     });
+  }
+}
+
+function parseHttpsUrl(value: unknown): string | null {
+  if (typeof value !== "string" || value.length > 2_048) return null;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "https:" && !parsed.username && !parsed.password
+      ? parsed.toString()
+      : null;
+  } catch {
+    return null;
   }
 }

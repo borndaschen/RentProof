@@ -70,7 +70,7 @@ type ActorContext =
 - Email正規化採trim、NFC與lowercase；密碼12–128字元且不做trim／Unicode改寫。超長、NUL或不合規密碼不送進Argon2，改用固定有界dummy candidate後回generic錯誤。
 - Session與Email code使用256-bit CSPRNG opaque value；資料庫只保存以獨立32-byte server key計算的HMAC-SHA-256 digest。原值只存在HttpOnly Cookie或Email delivery boundary，不寫log、URL、OpenAI或browser storage。
 - 註冊、登入與忘記密碼採generic回應、固定response floor與Actor／IP rate limit。Synthetic dev mailbox另綁高熵pre-auth browser context，Browser B不能取走Browser A的code。
-- Production Transactional Email供應商、處理地區、DPA、退信與濫用處理仍是First real-data Gate；loopback Demo outbox不代表可寄真實Email。
+- D-095選定個人Gmail API作為目前低量Transactional Email adapter，只使用`gmail.send` OAuth scope；Application不得保存Gmail密碼或App Password。實際OAuth app、寄件帳戶、處理地區、Google條款／隱私、退信與濫用處理仍是外部Gate；loopback Demo outbox不代表可寄真實Email。
 
 ## 4. 單一入口與選用註冊
 
@@ -125,6 +125,7 @@ sequenceDiagram
 - 帳戶 email／credential 變更需要重新驗證，並提供撤銷其他 sessions 的能力。
 - Guest session無法用Email恢復；失效後系統不能用租約內容、檔名或case ID幫訪客找回。
 - Guest在有效期內可下載報告、刪除案件，或登入後明確執行原子transfer；單純登入不會自動改變案件owner或保存期限。
+- Guest-to-user transfer要求同一瀏覽器同時持有有效guest session與最近15分鐘內完成登入／reverification的account session；使用者必須按下明確保存按鈕。PostgreSQL transaction同時鎖定兩個session與案件，更新case／artifact owner並增加revision；重播回獨立衝突碼。
 
 帳戶案件不採閒置自動到期；在帳戶有效期間保存，直到使用者明確刪除案件或刪除帳戶。History與case detail必須提供刪除控制與範圍說明；刪除確認後立即自一般history與case routes隱藏且不可恢復，線上case／artifact／run／snapshot／report與適用第三方file objects須於7個日曆日內由冪等workflow清除。帳戶刪除涵蓋全部owned cases。加密backup／PITR最多保存14天；最小化deletion tombstone保存21天並在任何隔離restore開放流量前重播。必要security／legal retention與服務終止處理另行揭露。
 
@@ -164,7 +165,7 @@ OWASP 將 authentication 與 authorization 明確區分，並建議每次 reques
 
 ## 7. Production data model
 
-目前repository已接通feature-gated Kysely／node-postgres schema、owner-scoped case state、self-hosted credential／session／challenge、固定24小時guest session、private artifacts、policy／consent、deletion request與最小security audit adapter。`lan_secure_demo`可在HTTPS、loopback PostgreSQL、加密private storage與完整owner Gate下建立、上傳、分析及刪除私有案件；Web process不自動migration。正式上線仍須完成Transactional Email、排程式retention／purge、off-host backup與Production Gate。
+目前repository已接通feature-gated Kysely／node-postgres schema、owner-scoped case state、self-hosted credential／session／challenge、固定24小時guest session、private artifacts、policy／consent、deletion request、最小security audit adapter、guest-to-user原子轉移及可重試retention purge worker。`lan_secure_demo`可在HTTPS、loopback PostgreSQL、加密private storage與完整owner Gate下建立、上傳、分析、保存及刪除私有案件；Web process不自動migration。個人Gmail adapter已完成但尚未配置OAuth憑證或實寄；正式上線仍須完成排程器部署、off-host backup與Production Gate。
 
 ```text
 UserAccount

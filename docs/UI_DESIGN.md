@@ -155,7 +155,7 @@
 - Timeline block只允許validated text、UploadCard、CandidateConfirmationCard、FindingCard、EvidenceLocatorCard、FollowUpCard與ReportActionCard等allowlisted union，不渲染模型提供的raw HTML／script／iframe。
 - 每輪只突出一個主要下一步；卡片可展開來源，但不在對話中複製完整契約或全部矩陣。
 - Material candidate需有「確認並加入案件」與「修改」；未確認狀態使用明確pending樣式，不得顯示成supported／contradicted或規則結果。
-- 所有核心操作皆可用自由文字與鍵盤完成；suggested prompt不能是唯一入口。Enter／Shift+Enter行為需明示，IME composition期間不得誤送，送出中保留可理解狀態且避免重複turn。
+- 單一自由文字 composer 是主要輸入；卡片與 quick replies 僅作輔助。所有核心操作皆可用自由文字與鍵盤完成。來源 URL 可接受公開 allowlisted HTTPS 租屋頁面，顯示擷取中／失敗狀態；失敗時引導上傳截圖或貼文。Enter／Shift+Enter行為需明示，IME composition期間不得誤送，送出中保留可理解狀態且避免重複turn。
 - Secure LAN使用HTTPS；PII／injection疑慮被拒時提供中立原因與安全改寫建議，不顯示內部prompt或偵測規則。Auth secret hard block只提供移除敏感內容，不提供繼續按鈕。
 - Timeline對7天內raw text正常顯示；清除後只呈現保留的typed cards／events，必要位置使用中立placeholder「原始訊息已依保存政策清除」。不將typed candidate反向生成成使用者原句，也不提供raw聊天全文搜尋。
 - Server狀態／安全／確認cards與AI read-only explanation使用一致但可辨識的label；不可讓AI說明覆蓋或視覺弱化blocking Server card。AI explanation每段的「查看來源」連到validated locator，無來源時只能顯示資料不足。

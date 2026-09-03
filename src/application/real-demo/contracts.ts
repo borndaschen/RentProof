@@ -69,8 +69,8 @@ export type AvailableRealArtifact = Readonly<{
 
 export type RealArtifactAnalysisPayload = Readonly<{
   artifactId: string;
-  kind: RealArtifactKind;
-  mime: RealArtifactMime;
+  kind: RealArtifactKind | "listing_text";
+  mime: RealArtifactMime | "text/plain";
   bytes: Uint8Array;
 }>;
 
@@ -130,6 +130,8 @@ export class RealDemoAccessError extends Error {
       | "REAL_DEMO_CASE_IMAGE_LIMIT_EXCEEDED"
       | "REAL_DEMO_STORAGE_FAILED"
       | "REAL_DEMO_ARTIFACT_SET_INCOMPLETE"
+      | "REAL_DEMO_TRANSFER_ALREADY_COMPLETED"
+      | "REAL_DEMO_CASE_REVISION_STALE"
       | "REAL_DEMO_REQUEST_INVALID",
   ) {
     super(code);

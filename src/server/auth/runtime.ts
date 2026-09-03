@@ -8,6 +8,10 @@ import {
   parseAccountTokenKey,
 } from "@/adapters/auth/self-hosted";
 import {
+  PersonalGmailPasswordResetDelivery,
+  parsePersonalGmailConfiguration,
+} from "@/adapters/auth/gmail";
+import {
   PostgresSelfHostedAuthRepository,
   createPostgresRuntime,
   parsePostgresDatabaseConfig,
@@ -18,7 +22,7 @@ import { isSelfHostedAuthRouteEnabled } from "./request-guard";
 
 export type SelfHostedAuthRuntime = Readonly<{
   service: SelfHostedAuthService;
-  outbox: LocalSyntheticPasswordResetOutbox;
+  outbox: LocalSyntheticPasswordResetOutbox | null;
   digestPreAuthContext(rawToken: string): string | null;
 }>;
 
@@ -66,7 +70,12 @@ async function composeRuntime(): Promise<SelfHostedAuthRuntime> {
   } catch {
     throw new AuthRuntimeConfigurationError("AUTH_TOKEN_KEY_INVALID");
   }
-  const outbox = new LocalSyntheticPasswordResetOutbox();
+  const outbox =
+    environment.RENTPROOF_EMAIL_DELIVERY_MODE === "local_synthetic"
+      ? new LocalSyntheticPasswordResetOutbox()
+      : null;
+  const delivery =
+    outbox ?? new PersonalGmailPasswordResetDelivery(parsePersonalGmailConfiguration(process.env));
   const dummyPasswordHash = await passwords.hash(`dummy-${tokens.issue().rawToken}`);
   postgresRuntime = createPostgresRuntime(config);
   return {
@@ -74,7 +83,7 @@ async function composeRuntime(): Promise<SelfHostedAuthRuntime> {
       new PostgresSelfHostedAuthRepository(postgresRuntime.database),
       passwords,
       tokens,
-      outbox,
+      delivery,
       { now: () => new Date() },
       dummyPasswordHash,
       new MinimumResponseFloor(500),

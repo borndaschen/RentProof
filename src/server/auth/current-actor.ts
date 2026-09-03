@@ -11,6 +11,28 @@ export class CurrentActorResolutionError extends Error {
   override readonly name = "CurrentActorResolutionError";
 }
 
+export async function resolveCurrentTransferActors(request: Request): Promise<{
+  user: ActorContext & { kind: "user" };
+  guest: ActorContext & { kind: "guest" };
+  reverified: boolean;
+} | null> {
+  const environment = getServerEnvironment();
+  try {
+    const resolution = await (
+      await getSelfHostedAuthRuntime()
+    ).service.resolveSession(readSessionCookie(request, environment), true);
+    if (resolution.status === "signed_out" || resolution.actor.kind !== "user") return null;
+    if (!resolution.refreshCookie) throw new CurrentActorResolutionError();
+    setSessionCookie(await cookies(), environment, resolution.refreshCookie);
+    const rawGuestToken = readUniqueCookie(request.headers.get("cookie"), GUEST_SESSION_COOKIE);
+    const guest = await (await getGuestSessionRuntime()).resolve(rawGuestToken ?? undefined);
+    return guest ? { user: resolution.actor, guest, reverified: resolution.reverified } : null;
+  } catch (error) {
+    if (error instanceof CurrentActorResolutionError) throw error;
+    throw new CurrentActorResolutionError();
+  }
+}
+
 export async function resolveCurrentCaseActor(request: Request): Promise<ActorContext | null> {
   const account = await resolveCurrentAccountActor(request, true);
   if (account) return account;

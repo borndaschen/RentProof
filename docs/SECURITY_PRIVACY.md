@@ -43,31 +43,31 @@ flowchart LR
 
 ## 3. 威脅與控制
 
-| 威脅                                     | 目前控制                                                                                             | 安全失敗方式                                                             |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| API key 外洩                             | server-only `OPENAI_API_KEY`、無 `NEXT_PUBLIC_`、`.env` ignore、公開前 secrets scan                  | 啟動失敗，不接受 client 提供 key                                         |
-| 任意 endpoint 外送                       | 不提供使用者可控 `base_url`，adapter 固定 OpenAI HTTPS endpoint                                      | 設定不符 allowlist 時拒絕啟動                                            |
-| Path traversal／symlink escape／惡意檔名 | 隨機 server filename、忽略原始路徑、realpath 後確認仍在 runtime root、拒絕 symlink                   | 拒絕檔案並回穩定 error code                                              |
-| 假 MIME／超大檔案                        | magic bytes、允許清單、單檔與案件上限                                                                | `UNSUPPORTED_MEDIA`／`FILE_TOO_LARGE`                                    |
-| 公開取得原始素材                         | 不放`public/`；私有案件route逐次驗證guest／user owner scope                                          | Session或owner不符即拒絕，不因持有opaque ID放行                          |
-| Prompt injection                         | 文件包裝為 untrusted data、developer instruction、無工具權限、Structured Outputs                     | schema／provenance 失敗，不執行來源指示                                  |
-| 模型幻覺／過度結論                       | locator 必填、Zod、三態 truth table、規則引擎、中立模板、禁止措辭測試                                | 降為資料不足或人工確認                                                   |
-| Refusal 被當成沒問題                     | refusal／incomplete／schema invalid 各有 reason code                                                 | stage failure，不產生「未發現差異」                                      |
-| 重複呼叫與成本失控                       | input hash cache、stage allowlist、request count 上限、OpenAI Project spend／rate controls           | 停止新呼叫並使用明示 fallback                                            |
-| Log 洩漏                                 | 只記 ID、hash、版本、usage、error code；不記 key、Authorization、完整 prompt／租約                   | 敏感欄位一律 redact／drop                                                |
-| Fallback 混淆                            | 顯示建立資訊、model／schema／ruleset 版本與「預先分析」標籤                                          | 無 provenance 的 fallback 不載入                                         |
-| 規則過期／誤用                           | effective／verified date、來源 hash、三態 applicability                                              | unknown 一律 `missing_information`                                       |
-| SSRF／廣告爬取                           | 不 fetch 任意 URL，只保存 metadata                                                                   | URL 不觸發任何 server request                                            |
-| 防詐訊號誤判／誹謗                       | 只輸出風險訊號與查證行動、locator 必填、禁止詐騙 verdict／機率／公開名單                             | 資料不足或人工查證，不對人物／帳戶貼標籤                                 |
-| Guest case 被猜中／接管                  | 高 entropy opaque session、server 只存 token hash、owner-scoped query、同一 guest 不可列出歷史       | session／owner 不符統一拒絕，不以 case ID 恢復                           |
-| 帳戶／恢復流程枚舉                       | 註冊與Email reset使用generic response、rate limit、重送冷卻                                          | 不透露email是否存在                                                      |
-| Reset token／code被重放                  | 短效、單次、attempt limit、成功後撤銷既有sessions、token不進log                                      | challenge失效；必須重新發起                                              |
-| 條款或同意紀錄混淆                       | versioned content hash＋typed policy event；Terms／Privacy／Cloud／Cookie 分離                       | 版本或 hash 不符 fail closed，不建立 live run                            |
-| 非必要追蹤提前載入                       | 第一版 necessary-only；未來 script／tag 在 opt-in 前不載入                                           | 拒絕部署或自動化 Cookie scan 失敗                                        |
-| LAN傳輸或Server身分被冒用                | `lan_secure_demo`使用受信任TLS憑證、exact HTTPS origin／Host、Private-profile Firewall與禁止對外轉發 | 憑證、信任鏈、私鑰ACL或TLS檢查失敗即拒絕啟動                             |
-| LAN Server 曝露公網                      | 拒絕 `0.0.0.0`／`::`／public bind、exact Host／Origin、禁止 router port forwarding／UPnP             | Startup fail closed；網路檢查不通過不得展示                              |
-| LAN Client 濫用 Live API 成本            | Fixture 預設；Live 顯式啟用、request／case／concurrency limit與 OpenAI Project spend control         | 超限停止新 stage，不載入隱性 fallback                                    |
-| Public HTTP Showcase遭MITM／內容竄改     | 完全靜態Synthetic、無秘密／輸入／帳戶／Cookie／API，持續integrity warning；不作正式證據              | 任何dynamic／sensitive capability出現即Build Gate失敗；Production仍HTTPS |
+| 威脅                                     | 目前控制                                                                                                                                    | 安全失敗方式                                                             |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| API key 外洩                             | server-only `OPENAI_API_KEY`、無 `NEXT_PUBLIC_`、`.env` ignore、公開前 secrets scan                                                         | 啟動失敗，不接受 client 提供 key                                         |
+| 任意 endpoint 外送                       | 不提供使用者可控 `base_url`，adapter 固定 OpenAI HTTPS endpoint                                                                             | 設定不符 allowlist 時拒絕啟動                                            |
+| Path traversal／symlink escape／惡意檔名 | 隨機 server filename、忽略原始路徑、realpath 後確認仍在 runtime root、拒絕 symlink                                                          | 拒絕檔案並回穩定 error code                                              |
+| 假 MIME／超大檔案                        | magic bytes、允許清單、單檔與案件上限                                                                                                       | `UNSUPPORTED_MEDIA`／`FILE_TOO_LARGE`                                    |
+| 公開取得原始素材                         | 不放`public/`；私有案件route逐次驗證guest／user owner scope                                                                                 | Session或owner不符即拒絕，不因持有opaque ID放行                          |
+| Prompt injection                         | 文件包裝為 untrusted data、developer instruction、無工具權限、Structured Outputs                                                            | schema／provenance 失敗，不執行來源指示                                  |
+| 模型幻覺／過度結論                       | locator 必填、Zod、三態 truth table、規則引擎、中立模板、禁止措辭測試                                                                       | 降為資料不足或人工確認                                                   |
+| Refusal 被當成沒問題                     | refusal／incomplete／schema invalid 各有 reason code                                                                                        | stage failure，不產生「未發現差異」                                      |
+| 重複呼叫與成本失控                       | input hash cache、stage allowlist、request count 上限、OpenAI Project spend／rate controls                                                  | 停止新呼叫並使用明示 fallback                                            |
+| Log 洩漏                                 | 只記 ID、hash、版本、usage、error code；不記 key、Authorization、完整 prompt／租約                                                          | 敏感欄位一律 redact／drop                                                |
+| Fallback 混淆                            | 顯示建立資訊、model／schema／ruleset 版本與「預先分析」標籤                                                                                 | 無 provenance 的 fallback 不載入                                         |
+| 規則過期／誤用                           | effective／verified date、來源 hash、三態 applicability                                                                                     | unknown 一律 `missing_information`                                       |
+| SSRF／廣告爬取                           | 僅 fetch 公開、免登入且 server-allowlisted HTTPS URL；DNS／redirect／MIME／size／timeout／sanitization Gate，不帶 cookies／auth、不繞反爬蟲 | 不符合條件或失敗即要求截圖／貼文；任意 URL 不觸發 request                |
+| 防詐訊號誤判／誹謗                       | 只輸出風險訊號與查證行動、locator 必填、禁止詐騙 verdict／機率／公開名單                                                                    | 資料不足或人工查證，不對人物／帳戶貼標籤                                 |
+| Guest case 被猜中／接管                  | 高 entropy opaque session、server 只存 token hash、owner-scoped query、同一 guest 不可列出歷史                                              | session／owner 不符統一拒絕，不以 case ID 恢復                           |
+| 帳戶／恢復流程枚舉                       | 註冊與Email reset使用generic response、rate limit、重送冷卻                                                                                 | 不透露email是否存在                                                      |
+| Reset token／code被重放                  | 短效、單次、attempt limit、成功後撤銷既有sessions、token不進log                                                                             | challenge失效；必須重新發起                                              |
+| 條款或同意紀錄混淆                       | versioned content hash＋typed policy event；Terms／Privacy／Cloud／Cookie 分離                                                              | 版本或 hash 不符 fail closed，不建立 live run                            |
+| 非必要追蹤提前載入                       | 第一版 necessary-only；未來 script／tag 在 opt-in 前不載入                                                                                  | 拒絕部署或自動化 Cookie scan 失敗                                        |
+| LAN傳輸或Server身分被冒用                | `lan_secure_demo`使用受信任TLS憑證、exact HTTPS origin／Host、Private-profile Firewall與禁止對外轉發                                        | 憑證、信任鏈、私鑰ACL或TLS檢查失敗即拒絕啟動                             |
+| LAN Server 曝露公網                      | 拒絕 `0.0.0.0`／`::`／public bind、exact Host／Origin、禁止 router port forwarding／UPnP                                                    | Startup fail closed；網路檢查不通過不得展示                              |
+| LAN Client 濫用 Live API 成本            | Fixture 預設；Live 顯式啟用、request／case／concurrency limit與 OpenAI Project spend control                                                | 超限停止新 stage，不載入隱性 fallback                                    |
+| Public HTTP Showcase遭MITM／內容竄改     | 完全靜態Synthetic、無秘密／輸入／帳戶／Cookie／API，持續integrity warning；不作正式證據                                                     | 任何dynamic／sensitive capability出現即Build Gate失敗；Production仍HTTPS |
 
 ## 4. OpenAI Cloud 安全基線
 
@@ -125,7 +125,7 @@ flowchart LR
 - 模型錯誤不能顯示為零風險、無矛盾或已完成。
 - 所有 external link 使用安全屬性，官方來源 URL 來自規則 registry，不接受模型自造 URL。
 - Report 輸出需要 HTML escaping；不得渲染來源中的任意 HTML／script。
-- 互動內容中的 URL 預設不可點擊、不 preview、不 fetch；只作經 escaping 的文字證據。
+- 互動內容中的 URL 預設不可點擊；只有來源欄位的公開 allowlisted HTTPS 租屋 URL 可受控 preview／fetch，結果需 sanitization，失敗回截圖／貼文要求。
 - 建立 guest case 前顯示「不會出現在歷史紀錄，session／Cookie 遺失後可能無法找回」，同時說明案件仍是私有資料。
 - Guest notice 提供繼續使用與選用登入／註冊，不得強迫註冊或以 dark pattern 隱藏訪客選項。
 - Password reset 對帳戶存在性使用相同 UI；電話只遮蔽顯示，OTP／reset token 不出現在 URL、analytics、client log 或 error report。

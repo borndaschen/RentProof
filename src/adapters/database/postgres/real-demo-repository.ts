@@ -240,7 +240,7 @@ export class PostgresRealDemoRepository implements RealDemoRepositoryPort {
           target_id: input.caseId,
           requested_by_type: input.actor.kind,
           requested_by_subject_id: actorSubject(input.actor),
-          status: "processing",
+          status: "pending",
           requested_at: input.now,
           purge_deadline: new Date(
             input.now.getTime() + (input.actor.kind === "guest" ? 1 : 7) * 24 * 60 * 60 * 1000,
@@ -285,13 +285,197 @@ export class PostgresRealDemoRepository implements RealDemoRepositoryPort {
         .where("target_id", "=", input.caseId)
         .where("requested_by_type", "=", input.actor.kind)
         .where("requested_by_subject_id", "=", actorSubject(input.actor))
-        .where("status", "=", "processing")
+        .where("status", "in", ["pending", "processing"])
         .returning("id")
         .executeTakeFirst();
       if (!completedRequest) {
         throw new RealDemoAccessError("REAL_DEMO_CASE_NOT_FOUND_OR_FORBIDDEN");
       }
     });
+  }
+
+  async transferGuestCase(
+    input: Parameters<RealDemoRepositoryPort["transferGuestCase"]>[0],
+  ): Promise<"transferred" | "not_found_or_forbidden" | "already_transferred"> {
+    return this.database.transaction().execute(async (transaction) => {
+      const activeGuestSession = await transaction
+        .selectFrom("guest_sessions")
+        .innerJoin("guest_identities", "guest_identities.id", "guest_sessions.guest_id")
+        .select("guest_sessions.id")
+        .where("guest_sessions.id", "=", input.guest.guestSessionId)
+        .where("guest_sessions.guest_id", "=", input.guest.guestId)
+        .where("guest_sessions.revoked_at", "is", null)
+        .where("guest_sessions.expires_at", ">", input.now)
+        .where("guest_identities.purge_state", "=", "active")
+        .where("guest_identities.expires_at", ">", input.now)
+        .forUpdate()
+        .executeTakeFirst();
+      const activeUserSession = await transaction
+        .selectFrom("auth_sessions")
+        .innerJoin("internal_users", "internal_users.id", "auth_sessions.user_id")
+        .select("auth_sessions.id")
+        .where("auth_sessions.id", "=", input.user.sessionId)
+        .where("auth_sessions.user_id", "=", input.user.userId)
+        .where("auth_sessions.revoked_at", "is", null)
+        .where("auth_sessions.idle_expires_at", ">", input.now)
+        .where("auth_sessions.reverified_until", ">", input.now)
+        .where("internal_users.status", "=", "active")
+        .forUpdate()
+        .executeTakeFirst();
+      if (!activeGuestSession || !activeUserSession) return "not_found_or_forbidden";
+
+      const owned = await transaction
+        .selectFrom("rental_cases")
+        .select(["owner_type", "owner_subject_id", "deleted_at"])
+        .where("id", "=", input.caseId)
+        .forUpdate()
+        .executeTakeFirst();
+      if (
+        owned?.owner_type === "user" &&
+        owned.owner_subject_id === input.user.userId &&
+        owned.deleted_at === null
+      ) {
+        return "already_transferred";
+      }
+      if (
+        !owned ||
+        owned.owner_type !== "guest" ||
+        owned.owner_subject_id !== input.guest.guestSessionId ||
+        owned.deleted_at !== null
+      ) {
+        return "not_found_or_forbidden";
+      }
+
+      await transaction
+        .updateTable("case_artifacts")
+        .set({ owner_type: "user", owner_subject_id: input.user.userId, updated_at: input.now })
+        .where("case_id", "=", input.caseId)
+        .where("owner_type", "=", "guest")
+        .where("owner_subject_id", "=", input.guest.guestSessionId)
+        .where("deleted_at", "is", null)
+        .execute();
+      const transferred = await transaction
+        .updateTable("rental_cases")
+        .set((expression) => ({
+          owner_type: "user",
+          owner_subject_id: input.user.userId,
+          revision: expression("revision", "+", 1),
+          updated_at: input.now,
+        }))
+        .where("id", "=", input.caseId)
+        .where("owner_type", "=", "guest")
+        .where("owner_subject_id", "=", input.guest.guestSessionId)
+        .where("deleted_at", "is", null)
+        .returning("id")
+        .executeTakeFirst();
+      if (!transferred) throw new RealDemoAccessError("REAL_DEMO_CASE_NOT_FOUND_OR_FORBIDDEN");
+      await transaction
+        .insertInto("security_audit_events")
+        .values({
+          id: `audit_${randomBytes(24).toString("base64url")}`,
+          event_type: "guest_case_transferred",
+          occurred_at: input.now,
+          outcome: "success",
+          reason_code: "GUEST_CASE_TRANSFERRED",
+          correlation_id: `corr_${randomBytes(24).toString("base64url")}`,
+          actor_ref: input.user.userId,
+          target_ref: input.caseId,
+          provider_ref: null,
+        })
+        .executeTakeFirstOrThrow();
+      return "transferred";
+    });
+  }
+
+  async getConversationContext(
+    input: Parameters<RealDemoRepositoryPort["getConversationContext"]>[0],
+  ) {
+    const owned = await this.database
+      .selectFrom("rental_cases")
+      .select(["revision", "status", "state"])
+      .where("id", "=", input.caseId)
+      .where("owner_type", "=", input.actor.kind)
+      .where("owner_subject_id", "=", actorSubject(input.actor))
+      .where("deleted_at", "is", null)
+      .where("status", "!=", "deletion_pending")
+      .executeTakeFirst();
+    if (!owned) throw new RealDemoAccessError("REAL_DEMO_CASE_NOT_FOUND_OR_FORBIDDEN");
+    if (owned.status === "deletion_pending") {
+      throw new RealDemoAccessError("REAL_DEMO_CASE_NOT_FOUND_OR_FORBIDDEN");
+    }
+    const artifacts = await this.database
+      .selectFrom("case_artifacts")
+      .select("artifact_kind")
+      .where("case_id", "=", input.caseId)
+      .where("owner_type", "=", input.actor.kind)
+      .where("owner_subject_id", "=", actorSubject(input.actor))
+      .where("state", "=", "available")
+      .where("deleted_at", "is", null)
+      .execute();
+    return {
+      revision: owned.revision,
+      status: owned.status,
+      artifactKinds: artifacts.map((artifact) => artifact.artifact_kind),
+      listingUrlAvailable: listingUrlSourceFromState(owned.state) !== null,
+    };
+  }
+
+  async saveListingUrlSource(
+    input: Parameters<RealDemoRepositoryPort["saveListingUrlSource"]>[0],
+  ): Promise<"saved" | "stale" | "not_found_or_forbidden"> {
+    return this.database.transaction().execute(async (transaction) => {
+      const current = await transaction
+        .selectFrom("rental_cases")
+        .select(["revision", "state"])
+        .where("id", "=", input.caseId)
+        .where("owner_type", "=", input.actor.kind)
+        .where("owner_subject_id", "=", actorSubject(input.actor))
+        .where("deleted_at", "is", null)
+        .where("status", "!=", "deletion_pending")
+        .forUpdate()
+        .executeTakeFirst();
+      if (!current || !isPlainObject(current.state)) return "not_found_or_forbidden";
+      if (current.revision !== input.expectedRevision) return "stale";
+      const updated = await transaction
+        .updateTable("rental_cases")
+        .set({
+          state: {
+            ...current.state,
+            listingUrlSource: {
+              schemaVersion: "rentproof.listing-url-source.v1",
+              sourceUrl: input.sourceUrl,
+              text: input.text,
+              contentHash: input.contentHash,
+              capturedAt: input.now.toISOString(),
+            },
+          },
+          revision: current.revision + 1,
+          updated_at: input.now,
+        })
+        .where("id", "=", input.caseId)
+        .where("owner_type", "=", input.actor.kind)
+        .where("owner_subject_id", "=", actorSubject(input.actor))
+        .where("revision", "=", input.expectedRevision)
+        .where("deleted_at", "is", null)
+        .returning("id")
+        .executeTakeFirst();
+      return updated ? "saved" : "stale";
+    });
+  }
+
+  async getListingUrlSource(
+    input: Parameters<RealDemoRepositoryPort["getListingUrlSource"]>[0],
+  ): Promise<{ sourceUrl: string; text: string; contentHash: string } | null> {
+    const row = await this.database
+      .selectFrom("rental_cases")
+      .select("state")
+      .where("id", "=", input.caseId)
+      .where("owner_type", "=", input.actor.kind)
+      .where("owner_subject_id", "=", actorSubject(input.actor))
+      .where("deleted_at", "is", null)
+      .where("status", "!=", "deletion_pending")
+      .executeTakeFirst();
+    return row ? listingUrlSourceFromState(row.state) : null;
   }
 
   async listAvailableArtifacts(
@@ -380,6 +564,25 @@ function postgresCode(error: unknown): string | null {
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function listingUrlSourceFromState(
+  state: unknown,
+): { sourceUrl: string; text: string; contentHash: string } | null {
+  if (!isPlainObject(state)) return null;
+  const source: unknown = state["listingUrlSource"];
+  if (!isPlainObject(source)) return null;
+  const sourceUrl: unknown = source["sourceUrl"];
+  const text: unknown = source["text"];
+  const contentHash: unknown = source["contentHash"];
+  return typeof sourceUrl === "string" &&
+    sourceUrl.startsWith("https://") &&
+    typeof text === "string" &&
+    text.length > 0 &&
+    typeof contentHash === "string" &&
+    /^[a-f0-9]{64}$/u.test(contentHash)
+    ? { sourceUrl, text, contentHash }
+    : null;
 }
 
 function actorSubject(actor: ActorContext): string {

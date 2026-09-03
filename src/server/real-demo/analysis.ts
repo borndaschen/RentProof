@@ -196,7 +196,9 @@ function buildInputs(
   caseId: string,
   artifacts: readonly RealArtifactAnalysisPayload[],
 ): Record<(typeof stages)[number], TerraAnalysisInput> {
-  const listing = artifacts.find((artifact) => artifact.kind === "listing_image");
+  const listing = artifacts.find(
+    (artifact) => artifact.kind === "listing_image" || artifact.kind === "listing_text",
+  );
   const contract = artifacts.find((artifact) => artifact.kind === "contract_pdf");
   const viewing = artifacts.filter(
     (artifact) => artifact.kind === "viewing_image" || artifact.kind === "follow_up_image",
@@ -212,16 +214,28 @@ function buildInputs(
   } catch {
     throw new Error("REAL_ANALYSIS_ARTIFACT_INVALID");
   }
-  const image = (artifact: RealArtifactAnalysisPayload) => ({
-    artifactId: artifact.artifactId,
-    mime: artifact.mime === "image/png" ? ("image/png" as const) : ("image/jpeg" as const),
-    base64: Buffer.from(artifact.bytes).toString("base64"),
-  });
+  const image = (artifact: RealArtifactAnalysisPayload) => {
+    if (artifact.mime !== "image/png" && artifact.mime !== "image/jpeg") {
+      throw new Error("REAL_ANALYSIS_ARTIFACT_INVALID");
+    }
+    return {
+      artifactId: artifact.artifactId,
+      mime: artifact.mime,
+      base64: Buffer.from(artifact.bytes).toString("base64"),
+    };
+  };
   return {
     "listing.extract": {
       stage: "listing.extract",
       caseId,
-      artifact: { kind: "image", image: image(listing) },
+      artifact:
+        listing.kind === "listing_text"
+          ? {
+              kind: "text",
+              artifactId: listing.artifactId,
+              text: new TextDecoder("utf-8", { fatal: true }).decode(listing.bytes),
+            }
+          : { kind: "image", image: image(listing) },
     },
     "evidence.extract": {
       stage: "evidence.extract",

@@ -26,6 +26,15 @@ function dependencies() {
     abandonArtifact: vi.fn(async () => undefined),
     deleteCase: vi.fn(async () => true),
     completeCaseDeletion: vi.fn(async () => undefined),
+    transferGuestCase: vi.fn(async () => "transferred" as const),
+    getConversationContext: vi.fn(async () => ({
+      revision: 1,
+      status: "draft" as const,
+      artifactKinds: [],
+      listingUrlAvailable: false,
+    })),
+    saveListingUrlSource: vi.fn(async () => "saved" as const),
+    getListingUrlSource: vi.fn(async () => null),
     listAvailableArtifacts: vi.fn(async () => []),
     commitAnalysis: vi.fn(async () => undefined),
   };
@@ -170,6 +179,133 @@ describe("RealDemoService", () => {
     ).rejects.toThrow("REAL_DEMO_STORAGE_FAILED");
     expect(repository.deleteCase).toHaveBeenCalledOnce();
     expect(repository.completeCaseDeletion).not.toHaveBeenCalled();
+  });
+
+  it("requires both actors and explicit confirmation before transferring a guest case", async () => {
+    const { repository, store } = dependencies();
+    const service = new RealDemoService(repository, store);
+    await service.transferGuestCase(
+      guestActor,
+      actor,
+      "case_abcdefghijklmnopqrstuvwxyz1234567890",
+      "SAVE_GUEST_CASE_TO_ACCOUNT",
+    );
+    expect(repository.transferGuestCase).toHaveBeenCalledWith(
+      expect.objectContaining({ guest: guestActor, user: actor }),
+    );
+    await expect(
+      service.transferGuestCase(
+        guestActor,
+        actor,
+        "case_abcdefghijklmnopqrstuvwxyz1234567890",
+        false,
+      ),
+    ).rejects.toThrow("REAL_DEMO_REQUEST_INVALID");
+  });
+
+  it("saves a confirmed listing URL only through revision-bound repository CAS", async () => {
+    const { repository, store } = dependencies();
+    const service = new RealDemoService(repository, store);
+    await service.saveListingUrlSource(actor, {
+      caseId: "case_abcdefghijklmnopqrstuvwxyz1234567890",
+      expectedRevision: 2,
+      sourceUrl: "https://rent.example/item/1",
+      text: "月租 12000 元",
+      contentHash: "a".repeat(64),
+    });
+    expect(repository.saveListingUrlSource).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actor,
+        expectedRevision: 2,
+        sourceUrl: "https://rent.example/item/1",
+      }),
+    );
+    vi.mocked(repository.saveListingUrlSource).mockResolvedValueOnce("stale");
+    await expect(
+      service.saveListingUrlSource(actor, {
+        caseId: "case_abcdefghijklmnopqrstuvwxyz1234567890",
+        expectedRevision: 2,
+        sourceUrl: "https://rent.example/item/1",
+        text: "月租 12000 元",
+        contentHash: "a".repeat(64),
+      }),
+    ).rejects.toThrow("REAL_DEMO_CASE_REVISION_STALE");
+  });
+
+  it("uses confirmed listing URL text instead of requiring a listing image", async () => {
+    const { repository, store } = dependencies();
+    vi.mocked(repository.getListingUrlSource).mockResolvedValueOnce({
+      sourceUrl: "https://rent.example/item/1",
+      text: "月租 12000 元",
+      contentHash: "a".repeat(64),
+    });
+    vi.mocked(repository.listAvailableArtifacts).mockResolvedValueOnce([
+      {
+        artifactId: "artifact_viewing_abcdefghijklmnop",
+        caseId: "case_abcdefghijklmnopqrstuvwxyz1234567890",
+        kind: "viewing_image",
+        mime: "image/jpeg",
+        derivativeRelativePath:
+          "case_abcdefghijklmnopqrstuvwxyz1234567890/artifact_viewing_abcdefghijklmnop/derivative.enc",
+        extractedTextRelativePath: null,
+      },
+      {
+        artifactId: "artifact_contract_abcdefghijklmnop",
+        caseId: "case_abcdefghijklmnopqrstuvwxyz1234567890",
+        kind: "contract_pdf",
+        mime: "application/pdf",
+        derivativeRelativePath: null,
+        extractedTextRelativePath:
+          "case_abcdefghijklmnopqrstuvwxyz1234567890/artifact_contract_abcdefghijklmnop/extracted-text.enc",
+      },
+    ]);
+    const payloads = await new RealDemoService(repository, store).loadAnalysisPayloads(
+      actor,
+      "case_abcdefghijklmnopqrstuvwxyz1234567890",
+    );
+    expect(payloads.find((payload) => payload.kind === "listing_text")).toMatchObject({
+      mime: "text/plain",
+    });
+  });
+
+  it("rejects malformed, stale, and cross-owner listing URL commands", async () => {
+    const { repository, store } = dependencies();
+    const service = new RealDemoService(repository, store);
+    const valid = {
+      caseId: "case_abcdefghijklmnopqrstuvwxyz1234567890",
+      expectedRevision: 2,
+      sourceUrl: "https://rent.example/item/1",
+      text: "月租 12000 元",
+      contentHash: "a".repeat(64),
+    };
+    for (const invalid of [
+      { ...valid, sourceUrl: "http://rent.example/item/1" },
+      { ...valid, expectedRevision: -1 },
+      { ...valid, text: "" },
+      { ...valid, contentHash: "bad" },
+    ]) {
+      await expect(service.saveListingUrlSource(actor, invalid)).rejects.toThrow(
+        "REAL_DEMO_REQUEST_INVALID",
+      );
+    }
+    await expect(service.saveListingUrlSource(null, valid)).rejects.toThrow(
+      "REAL_DEMO_AUTH_REQUIRED",
+    );
+    vi.mocked(repository.saveListingUrlSource).mockResolvedValueOnce("not_found_or_forbidden");
+    await expect(service.saveListingUrlSource(actor, valid)).rejects.toThrow(
+      "REAL_DEMO_CASE_NOT_FOUND_OR_FORBIDDEN",
+    );
+  });
+
+  it("owner-validates conversation context before repository access", async () => {
+    const { repository, store } = dependencies();
+    const service = new RealDemoService(repository, store);
+    await expect(
+      service.getConversationContext(null, "case_abcdefghijklmnopqrstuvwxyz1234567890"),
+    ).rejects.toThrow("REAL_DEMO_AUTH_REQUIRED");
+    await expect(service.getConversationContext(actor, "bad")).rejects.toThrow(
+      "REAL_DEMO_CASE_NOT_FOUND_OR_FORBIDDEN",
+    );
   });
 
   it("loads only the sanitized image derivatives and extracted contract text", async () => {

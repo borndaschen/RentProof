@@ -109,6 +109,28 @@ describe("AuthPanel", () => {
     expect(String(mockedFetch.mock.calls[1]![1]?.body)).toContain('"demoPolicyAcknowledged":true');
   });
 
+  it("renders policy consent destinations as keyboard-focusable links and keeps actions semantic", async () => {
+    const user = userEvent.setup();
+    render(<AuthPanel />);
+    await screen.findByRole("heading", { name: "登入 RentProof" });
+    expect(screen.getByRole("button", { name: "登入" })).toHaveClass("auth-primary-action");
+    await user.click(screen.getByRole("button", { name: "註冊" }));
+
+    const terms = screen.getByRole("link", { name: "使用條款草案" });
+    const privacy = screen.getByRole("link", { name: "隱私政策草案" });
+    const processing = screen.getByRole("link", { name: "資料處理方式" });
+    expect(terms).toHaveAttribute("href", "/terms");
+    expect(privacy).toHaveAttribute("href", "/privacy");
+    expect(processing).toHaveAttribute("href", "/privacy#cloud-processing");
+    for (const link of [terms, privacy, processing]) {
+      expect(link.tagName).toBe("A");
+      expect(link).toHaveClass("auth-inline-link");
+      expect(link).not.toHaveAttribute("tabindex", "-1");
+    }
+    expect(screen.getByRole("button", { name: "建立帳戶" })).toHaveClass("auth-primary-action");
+    expect(screen.getByRole("link", { name: "返回" })).toHaveClass("auth-option-link");
+  });
+
   it("uses a generic reset-code flow without putting credentials in URLs or storage", async () => {
     mockedFetch
       .mockResolvedValueOnce(sessionResponse())

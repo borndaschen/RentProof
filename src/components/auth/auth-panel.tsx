@@ -195,8 +195,19 @@ export function AuthPanel() {
                 <label className="auth-consent">
                   <input name="demoPolicyAcknowledged" type="checkbox" required />
                   <span>
-                    我已閱讀<Link href="/terms">使用條款草案</Link>、
-                    <Link href="/privacy">隱私政策草案</Link>與資料處理方式。
+                    我已閱讀
+                    <Link className="auth-inline-link" href="/terms">
+                      使用條款草案
+                    </Link>
+                    、
+                    <Link className="auth-inline-link" href="/privacy">
+                      隱私政策草案
+                    </Link>
+                    與
+                    <Link className="auth-inline-link" href="/privacy#cloud-processing">
+                      資料處理方式
+                    </Link>
+                    。
                   </span>
                 </label>
               )}

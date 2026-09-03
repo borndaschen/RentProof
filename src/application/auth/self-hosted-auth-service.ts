@@ -213,6 +213,7 @@ export class SelfHostedAuthService {
         tokenDigest: issued.digest,
         now,
         idleExpiresAt: addMilliseconds(now, ACCOUNT_SESSION_IDLE_MS),
+        reverifiedUntil: addMilliseconds(now, ACCOUNT_REVERIFICATION_MS),
       });
       return {
         status: "authenticated",

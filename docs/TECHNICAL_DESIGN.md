@@ -337,7 +337,7 @@ Production不建立另一套會員API。相同case routes一律接收server-reso
 - 圖片安全常數：`maxImageBytes = 25 MiB`、`maxImagePixels = 50_000_000`、`maxCaseOriginalImageBytes = 400 MiB`、`derivativeMaxLongEdge = 3200`、`withoutEnlargement = true`。每個request只收一張圖；先以stream byte cap停止過大body，再以Sharp`limitInputPixels`／format block解碼，最後以repository transaction檢查案件總量。
 - Demo fixture 完全虛構且不提交到 repository；不使用真實姓名、地址、電話、身分證號、簽名、門牌或人臉。
 - 測試runtime依D-068清理：Development run最後寫入後最多7天；正式展示run正常結束即清除，abandoned run於下次展示前清除。這不等同正式服務的retention／deletion E2E；真正部署仍需完整case／backup／第三方刪除流程。
-- arbitrary URL fetching 不在 MVP，避免 SSRF、登入狀態、反爬蟲與內容授權風險。
+- URL ingestion 僅允許公開、免登入且 server allowlisted 的 HTTPS 租屋網站；adapter 必須執行 SSRF／DNS／redirect／MIME／size／timeout 檢查、sanitization，拒絕 cookies／auth、反爬蟲繞過與非 allowlist 來源。內容是不受信任資料；失敗回 typed fallback，要求截圖／貼文。
 - 完整 threat model、upload controls、prompt injection 與真實資料 Gate 見 [安全與隱私規格](SECURITY_PRIVACY.md)。
 - Production guest data 仍放 private storage，使用短期 guest session 與 owner-scoped query；「未登入」只是不提供歷史紀錄，不能降低 upload、encryption、OpenAI notice 或 deletion controls。
 - 註冊／登入不是分析入口門檻；D-089改採窄ports／adapters的self-hosted Email／密碼Auth，code／session token／密碼不進OpenAI、browser storage或log。Server route仍以RentProof owner query授權，不信任Client登入畫面狀態。

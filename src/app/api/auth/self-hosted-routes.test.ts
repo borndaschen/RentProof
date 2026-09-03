@@ -5,6 +5,7 @@ vi.mock("server-only", () => ({}));
 const mocks = vi.hoisted(() => ({
   environment: {
     RENTPROOF_AUTH_MODE: "self_hosted",
+    RENTPROOF_EMAIL_DELIVERY_MODE: "local_synthetic",
     RENTPROOF_DEPLOYMENT_PROFILE: "local_development",
     RENTPROOF_PUBLIC_ORIGIN: "http://127.0.0.1:3000",
     allowedHosts: ["127.0.0.1:3000"],
@@ -87,6 +88,7 @@ describe("self-hosted auth HTTP routes", () => {
     selfHostedAuthRateLimiter.reset();
     mocks.environment.RENTPROOF_AUTH_MODE = "self_hosted";
     mocks.environment.RENTPROOF_DEPLOYMENT_PROFILE = "local_development";
+    mocks.environment.RENTPROOF_EMAIL_DELIVERY_MODE = "local_synthetic";
     mocks.register.mockResolvedValue({ status: "accepted" });
     mocks.verifyEmail.mockResolvedValue({ status: "verified" });
     mocks.authenticate.mockResolvedValue({ status: "invalid_credentials" });
@@ -285,6 +287,28 @@ describe("self-hosted auth HTTP routes", () => {
     expect(response.status).toBe(200);
     expect(mocks.consumeLatestVerificationToken).toHaveBeenCalledWith("new@example.test", digestA);
     expect(await response.text()).toContain("v".repeat(43));
+  });
+
+  it("never exposes the synthetic mailbox in secure LAN or Gmail delivery mode", async () => {
+    const request = new Request("http://127.0.0.1:3000/api/auth/dev-mailbox", {
+      method: "POST",
+      headers: {
+        host: "127.0.0.1:3000",
+        origin: "http://127.0.0.1:3000",
+        "content-type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        csrf,
+        email: "new@example.test",
+        kind: "verification",
+      }),
+    });
+    mocks.environment.RENTPROOF_DEPLOYMENT_PROFILE = "lan_secure_demo";
+    expect((await readDevMailbox(request.clone())).status).toBe(404);
+    mocks.environment.RENTPROOF_DEPLOYMENT_PROFILE = "local_development";
+    mocks.environment.RENTPROOF_EMAIL_DELIVERY_MODE = "personal_gmail_api";
+    expect((await readDevMailbox(request)).status).toBe(404);
+    expect(mocks.consumeLatestVerificationToken).not.toHaveBeenCalled();
   });
 
   it("distinguishes infrastructure failure from an invalid verification challenge", async () => {

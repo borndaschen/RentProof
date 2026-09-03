@@ -28,6 +28,11 @@ async function load(overrides: Record<string, string | undefined>) {
     "RENTPROOF_AUTH_MODE",
     "RENTPROOF_RULE_PROFILE",
     "RENTPROOF_AUTH_TOKEN_KEY",
+    "RENTPROOF_EMAIL_DELIVERY_MODE",
+    "RENTPROOF_GMAIL_SENDER",
+    "RENTPROOF_GMAIL_CLIENT_ID",
+    "RENTPROOF_GMAIL_CLIENT_SECRET",
+    "RENTPROOF_GMAIL_REFRESH_TOKEN",
     "RENTPROOF_DATABASE_ADAPTER",
     "RENTPROOF_DATABASE_ROLE",
     "RENTPROOF_DATABASE_ENVIRONMENT",
@@ -136,5 +141,47 @@ describe("self-hosted authentication deployment gate", () => {
         CLERK_SECRET_KEY: "legacy-secret-must-not-be-used",
       }),
     ).rejects.toThrow("LEGACY_MANAGED_AUTH_CONFIGURATION_FORBIDDEN");
+  });
+
+  it("rejects Gmail credentials unless explicit Live HTTPS delivery is selected", async () => {
+    await expect(load({ RENTPROOF_GMAIL_REFRESH_TOKEN: "private-refresh-token" })).rejects.toThrow(
+      "GMAIL_SECRET_WITH_DELIVERY_DISABLED",
+    );
+
+    await expect(
+      load({
+        RENTPROOF_EMAIL_DELIVERY_MODE: "personal_gmail_api",
+        RENTPROOF_GMAIL_SENDER: "rentproof.demo@gmail.com",
+        RENTPROOF_GMAIL_CLIENT_ID: "client.apps.googleusercontent.com",
+        RENTPROOF_GMAIL_CLIENT_SECRET: "private-client-secret",
+        RENTPROOF_GMAIL_REFRESH_TOKEN: "private-refresh-token",
+      }),
+    ).rejects.toThrow("PERSONAL_GMAIL_DELIVERY_CONFIGURATION_INVALID");
+  });
+
+  it("accepts complete personal Gmail delivery only in a Live HTTPS profile", async () => {
+    const environment = await load({
+      RENTPROOF_DEPLOYMENT_PROFILE: "lan_secure_demo",
+      RENTPROOF_BIND_HOST: "192.168.1.20",
+      RENTPROOF_PORT: "3443",
+      RENTPROOF_PUBLIC_ORIGIN: "https://192.168.1.20:3443",
+      RENTPROOF_ALLOWED_HOSTS: "192.168.1.20:3443",
+      RENTPROOF_ALLOWED_ORIGINS: "https://192.168.1.20:3443",
+      RENTPROOF_ALLOW_REAL_DATA: "true",
+      RENTPROOF_AUTH_MODE: "self_hosted",
+      RENTPROOF_AUTH_TOKEN_KEY: tokenKey,
+      RENTPROOF_DATABASE_ADAPTER: "postgres",
+      RENTPROOF_DATABASE_ROLE: "app",
+      RENTPROOF_DATABASE_ENVIRONMENT: "secure_demo",
+      RENTPROOF_INTERNAL_PROXY_TOKEN: "p".repeat(43),
+      RENTPROOF_LLM_MODE: "live",
+      OPENAI_API_KEY: "test-only-openai-key",
+      RENTPROOF_EMAIL_DELIVERY_MODE: "personal_gmail_api",
+      RENTPROOF_GMAIL_SENDER: "rentproof.demo@gmail.com",
+      RENTPROOF_GMAIL_CLIENT_ID: "client.apps.googleusercontent.com",
+      RENTPROOF_GMAIL_CLIENT_SECRET: "private-client-secret",
+      RENTPROOF_GMAIL_REFRESH_TOKEN: "private-refresh-token",
+    });
+    expect(environment.RENTPROOF_EMAIL_DELIVERY_MODE).toBe("personal_gmail_api");
   });
 });

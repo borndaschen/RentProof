@@ -16,9 +16,9 @@
 }
 
 .real-demo-shell {
-  width: min(760px, calc(100% - 32px));
+  width: min(820px, calc(100% - 32px));
   margin: 0 auto;
-  padding: clamp(28px, 7vw, 72px) 0;
+  padding: clamp(28px, 5vw, 64px) 0;
 }
 
 .real-demo-header {
@@ -37,8 +37,8 @@
 
 .real-demo-header h1 {
   margin: 8px 0 12px;
-  font-size: clamp(2rem, 7vw, 3.5rem);
-  line-height: 1.05;
+  font-size: clamp(2rem, 5vw, 3rem);
+  line-height: 1.08;
 }
 
 .real-demo-header nav {
@@ -51,6 +51,26 @@
   min-height: 44px;
   display: inline-flex;
   align-items: center;
+}
+
+.real-demo-header .header-login-button {
+  justify-content: center;
+  padding: 9px 16px;
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.real-demo-header .header-login-button:hover {
+  background: var(--accent-soft);
+}
+
+.real-demo-header .header-login-button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  outline-offset: 3px;
 }
 
 .real-demo-card {
@@ -94,26 +114,39 @@
 
 .real-conversation {
   display: grid;
-  gap: 18px;
+  gap: 14px;
 }
 
 .real-message {
-  width: min(100%, 640px);
-  padding: clamp(18px, 4vw, 26px);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
+  width: min(100%, 700px);
+  padding: 8px 4px;
 }
 
 .real-message.assistant {
   justify-self: start;
-  border-left: 4px solid var(--accent);
 }
 
 .real-message.user {
   justify-self: end;
-  width: min(88%, 540px);
-  background: var(--accent-soft);
+  width: min(82%, 560px);
+  padding-right: 14px;
+  border-right: 3px solid var(--accent);
+  text-align: right;
+}
+
+.real-status-message {
+  color: var(--text-muted);
+}
+
+.guest-save-reminder {
+  color: var(--text-muted);
+}
+
+.guest-save-reminder a {
+  color: #155eef;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .real-message h2 {
@@ -123,9 +156,111 @@
 }
 
 .real-message > p:last-child,
-.real-inline-card > *:last-child,
 .real-action-card > *:last-child {
   margin-bottom: 0;
+}
+
+.real-composer {
+  position: sticky;
+  bottom: 16px;
+  z-index: 5;
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: rgb(255 255 255 / 96%);
+  box-shadow: 0 16px 48px rgb(23 32 27 / 12%);
+  backdrop-filter: blur(12px);
+}
+
+.real-composer-consent {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 10px;
+  align-items: start;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.real-composer-consent input {
+  width: 22px;
+  height: 22px;
+  margin: 1px 0 0;
+}
+
+.real-composer-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.real-composer-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.real-composer textarea {
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  max-height: 180px;
+  resize: vertical;
+  padding: 13px 14px;
+  border: 1px solid #aeb5aa;
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  line-height: 1.45;
+}
+
+.real-attachment-button {
+  position: relative;
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 13px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-muted);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.real-attachment-button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.real-attachment-button:focus-within,
+.real-composer textarea:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  outline-offset: 2px;
+}
+
+.real-send-button {
+  min-width: 76px;
+  min-height: 48px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .real-inline-card {
@@ -194,6 +329,58 @@
   margin-bottom: 0;
 }
 
+.real-case-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+@media (min-width: 1000px) {
+  .real-demo-shell:has(.real-case-summary) {
+    display: grid;
+    grid-template-columns: minmax(0, 760px) minmax(280px, 340px);
+    column-gap: clamp(32px, 4vw, 56px);
+    width: min(1160px, calc(100% - 64px));
+  }
+
+  .real-demo-shell:has(.real-case-summary) .real-demo-header {
+    grid-column: 1 / -1;
+  }
+
+  .real-demo-shell:has(.real-case-summary) .real-conversation {
+    grid-column: 1;
+    min-width: 0;
+  }
+
+  .real-demo-shell:has(.real-case-summary) .real-case-summary {
+    position: sticky;
+    top: 24px;
+    grid-column: 2;
+    grid-row: 2;
+    align-self: start;
+    align-items: stretch;
+    flex-direction: column;
+    margin-top: 0;
+    padding: 24px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: 0 18px 50px rgb(23 32 27 / 7%);
+  }
+
+  .real-demo-shell:has(.real-case-summary) .real-case-actions {
+    display: grid;
+    justify-content: stretch;
+  }
+
+  .real-demo-shell:has(.real-case-summary) .real-case-actions > * {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 @media (max-width: 640px) {
   .real-demo-header {
     display: grid;
@@ -204,6 +391,18 @@
   .real-case-summary {
     align-items: stretch;
     flex-direction: column;
+  }
+  .real-composer-row {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+  .real-composer-input {
+    order: -1;
+    flex-basis: 100%;
+  }
+  .real-attachment-button,
+  .real-send-button {
+    flex: 1;
   }
 }
 
@@ -246,6 +445,27 @@
   border: 1px solid #aeb5aa;
   border-radius: 0.75rem;
   font: inherit;
+}
+
+.auth-panel form a,
+.auth-demo-mailbox-note a {
+  color: #155eef;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+
+.auth-panel form a:hover,
+.auth-demo-mailbox-note a:hover {
+  color: #0b3ea8;
+}
+
+.auth-panel form a:focus-visible,
+.auth-demo-mailbox-note a:focus-visible {
+  border-radius: 3px;
+  outline: 3px solid rgb(21 94 239 / 28%);
+  outline-offset: 3px;
 }
 
 .auth-panel button,
@@ -311,6 +531,11 @@
 .auth-option-link:focus-visible {
   outline: 3px solid color-mix(in srgb, var(--accent) 35%, transparent);
   outline-offset: 2px;
+}
+
+.auth-back-link {
+  width: 100%;
+  margin-top: 0.75rem;
 }
 
 @media (max-width: 420px) {

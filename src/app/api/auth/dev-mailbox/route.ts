@@ -25,7 +25,8 @@ export async function POST(request: Request): Promise<Response> {
   const environment = getServerEnvironment();
   if (
     !isSelfHostedAuthRouteEnabled(environment) ||
-    !["local_development", "lan_secure_demo"].includes(environment.RENTPROOF_DEPLOYMENT_PROFILE)
+    !["local_development", "lan_secure_demo"].includes(environment.RENTPROOF_DEPLOYMENT_PROFILE) ||
+    environment.RENTPROOF_EMAIL_DELIVERY_MODE !== "local_synthetic"
   ) {
     return new Response(null, { status: 404, headers: privateHeaders() });
   }
@@ -60,6 +61,7 @@ export async function POST(request: Request): Promise<Response> {
   }
   try {
     const runtime = await getSelfHostedAuthRuntime();
+    if (!runtime.outbox) return new Response(null, { status: 404, headers: privateHeaders() });
     const rawContext = readUniqueCookie(
       request.headers.get("cookie"),
       authCookieNames(environment).preauth,

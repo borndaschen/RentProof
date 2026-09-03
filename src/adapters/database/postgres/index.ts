@@ -6,4 +6,5 @@ export * from "./repositories";
 export * from "./runtime";
 export * from "./self-hosted-auth-repository";
 export * from "./real-demo-repository";
+export * from "./retention-repository";
 export * from "./guest-session-repository";

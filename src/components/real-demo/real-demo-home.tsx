@@ -31,7 +31,12 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
   const [session, setSession] = useState<Session>({ status: "loading", csrfToken: "" });
   const [caseId, setCaseId] = useState<string | null>(null);
   const [caseName, setCaseName] = useState("");
+  const [draftMessage, setDraftMessage] = useState("");
+  const [cloudAcknowledged, setCloudAcknowledged] = useState(false);
+  const [piiAcknowledgement, setPiiAcknowledgement] = useState<string | null>(null);
+  const [freeTextTurns, setFreeTextTurns] = useState<readonly string[]>([]);
   const [receipts, setReceipts] = useState<readonly Receipt[]>([]);
+  const [listingUrlAdded, setListingUrlAdded] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [analysis, setAnalysis] = useState<AnalysisSummary | null>(null);
   const [busy, setBusy] = useState(false);
@@ -71,10 +76,10 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
     };
   }, []);
 
-  async function createCase(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!hasCaseSession(session) || !caseName.trim() || busy) return;
-    const form = new FormData(event.currentTarget);
+  async function createCase(displayName: string) {
+    if (!hasCaseSession(session) || !displayName.trim() || !cloudAcknowledged || busy) return;
+    const initialUrl = singleHttpsUrl(displayName);
+    const caseDisplayName = initialUrl ? new URL(initialUrl).hostname : displayName.trim();
     setBusy(true);
     setMessage("");
     try {
@@ -85,14 +90,22 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
           "X-RentProof-CSRF": session.csrfToken,
         },
         body: JSON.stringify({
-          displayName: caseName.trim(),
-          cloudProcessingAcknowledged: form.get("cloudProcessingAcknowledged") === "on",
+          displayName: caseDisplayName,
+          cloudProcessingAcknowledged: cloudAcknowledged,
         }),
       });
       const data = (await response.json()) as unknown;
       if (!response.ok || !isCreatedCase(data)) throw new Error("CREATE_FAILED");
       setCaseId(data.caseId);
-      setMessage("案件已建立，可以開始加入資料。");
+      setCaseName(caseDisplayName);
+      setDraftMessage("");
+      if (initialUrl) {
+        setFreeTextTurns((current) => [...current, initialUrl]);
+        const recognized = await recognizeText(initialUrl, data.caseId);
+        setMessage(recognized?.reply ?? "案件已建立，但租屋連結尚未加入。");
+      } else {
+        setMessage("案件已建立，可以開始加入資料。");
+      }
     } catch {
       setMessage("目前無法建立案件，請確認已勾選資料處理同意並稍後重試。");
     } finally {
@@ -100,14 +113,13 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
     }
   }
 
-  async function upload(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function upload() {
     if (!hasCaseSession(session) || !caseId || busy) return;
-    const form = event.currentTarget;
     const file = selectedFile;
+    const accompanyingText = draftMessage.trim();
     if (!file || file.size === 0) return;
     const mime = acceptedMime(file.type);
-    const step = nextUploadStep(receipts);
+    const step = nextUploadStep(receipts, listingUrlAdded);
     if (!mime || !step.accepts.includes(mime)) {
       setMessage(step.kind === "contract_pdf" ? "請選擇PDF格式的租約。" : "請選擇JPEG或PNG照片。");
       return;
@@ -126,14 +138,18 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
           "X-RentProof-Upload-Mime": mime,
           "X-RentProof-Upload-Kind": kind,
           "Idempotency-Key": crypto.randomUUID(),
+          ...(piiAcknowledgement ? { "PII-Acknowledgement": piiAcknowledgement } : {}),
         },
         body: file,
       });
       const data = (await response.json()) as unknown;
       if (!response.ok || !isReceipt(data)) throw new Error("UPLOAD_FAILED");
       setReceipts((current) => [...current, data]);
+      if (accompanyingText) {
+        setFreeTextTurns((current) => [...current, accompanyingText]);
+      }
       setSelectedFile(null);
-      form.reset();
+      setDraftMessage("");
       setMessage(`${kindLabels[data.kind]}已安全加入。`);
     } catch {
       setMessage("檔案未加入。請確認格式、大小與內容後重試。");
@@ -159,6 +175,7 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
       setCaseName("");
       setReceipts([]);
       setAnalysis(null);
+      setListingUrlAdded(false);
       setMessage("案件已刪除並停止存取。");
     } catch {
       setMessage("目前無法刪除案件，請稍後重試。");
@@ -191,6 +208,113 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
     }
   }
 
+  async function submitComposer(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const text = draftMessage.trim();
+    if (!hasCaseSession(session) || busy) return;
+    if (!caseId) {
+      if (text) await createCase(text);
+      return;
+    }
+    if (selectedFile) {
+      if (text && !(await recognizeText(text))) return;
+      await upload();
+      return;
+    }
+    if (text) {
+      const recognized = await recognizeText(text);
+      if (!recognized) return;
+      setFreeTextTurns((current) => [...current, text]);
+      setDraftMessage("");
+      setMessage(recognized.reply);
+      if (
+        recognized.intent === "start_analysis" &&
+        hasRequiredArtifacts(receipts, listingUrlAdded)
+      ) {
+        await analyze();
+      }
+    }
+  }
+
+  async function recognizeText(
+    text: string,
+    targetCaseId = caseId,
+  ): Promise<{
+    intent:
+      | "start_analysis"
+      | "listing_url_candidate"
+      | "confirm_listing_url"
+      | "listing_url_added"
+      | "note"
+      | "clarification_needed";
+    reply: string;
+  } | null> {
+    if (!targetCaseId || !hasCaseSession(session)) return null;
+    try {
+      const response = await fetch(
+        `/api/real-cases/${encodeURIComponent(targetCaseId)}/conversation`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-RentProof-CSRF": session.csrfToken,
+            "Idempotency-Key": crypto.randomUUID(),
+          },
+          body: JSON.stringify({ text }),
+        },
+      );
+      const data = (await response.json()) as unknown;
+      if (!response.ok && isPiiWarning(data)) {
+        setPiiAcknowledgement(data.acknowledgementId);
+        setMessage(
+          "這段文字可能包含個人資料。請確認內容確實必要，再按一次「傳送」；這不代表系統能完整偵測所有個資。",
+        );
+        return null;
+      }
+      if (!response.ok || !isConversationRecognition(data)) throw new Error("TEXT_REJECTED");
+      setPiiAcknowledgement(null);
+      if (data.intent.kind === "listing_url_added") setListingUrlAdded(true);
+      return { intent: data.intent.kind, reply: data.reply };
+    } catch {
+      setMessage("這段文字未通過安全或格式檢查，附件也尚未送出。請移除敏感資訊後重試。");
+      return null;
+    }
+  }
+
+  async function saveGuestCaseToAccount() {
+    if (session.status !== "guest" || !caseId || busy) return;
+    setBusy(true);
+    setMessage("正在確認帳戶並保存案件…");
+    try {
+      const sessionResponse = await fetch("/api/auth/session", { cache: "no-store" });
+      const sessionData = (await sessionResponse.json()) as unknown;
+      if (
+        !sessionResponse.ok ||
+        !isSessionResponse(sessionData) ||
+        sessionData.status !== "authenticated"
+      ) {
+        throw new Error("ACCOUNT_REQUIRED");
+      }
+      const response = await fetch(`/api/real-cases/${encodeURIComponent(caseId)}/transfer`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-RentProof-CSRF": sessionData.csrfToken,
+        },
+        body: JSON.stringify({ confirmation: "SAVE_GUEST_CASE_TO_ACCOUNT" }),
+      });
+      if (!response.ok) throw new Error("TRANSFER_FAILED");
+      setSession({ status: "authenticated", csrfToken: sessionData.csrfToken });
+      setMessage(
+        "案件已保存到你的帳戶，之後可從「我的案件」查看。未來刪除前會依帳戶保存政策處理。",
+      );
+    } catch {
+      setMessage("尚未完成保存。請先在新分頁登入，並於登入後 15 分鐘內再按一次保存。");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <main className="real-demo-shell">
       <header className="real-demo-header">
@@ -201,101 +325,153 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
         </div>
         <nav aria-label="帳戶功能">
           {session.status === "authenticated" ? <Link href="/history">我的案件</Link> : null}
-          <Link href="/auth">{session.status === "guest" ? "登入保存紀錄" : "帳戶"}</Link>
+          <Link className="header-login-button" href="/auth">
+            {session.status === "guest" ? "登入" : "帳戶"}
+          </Link>
         </nav>
       </header>
 
       <section className="real-conversation" aria-label="租屋資料對話" aria-live="polite">
-        <article className="real-message assistant">
+        <div className="real-message assistant">
           <p className="message-label">RentProof</p>
-          <p>你好，我會依序協助你加入物件名稱、租屋廣告、看屋照片與租約。</p>
-        </article>
+          <p>你好。直接輸入物件名稱、貼上租屋連結，或加入廣告、看屋照片與租約。</p>
+        </div>
 
         {session.status === "loading" ? (
-          <article className="real-message assistant">
+          <div className="real-message assistant">
             <p role="status">正在準備資料整理功能…</p>
-          </article>
+          </div>
         ) : null}
         {session.status === "unavailable" ? (
-          <article className="real-message assistant">
+          <div className="real-message assistant">
             <p role="alert">目前無法開始，請稍後再試。</p>
-          </article>
+          </div>
+        ) : null}
+
+        {session.status === "guest" ? (
+          <div className="real-message assistant guest-save-reminder">
+            <p>
+              目前以訪客模式使用，資料只屬於這個短期工作階段。若要日後查詢，請
+              <Link href="/auth">登入後保存案件</Link>。
+            </p>
+          </div>
         ) : null}
 
         {hasCaseSession(session) && !caseId ? (
-          <article className="real-message assistant">
-            <p className="message-label">第一步</p>
-            <h2>這間房子要叫什麼名稱？</h2>
-            <p>使用容易辨認的名稱，例如路名或社區名稱。</p>
-            <form className="real-inline-card" onSubmit={createCase}>
-              <label>
-                案件名稱
-                <input
-                  value={caseName}
-                  onChange={(event) => setCaseName(event.target.value)}
-                  maxLength={120}
-                  placeholder="例如：民生東路套房"
-                  required
-                />
-              </label>
-              <label className="auth-consent">
-                <input name="cloudProcessingAcknowledged" type="checkbox" required />
-                <span>
-                  {REAL_DEMO_CLOUD_CONSENT_TEXT}
-                  <Link href="/privacy">查看資料處理說明</Link>
-                </span>
-              </label>
-              <button className="primary-button" type="submit" disabled={busy}>
-                繼續
-              </button>
-            </form>
-          </article>
+          <div className="real-message assistant">
+            <p>先告訴我這間房子怎麼稱呼，也可以直接貼上公開的租屋網站連結。</p>
+          </div>
         ) : null}
 
         {caseId ? (
-          <article className="real-message user">
+          <div className="real-message user">
             <p className="message-label">你</p>
             <p>我要整理「{caseName}」。</p>
-          </article>
+          </div>
         ) : null}
 
-        {receipts.map((receipt) => (
-          <article className="real-message user" key={receipt.artifactId}>
+        {freeTextTurns.map((turn, index) => (
+          <div className="real-message user" key={`${String(index)}:${turn}`}>
             <p className="message-label">你</p>
-            <p>已加入：{kindLabels[receipt.kind]}</p>
-          </article>
+            <p>{turn}</p>
+          </div>
         ))}
 
-        {hasCaseSession(session) && caseId && (!hasRequiredArtifacts(receipts) || analysis) ? (
-          <UploadPrompt
-            step={nextUploadStep(receipts)}
-            busy={busy}
-            selectedFile={selectedFile}
-            onFileChange={setSelectedFile}
-            onSubmit={upload}
-          />
+        {receipts.map((receipt) => (
+          <div className="real-message user" key={receipt.artifactId}>
+            <p className="message-label">你</p>
+            <p>已加入：{kindLabels[receipt.kind]}</p>
+          </div>
+        ))}
+
+        {message ? (
+          <div className="real-message assistant real-status-message">
+            <p role="status">{message}</p>
+          </div>
         ) : null}
 
-        {hasCaseSession(session) && caseId && hasRequiredArtifacts(receipts) && !analysis ? (
-          <article className="real-message assistant">
-            <p className="message-label">資料已備妥</p>
-            <h2>要開始整理與比對嗎？</h2>
-            <p>我會核對廣告、現場照片與租約，並列出簽約前仍需確認的內容。</p>
-            {analysisEnabled ? (
-              <button className="primary-button" type="button" onClick={analyze} disabled={busy}>
-                開始整理與比對
-              </button>
-            ) : (
-              <p>分析功能目前尚未開啟。</p>
-            )}
-          </article>
+        {hasCaseSession(session) && caseId && !hasRequiredArtifacts(receipts, listingUrlAdded) ? (
+          <div className="real-message assistant">
+            <p>{nextConversationReply(receipts, listingUrlAdded)}</p>
+          </div>
+        ) : null}
+
+        {hasCaseSession(session) &&
+        caseId &&
+        hasRequiredArtifacts(receipts, listingUrlAdded) &&
+        !analysis ? (
+          <div className="real-message assistant">
+            <p>
+              {analysisEnabled
+                ? "資料已備妥。輸入「開始分析」，我會核對廣告、現場照片與租約。"
+                : "資料已備妥，但分析功能目前尚未開啟。"}
+            </p>
+          </div>
         ) : null}
 
         {analysis ? <AnalysisMessage analysis={analysis} /> : null}
-        {message ? (
-          <article className="real-message assistant">
-            <p role="status">{message}</p>
-          </article>
+
+        {hasCaseSession(session) ? (
+          <form className="real-composer" onSubmit={submitComposer}>
+            {!caseId ? (
+              <label className="real-composer-consent">
+                <input
+                  type="checkbox"
+                  checked={cloudAcknowledged}
+                  onChange={(event) => setCloudAcknowledged(event.currentTarget.checked)}
+                />
+                <span>
+                  {REAL_DEMO_CLOUD_CONSENT_TEXT} <Link href="/privacy">查看資料處理說明</Link>
+                </span>
+              </label>
+            ) : null}
+            <div className="real-composer-row">
+              {caseId ? (
+                <label className="real-attachment-button">
+                  <span>加入附件</span>
+                  <input
+                    key={nextUploadStep(receipts, listingUrlAdded).kind}
+                    type="file"
+                    accept={nextUploadStep(receipts, listingUrlAdded).accepts.join(",")}
+                    onChange={(event) => {
+                      setSelectedFile(event.currentTarget.files?.[0] ?? null);
+                      setPiiAcknowledgement(null);
+                    }}
+                  />
+                </label>
+              ) : null}
+              <label className="real-composer-input">
+                <span className="sr-only">輸入訊息</span>
+                <textarea
+                  value={draftMessage}
+                  onChange={(event) => {
+                    setDraftMessage(event.currentTarget.value);
+                    setPiiAcknowledgement(null);
+                  }}
+                  maxLength={2_000}
+                  rows={2}
+                  placeholder={
+                    caseId
+                      ? selectedFile
+                        ? `已選擇 ${selectedFile.name}`
+                        : "輸入訊息、貼上租屋連結，或加入附件…"
+                      : "輸入物件名稱或貼上租屋連結…"
+                  }
+                />
+              </label>
+              <button
+                className="primary-button real-send-button"
+                type="submit"
+                disabled={
+                  busy ||
+                  (!selectedFile && draftMessage.trim().length === 0) ||
+                  (!caseId && !cloudAcknowledged)
+                }
+              >
+                傳送
+              </button>
+            </div>
+          </form>
         ) : null}
       </section>
 
@@ -304,11 +480,28 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
           <div>
             <p className="eyebrow">目前進度</p>
             <h2 id="case-summary-title">{caseName}</h2>
-            <p>{receipts.length} 份資料已加入</p>
+            <p>{receipts.length + (listingUrlAdded ? 1 : 0)} 份資料已加入</p>
           </div>
-          <button className="secondary-button" type="button" onClick={deleteCase} disabled={busy}>
-            刪除這個案件
-          </button>
+          <div className="real-case-actions">
+            {session.status === "guest" ? (
+              <>
+                <Link className="secondary-button" href="/auth" target="_blank" rel="noreferrer">
+                  在新分頁登入
+                </Link>
+                <button
+                  className="primary-button"
+                  type="button"
+                  onClick={saveGuestCaseToAccount}
+                  disabled={busy}
+                >
+                  已登入，保存此案件
+                </button>
+              </>
+            ) : null}
+            <button className="secondary-button" type="button" onClick={deleteCase} disabled={busy}>
+              刪除這個案件
+            </button>
+          </div>
         </aside>
       ) : null}
     </main>
@@ -322,44 +515,6 @@ type UploadStep = Readonly<{
   inputLabel: string;
   accepts: readonly Receipt["mime"][];
 }>;
-
-function UploadPrompt({
-  step,
-  busy,
-  selectedFile,
-  onFileChange,
-  onSubmit,
-}: {
-  step: UploadStep;
-  busy: boolean;
-  selectedFile: File | null;
-  onFileChange: (file: File | null) => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
-}) {
-  return (
-    <article className="real-message assistant">
-      <p className="message-label">下一步</p>
-      <h2>{step.title}</h2>
-      <p>{step.prompt}</p>
-      <form className="real-inline-card" onSubmit={onSubmit}>
-        <label>
-          {step.inputLabel}
-          <input
-            key={step.kind}
-            name="artifact"
-            type="file"
-            accept={step.accepts.join(",")}
-            required
-            onChange={(event) => onFileChange(event.currentTarget.files?.[0] ?? null)}
-          />
-        </label>
-        <button className="primary-button" type="submit" disabled={busy || !selectedFile}>
-          加入並繼續
-        </button>
-      </form>
-    </article>
-  );
-}
 
 function AnalysisMessage({ analysis }: { analysis: AnalysisSummary }) {
   return (
@@ -453,8 +608,52 @@ function isAnalysis(value: unknown): value is AnalysisSummary {
   );
 }
 
-function nextUploadStep(receipts: readonly Receipt[]): UploadStep {
-  if (!receipts.some((item) => item.kind === "listing_image")) {
+function isConversationRecognition(value: unknown): value is {
+  intent: {
+    kind:
+      | "start_analysis"
+      | "listing_url_candidate"
+      | "confirm_listing_url"
+      | "listing_url_added"
+      | "note"
+      | "clarification_needed";
+  };
+  reply: string;
+} {
+  if (typeof value !== "object" || value === null) return false;
+  const intent: unknown = Reflect.get(value, "intent");
+  const reply: unknown = Reflect.get(value, "reply");
+  return (
+    typeof intent === "object" &&
+    intent !== null &&
+    [
+      "start_analysis",
+      "listing_url_candidate",
+      "confirm_listing_url",
+      "listing_url_added",
+      "note",
+      "clarification_needed",
+    ].includes(String(Reflect.get(intent, "kind"))) &&
+    typeof reply === "string" &&
+    [...reply].length <= 600
+  );
+}
+
+function isPiiWarning(value: unknown): value is { acknowledgementId: string } {
+  if (typeof value !== "object" || value === null) return false;
+  const error: unknown = Reflect.get(value, "error");
+  const acknowledgementId: unknown = Reflect.get(value, "acknowledgementId");
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    Reflect.get(error, "code") === "PII_WARNING_REQUIRED" &&
+    typeof acknowledgementId === "string" &&
+    /^[A-Za-z0-9_-]{43}$/u.test(acknowledgementId)
+  );
+}
+
+function nextUploadStep(receipts: readonly Receipt[], listingUrlAdded = false): UploadStep {
+  if (!listingUrlAdded && !receipts.some((item) => item.kind === "listing_image")) {
     return {
       kind: "listing_image",
       title: "請加入租屋廣告",
@@ -490,12 +689,30 @@ function nextUploadStep(receipts: readonly Receipt[]): UploadStep {
   };
 }
 
-function hasRequiredArtifacts(receipts: readonly Receipt[]): boolean {
+function nextConversationReply(receipts: readonly Receipt[], listingUrlAdded = false): string {
+  return nextUploadStep(receipts, listingUrlAdded).prompt;
+}
+
+function hasRequiredArtifacts(receipts: readonly Receipt[], listingUrlAdded = false): boolean {
   return (
-    receipts.filter((item) => item.kind === "listing_image").length === 1 &&
+    receipts.filter((item) => item.kind === "listing_image").length + (listingUrlAdded ? 1 : 0) ===
+      1 &&
     receipts.some((item) => item.kind === "viewing_image" || item.kind === "follow_up_image") &&
     receipts.filter((item) => item.kind === "contract_pdf").length === 1
   );
+}
+
+function singleHttpsUrl(value: string): string | null {
+  const candidate = value.trim();
+  if (!candidate.startsWith("https://") || /\s/u.test(candidate)) return null;
+  try {
+    const parsed = new URL(candidate);
+    return parsed.protocol === "https:" && !parsed.username && !parsed.password
+      ? parsed.toString()
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 function countStatus(

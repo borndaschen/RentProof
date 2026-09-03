@@ -26,7 +26,11 @@ vi.mock("./guest-session", () => ({
   getGuestSessionRuntime: async () => ({ resolve: mocks.guestResolve }),
 }));
 
-import { CurrentActorResolutionError, resolveCurrentCaseActor } from "./current-actor";
+import {
+  CurrentActorResolutionError,
+  resolveCurrentCaseActor,
+  resolveCurrentTransferActors,
+} from "./current-actor";
 
 const request = (cookie: string) =>
   new Request("https://192.168.1.20:3443/api/real-cases", {
@@ -81,5 +85,29 @@ describe("resolveCurrentCaseActor", () => {
     await expect(resolveCurrentCaseActor(request(""))).rejects.toBeInstanceOf(
       CurrentActorResolutionError,
     );
+  });
+
+  it("resolves both live sessions and preserves recent reverification for transfer", async () => {
+    const user = { kind: "user", userId: "user_a", sessionId: "session_a" } as const;
+    const guest = {
+      kind: "guest",
+      guestId: "guest_abcdefghijklmnopqrstuvwxyz12345",
+      guestSessionId: "guest_session_abcdefghijklmnopqrstuv",
+    } as const;
+    mocks.accountResolve.mockResolvedValue({
+      status: "authenticated",
+      actor: user,
+      reverified: true,
+      refreshCookie: { token: "a".repeat(43), maxAgeSeconds: 604_800 },
+    });
+    mocks.guestResolve.mockResolvedValue(guest);
+    await expect(
+      resolveCurrentTransferActors(
+        request(
+          `__Host-rentproof_account=${"a".repeat(43)}; __Host-rentproof_guest=${"g".repeat(43)}`,
+        ),
+      ),
+    ).resolves.toEqual({ user, guest, reverified: true });
+    expect(mocks.guestResolve).toHaveBeenCalledWith("g".repeat(43));
   });
 });

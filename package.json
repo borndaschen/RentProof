@@ -35,7 +35,9 @@
     "db:listener:check": "node scripts/postgres-listener-check.mts",
     "db:smoke": "node scripts/postgres-synthetic-smoke.mts",
     "db:demo": "pwsh -NoProfile -File scripts/windows/Manage-RentProofPostgresDemo.ps1 -Action",
-    "auth:demo": "pwsh -NoProfile -File scripts/windows/Manage-RentProofPostgresDemo.ps1 -Action"
+    "auth:demo": "pwsh -NoProfile -File scripts/windows/Manage-RentProofPostgresDemo.ps1 -Action",
+    "retention:purge": "node scripts/retention-purge.mts",
+    "email:smoke": "node scripts/gmail-delivery-smoke.mts"
   },
   "dependencies": {
     "@next/env": "16.3.4",

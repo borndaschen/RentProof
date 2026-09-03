@@ -87,7 +87,7 @@ RentProof 的雲端分析會把完成驗證、最小化與必要遮蔽的文字�
 
 正式上線前必須公布實際使用的服務供應商、處理目的、資料類別、處理地區／國際傳輸、保存設定與可用的資料控制。OpenAI 的實際資料處理條件應以 production Project 設定與當時官方文件重新核對；詳見 [OpenAI Cloud LLM 整合](OPENAI_INTEGRATION.md)。其他 identity、hosting、database、object storage、email、security 或 support 供應商也必須在啟用前納入受託處理者清冊。
 
-帳戶改採self-hosted Email／密碼Auth。正式政策仍須填入Transactional Email供應商、實際處理地區、subprocessors、保存／刪除、國際傳輸與DPA；尚未選定前不能把任何Email服務寫成已啟用的正式受託者。初期不提供SMS／phone或宣稱MFA；日後新增任何相關provider前須另行揭露、威脅建模與審查。
+帳戶改採self-hosted Email／密碼Auth；D-095已選定個人Gmail API作為低量Email驗證與密碼重設寄送管道。預計傳送收件Email、固定主旨／範本及15分鐘單次代碼給Google，OAuth credential只存Server且只要求`gmail.send`；不傳送租屋案件、密碼或OpenAI內容。此選擇尚未完成OAuth設定、實寄、實際處理地區／國際傳輸、Google適用條款與隱私條件、退信／濫用處理及台灣法務審閱，因此目前只能列為草案中的預定受託服務，不得標示正式啟用或已完成DPA。初期不提供SMS／phone或宣稱MFA。
 
 ## 6. 資料利用、揭露與國際傳輸
 

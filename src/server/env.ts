@@ -11,6 +11,9 @@ const baseEnvironmentSchema = z
     RENTPROOF_ALLOWED_ORIGINS: z.string().min(1),
     RENTPROOF_ALLOW_REAL_DATA: z.enum(["true", "false"]),
     RENTPROOF_AUTH_MODE: z.enum(["synthetic", "self_hosted"]).default("synthetic"),
+    RENTPROOF_EMAIL_DELIVERY_MODE: z
+      .enum(["local_synthetic", "personal_gmail_api"])
+      .default("local_synthetic"),
     RENTPROOF_RULE_PROFILE: z.enum(["p0", "p1"]).default("p0"),
     RENTPROOF_LLM_MODE: z.enum(["fixture", "live"]),
     OPENAI_PROJECT_LIMITS_CONFIRMED: z.enum(["true", "false"]),
@@ -50,6 +53,7 @@ export function getServerEnvironment(): ServerEnvironment {
     RENTPROOF_ALLOWED_ORIGINS: process.env["RENTPROOF_ALLOWED_ORIGINS"],
     RENTPROOF_ALLOW_REAL_DATA: process.env["RENTPROOF_ALLOW_REAL_DATA"],
     RENTPROOF_AUTH_MODE: process.env["RENTPROOF_AUTH_MODE"],
+    RENTPROOF_EMAIL_DELIVERY_MODE: process.env["RENTPROOF_EMAIL_DELIVERY_MODE"],
     RENTPROOF_RULE_PROFILE: process.env["RENTPROOF_RULE_PROFILE"],
     RENTPROOF_LLM_MODE: process.env["RENTPROOF_LLM_MODE"],
     OPENAI_PROJECT_LIMITS_CONFIRMED: process.env["OPENAI_PROJECT_LIMITS_CONFIRMED"],
@@ -81,6 +85,7 @@ function validateAuthProfile(environment: z.infer<typeof baseEnvironmentSchema>)
     throw new Error("LEGACY_MANAGED_AUTH_CONFIGURATION_FORBIDDEN");
   }
   const tokenKey = process.env["RENTPROOF_AUTH_TOKEN_KEY"];
+  validateEmailDeliveryProfile(environment);
 
   if (environment.RENTPROOF_DEPLOYMENT_PROFILE === "lan_secure_demo") {
     const origin = new URL(environment.RENTPROOF_PUBLIC_ORIGIN);
@@ -125,6 +130,29 @@ function validateAuthProfile(environment: z.infer<typeof baseEnvironmentSchema>)
     }
   } else if (tokenKey) {
     throw new Error("AUTH_SECRET_WITH_AUTH_DISABLED");
+  }
+}
+
+function validateEmailDeliveryProfile(environment: z.infer<typeof baseEnvironmentSchema>): void {
+  const gmailKeys = [
+    "RENTPROOF_GMAIL_SENDER",
+    "RENTPROOF_GMAIL_CLIENT_ID",
+    "RENTPROOF_GMAIL_CLIENT_SECRET",
+    "RENTPROOF_GMAIL_REFRESH_TOKEN",
+  ] as const;
+  const configured = gmailKeys.map((key) => Boolean(process.env[key]));
+  if (environment.RENTPROOF_EMAIL_DELIVERY_MODE === "local_synthetic") {
+    if (configured.some(Boolean)) throw new Error("GMAIL_SECRET_WITH_DELIVERY_DISABLED");
+    return;
+  }
+  if (
+    environment.RENTPROOF_DEPLOYMENT_PROFILE !== "lan_secure_demo" ||
+    environment.RENTPROOF_AUTH_MODE !== "self_hosted" ||
+    environment.RENTPROOF_ALLOW_REAL_DATA !== "true" ||
+    environment.RENTPROOF_LLM_MODE !== "live" ||
+    !configured.every(Boolean)
+  ) {
+    throw new Error("PERSONAL_GMAIL_DELIVERY_CONFIGURATION_INVALID");
   }
 }
 

@@ -11,7 +11,7 @@
 | D-003 | 2026-09-01 | accepted                   | 廣告承諾只使用支持、矛盾、證據不足三態，且缺席不構成矛盾                                  |
 | D-004 | 2026-09-01 | accepted                   | LLM 負責抽取與語意候選；程式負責分類、規則與金額                                          |
 | D-005 | 2026-09-01 | accepted                   | 每個肯定結論必須有 source locator；無定位即降為資料不足                                   |
-| D-006 | 2026-09-01 | accepted                   | MVP 不抓取任意廣告網址，只保存 URL metadata 並分析截圖／貼上文字                          |
+| D-006 | 2026-09-01 | superseded by D-096        | MVP 不抓取任意廣告網址，只保存 URL metadata 並分析截圖／貼上文字                          |
 | D-007 | 2026-09-01 | accepted                   | 報告使用 HTML 列印，不另建 PDF 產生服務                                                   |
 | D-008 | 2026-09-01 | accepted                   | 成本分成固定月費、變動公式與一次性費用，不虛構單一完整月總額                              |
 | D-009 | 2026-09-01 | accepted                   | 官方規則是人工核對、版本化的 YAML；模型不得自行發布規則                                   |
@@ -99,9 +99,19 @@
 | D-092 | 2026-09-03 | accepted                   | P1啟用RP-001／002／005／007，P0 profile與Golden結果維持不變                               |
 | D-093 | 2026-09-03 | accepted                   | 退役HTTP LAN；本機HTTP只限loopback，LAN改用HTTPS secure demo                              |
 | D-094 | 2026-09-03 | accepted                   | 未登入可直接使用；訪客案件綁單一24小時Session並採對話式主流程                             |
+| D-095 | 2026-09-03 | accepted                   | 低量Transactional Email採個人Gmail API＋最小`gmail.send` OAuth權限                        |
+| D-096 | 2026-09-03 | accepted                   | 主流程採單一自由文字composer；允許受控公開租屋網站URL擷取，安全失敗時要求截圖／貼文       |
 | D-088 | 2026-09-02 | accepted                   | Development Luna Project限制30 RPM／500K TPM／300 RPD（若支援）                           |
 
 ## 詳細理由與影響
+
+### D-096：自由文字主流程與受控公開租屋網站 URL 擷取
+
+**理由：** 使用者選擇以單一自由文字 composer 完成主流程，放棄以卡片／quick replies 作為主要輸入；同時希望能直接提供公開租屋網站來源。
+
+**決策：** Composer 是唯一主要輸入入口，卡片／quick replies 只能作輔助提示。必要的安全、政策與 material confirmation 仍由 Server 產生明確確認，不得由自由文字直接改寫 domain facts。對公開、免登入且位於 server allowlist 的租屋網站 URL，可由 server 受控擷取；必須使用 HTTPS，執行 SSRF、DNS、redirect、MIME、size、timeout 與內容 sanitization 檢查，不帶 cookies／credentials／auth header，不繞過反爬蟲。擷取內容均視為不受信任資料；失敗時要求使用者提供截圖或貼文。
+
+**影響：** D-006 改為不抓取任意網址；只有 allowlist 與安全 Gate 通過的 URL 才觸發受控擷取，其他 URL 僅保存來源 metadata。政策文件仍維持 DRAFT。
 
 ### D-093：退役HTTP LAN，改用HTTPS區域網路展示
 
@@ -126,6 +136,16 @@
 **理由：** 使用者要回答的是「某項承諾有哪些證據」，不是延續一段對話。Claim、artifact、locator、clause、rule 與 finding 的關係需要可查詢、可重跑。
 
 **影響：** Evidence graph仍是source of truth。原先「聊天式UI不是主畫面」已由D-094取代；現行對話是案件projection，任何生成說明仍不能取代graph或直接修改domain state。
+
+### D-095：個人 Gmail API 作為低量 Transactional Email
+
+**狀態：** accepted
+
+**決策：** 目前低量Email驗證與密碼重設採個人Gmail帳戶的Gmail API，只要求`gmail.send` OAuth scope。Server以client ID／client secret／refresh token換取短效access token後呼叫`users.messages.send`；不得保存Gmail密碼或使用App Password。Fixture與local synthetic outbox不組裝此adapter，也不得發Email網路請求。
+
+**理由：** 使用者已明確選擇個人Gmail。Gmail API提供OAuth撤銷與最小寄送scope，優於把長期信箱密碼交給Application。
+
+**限制：** 個人Gmail不是具SLA的專用Transactional Email服務，仍有寄送配額、帳號風控、單一信箱故障域、寄件網域信譽及跨境處理揭露風險。正式公開營運前仍須完成OAuth app設定、測試帳戶實寄、Google條款／隱私與處理地區核對、退信／濫用處理及台灣法務審閱；若規模增加，新增決策改用專用供應商。
 
 ### D-003：保守三態
 
