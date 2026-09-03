@@ -1,0 +1,147 @@
+{
+  "schemaVersion": "1.0",
+  "snapshotDate": "2026-09-01",
+  "jurisdiction": "TW",
+  "sources": [
+    {
+      "sourceId": "CURRENT_TERMS",
+      "title": "住宅租賃定型化契約應記載及不得記載事項",
+      "publisher": "行政院",
+      "url": "https://www.ey.gov.tw/Page/DFB720D019CCCB0A/478917df-7599-418f-8715-fd2716b623b4",
+      "snapshotPath": "rules/snapshots/2026-09-01/current-terms.html",
+      "contentType": "text/html",
+      "bytes": 105483,
+      "sha256": "1672682d2794413065bd5b16a710db55cad8197ba9fbf688ed881a50cde60593",
+      "currentRevisionDate": "2025-04-18",
+      "validation": [
+        "contains:住宅租賃定型化契約應記載及不得記載事項",
+        "contains:114-04-18",
+        "contains:1140113583",
+        "not-contains:Request Rejected"
+      ]
+    },
+    {
+      "sourceId": "CURRENT_TERMS_PDF",
+      "title": "住宅租賃定型化契約應記載及不得記載事項 PDF",
+      "publisher": "行政院",
+      "url": "https://www.ey.gov.tw/File/43BC094940995CFC?A=C",
+      "snapshotPath": "rules/snapshots/2026-09-01/current-terms.pdf",
+      "contentType": "application/pdf",
+      "bytes": 356070,
+      "sha256": "fb25806446b812295e95237409e51f4eccffef18c134db126ded65610d2ddbb4",
+      "currentRevisionDate": "2025-04-18",
+      "validation": [
+        "magic:%PDF-",
+        "pages:13",
+        "javascript:false",
+        "contains-after-whitespace-normalization:1140113583",
+        "contains-after-whitespace-normalization:當期每度平均電價",
+        "contains-after-whitespace-normalization:不得記載承租人不得申請租金補貼"
+      ]
+    },
+    {
+      "sourceId": "CONTRACT_TEMPLATE",
+      "title": "住宅租賃契約書範本（企業或個人出租通用）",
+      "publisher": "內政部不動產資訊平台",
+      "landingPageUrl": "https://pip.moi.gov.tw/Publicize/Info/G1020",
+      "snapshotUrl": "https://pip.moi.gov.tw/Upload/File/Contract/33-%28113-07-08%29%E4%BD%8F%E5%AE%85%E7%A7%9F%E8%B3%83%E5%A5%91%E7%B4%84%E6%9B%B8%E7%AF%84%E6%9C%AC%28%E4%BC%81%E6%A5%AD%E6%88%96%E5%80%8B%E4%BA%BA%E5%87%BA%E7%A7%9F%E9%80%9A%E7%94%A8%29.pdf",
+      "snapshotPath": "rules/snapshots/2026-09-01/contract-template.pdf",
+      "contentType": "application/pdf",
+      "bytes": 382264,
+      "sha256": "012ed306a85a76d30c09e4f15943509a81ae4a55443e7e8d97a8c9ee1f0b420b",
+      "templateRevisionDate": "2024-07-08",
+      "validation": [
+        "magic:%PDF-",
+        "pages:23",
+        "javascript:false",
+        "contains:住宅租賃契約書範本",
+        "contains:租賃標的現況確認書",
+        "contains:當期每度平均電價"
+      ]
+    },
+    {
+      "sourceId": "ELECTRICITY_2024",
+      "title": "住宅租賃定型化契約電費規定修正",
+      "publisher": "內政部",
+      "landingPageUrl": "https://www.moi.gov.tw/News_Content.aspx?n=145&s=317657",
+      "snapshotUrl": "https://ws.moi.gov.tw/Download.ashx?n=5YWs5ZGK5L%2Bu5q2j5qKd5paHXyjmoLjlrprniYgpLnBkZg%3D%3D&u=LzAwMS9VcGxvYWQvNDAwL3JlbGZpbGUvOTA4Mi8zMTc2NTcvMDY0NWFhNmMtYTcyMy00ZmQ1LWE1YmUtMDY4NTQ4NWYzZTQ2LnBkZg%3D%3D",
+      "snapshotPath": "rules/snapshots/2026-09-01/electricity-rules-2024.pdf",
+      "contentType": "application/pdf",
+      "bytes": 134342,
+      "sha256": "e42c7e7bea8b8b3568a79c5c938bb12023b5bd3c7e3cfedd9e3450f48dd4666d",
+      "effectiveDate": "2024-07-15",
+      "validation": [
+        "magic:%PDF-",
+        "pages:5",
+        "javascript:false",
+        "contains:當期每度平均電價",
+        "contains:電費資訊"
+      ]
+    },
+    {
+      "sourceId": "ELECTRICITY_NEWS_2024",
+      "title": "租屋電費新制7月15日正式上路 新約應依新制約定",
+      "publisher": "內政部",
+      "url": "https://www.moi.gov.tw/News_Content.aspx?n=4&s=317872",
+      "snapshotPath": "rules/snapshots/2026-09-01/electricity-news-2024.html",
+      "contentType": "text/html",
+      "bytes": 94416,
+      "sha256": "ba7fd2bcfbc307452f176d2f0e37a0db214ff1212648e187c2bcc80e72305976",
+      "effectiveDate": "2024-07-15",
+      "validation": [
+        "contains:113-07-14",
+        "contains:新簽訂",
+        "contains:當期每度平均電價",
+        "contains:電費",
+        "not-contains:Request Rejected"
+      ]
+    },
+    {
+      "sourceId": "SUBSIDY_2023",
+      "title": "租金補貼不得記載事項修正",
+      "publisher": "內政部",
+      "landingPageUrl": "https://www.moi.gov.tw/News_Content.aspx?n=145&s=280625",
+      "snapshotUrl": "https://ws.moi.gov.tw/Download.ashx?n=5L%2Bu5q2j6KaP5a6aLnBkZg%3D%3D&u=LzAwMS9VcGxvYWQvNDAwL3JlbGZpbGUvOTA4Mi8yODA2MjUvODhiZDAyZWYtZTM2OS00MjYzLThkNWQtZDZhYmE5NzkzOGIwLnBkZg%3D%3D",
+      "snapshotPath": "rules/snapshots/2026-09-01/rent-subsidy-2023.pdf",
+      "contentType": "application/pdf",
+      "bytes": 66556,
+      "sha256": "57ad6ecc21739a979f0edaa1b07c22ab6dce07222655dd897545e1c47ec5771b",
+      "effectiveDate": "2023-06-14",
+      "validation": [
+        "magic:%PDF-",
+        "pages:1",
+        "javascript:false",
+        "contains:不得記載承租人不得申請租金補貼"
+      ]
+    }
+  ],
+  "supportingSnapshots": [
+    {
+      "sourceId": "CONTRACT_TEMPLATE_LANDING",
+      "parentSourceId": "CONTRACT_TEMPLATE",
+      "url": "https://pip.moi.gov.tw/Publicize/Info/G1020",
+      "snapshotPath": "rules/snapshots/2026-09-01/contract-template.html",
+      "contentType": "text/html",
+      "bytes": 257675,
+      "sha256": "86e668f985b81cd7f18c51f63967bd795918f375737a92a8736349cf05103c8f"
+    },
+    {
+      "sourceId": "ELECTRICITY_2024_LANDING",
+      "parentSourceId": "ELECTRICITY_2024",
+      "url": "https://www.moi.gov.tw/News_Content.aspx?n=145&s=317657",
+      "snapshotPath": "rules/snapshots/2026-09-01/electricity-rules-2024.html",
+      "contentType": "text/html",
+      "bytes": 98441,
+      "sha256": "48a8c802f5a08df3134796fc4a80207049e4dda7e177c1acc7d275eca0384df2"
+    },
+    {
+      "sourceId": "SUBSIDY_2023_LANDING",
+      "parentSourceId": "SUBSIDY_2023",
+      "url": "https://www.moi.gov.tw/News_Content.aspx?n=145&s=280625",
+      "snapshotPath": "rules/snapshots/2026-09-01/rent-subsidy-2023.html",
+      "contentType": "text/html",
+      "bytes": 97718,
+      "sha256": "d067191dc1a63f1f295f337b76f410476fbaba52f35dbb4e091968f7f4767daa"
+    }
+  ]
+}

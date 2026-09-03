@@ -1,0 +1,172 @@
+# RentProof 隱私政策草案
+
+- 狀態：產品／技術草案，尚未對外生效
+- 草案版本：`privacy-draft-0.2`
+- 日期：2026-09-03
+- 適用目標：第一個可接受真實資料的 production release
+
+> 本文件是供產品、工程與法務審閱的草案，不是法律意見，也不是目前已生效的對外政策。營運者名稱、聯絡方式、特定目的、保存期限、資料處理地區、未成年人規則與申訴管道等欄位完成並經台灣法律／隱私專業人士審閱前，RentProof 不得接受真實租約、看屋影像或其他個人資料。
+
+## 1. 適用範圍與服務提供者
+
+本政策預計適用於 RentProof production 網站、帳戶、租屋案件、上傳素材、分析結果與支援服務。它不適用於另有政策的第三方網站或服務。
+
+正式公告前必須填入：
+
+| 欄位                 | 正式版要求                     |
+| -------------------- | ------------------------------ |
+| 資料蒐集／服務提供者 | `[營運者完整法定名稱]`         |
+| 聯絡地址             | `[地址或依法可使用的聯絡地址]` |
+| 隱私聯絡方式         | `[專用 email／申請管道]`       |
+| 服務地區             | `[實際提供服務的地區]`         |
+| 政策生效日           | `[YYYY-MM-DD]`                 |
+
+本機`local_development`、HTTP私人區域網路`lan_development`與公開HTTP靜態唯讀`public_http_showcase`只使用完全虛構素材，不提供真實資料上傳。`public_http_showcase`沒有Cookie／表單／API／帳戶／OpenAI key，且HTTP不能保證傳輸完整性；不同profile界線見[註冊、登入與歷史租約架構](AUTH_AND_HISTORY.md)。
+
+## 2. 我們預計處理的資料
+
+RentProof 採資料最小化，依實際啟用功能處理下列類別：
+
+| 類別             | 例子                                                                                                | 用途                                                                       |
+| ---------------- | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| 帳戶與身分資料   | 選用帳戶的正規化email、驗證狀態、Argon2id PHC密碼hash、session／challenge keyed digest、內部user ID | 註冊、Email驗證、登入、Email密碼重設與owner authorization；初期不蒐集phone |
+| 訪客工作階段     | opaque guest ID、session token hash、建立／到期時間與 purge 狀態                                    | 讓未登入使用者在目前工作階段操作同一案件；不提供歷史搜尋                   |
+| 租屋案件資料     | 案件顯示名稱、概略地區、案件狀態、使用者確認的適用性與時間線                                        | 建立案件、整理歷史紀錄與執行規則                                           |
+| 使用者提供的內容 | 廣告截圖／文字、看屋照片、租約、補件及經遮蔽的互動資料                                              | 抽取證據、比對來源、產生待確認事項                                         |
+| 衍生分析資料     | claims、observations、clauses、findings、rule checks、風險訊號、報告與 source locators              | 呈現分析、局部重跑與保留可追溯性                                           |
+| 技術與安全資料   | session metadata、時間、request／audit ID、錯誤碼、用量、裝置／瀏覽器的必要安全資訊                 | 維持 session、防濫用、除錯、事件調查與成本控制                             |
+| Cookie 與偏好    | 必要 session／CSRF／安全 cookie、cookie preference                                                  | 登入、安全與保存使用者選擇；詳見 [Cookie 政策草案](COOKIE_POLICY_DRAFT.md) |
+| 支援請求         | 使用者主動提供的聯絡內容與問題描述                                                                  | 回覆問題與處理資料權利請求                                                 |
+
+RentProof不要求真實姓名、身分證字號、電話、銀行帳號、OTP、QR code、房東證件或權狀影像作為初期註冊欄位，也不做臉部辨識。使用者應在上傳前移除無關人員、完整門牌、簽名、私人照片、電話、帳號與其他非必要個資。
+
+## 3. 資料來源
+
+資料可能來自：
+
+- 使用者本人註冊、填寫、上傳或確認的內容。
+- Self-hosted Auth流程產生的Email驗證狀態、不可逆密碼hash、session／challenge digest與必要帳戶狀態；不保存明文密碼或原始token／code。
+- 使用服務時由 server 產生的 session、安全、audit 與分析 metadata。
+- 由使用者提供之素材經本機 parser、確定性規則與 OpenAI Cloud 分析產生的衍生結果。
+
+使用者上傳的租約、照片、廣告或互動內容可能間接包含房東、仲介、室友、前住戶或其他第三人的資料。RentProof 會要求上傳者確認必要權限、移除非必要內容並提供遮蔽工具；但這不取代服務方依個人資料保護法第 9 條及其他適用規範評估間接蒐集告知、例外、資料權利與刪除義務。正式版必須由法務決定可行的告知方式與聯絡管道。
+
+RentProof P0 不登入租屋平台、不爬取任意網址，也不從地政、戶籍、銀行或私人身分資料庫取得資料。使用者貼上的網址只作來源 metadata，不會觸發抓取。
+
+## 4. 處理目的與告知
+
+預計目的包括：
+
+1. 建立及保護訪客工作階段與選用帳戶。
+2. 對登入使用者保存並顯示其歷史租屋案件；訪客案件只在目前工作階段依授權存取，不提供歷史查詢。
+3. 驗證、整理、分析與比對廣告、現場證據、契約及使用者確認資料。
+4. 產生中立的證據差異、資料不足、官方規則疑似差異與付款前查證行動。
+5. 回應支援、資料權利、刪除與安全事件。
+6. 維護服務安全、可靠性、成本控制與法令遵循。
+
+正式版須依實際營運者、功能與台灣個人資料保護法完成蒐集告知，包括蒐集者、目的、資料類別、利用期間／地區／對象／方式、當事人權利與不提供資料的影響。不得只以一個概括同意取代必要告知。
+
+若使用者不提供帳戶資料，仍可使用 guest flow，但沒有跨 session／裝置的歷史查詢與 Email／SMS 密碼恢復；若不提供分析所需素材或不完成適用的 Cloud Processing 選擇，系統不會送出該次 live analysis。正式告知需逐一說明每個欄位／用途不提供的具體影響。
+
+## 5. OpenAI Cloud 與其他受託處理者
+
+RentProof 的 production 分析會把完成驗證、最小化與必要遮蔽的文字、頁面或影像衍生檔，由 server 傳送至 OpenAI Responses API。OpenAI 只用於非結構化抽取與語意候選；三態、金額、官方規則、優先序與報告由 RentProof 的確定性程式處理。
+
+- API key 只存在 server／analysis worker；瀏覽器不直接連線 OpenAI。
+- 每次 request 設定 `store: false`，但本服務不把它描述成 Zero Data Retention。
+- Email、password、verification／reset code、session token與Email delivery provider credential不送給OpenAI。
+- 只傳本次 stage 所需的 derivative、頁面或 crop，不傳整案全部內容。
+- OpenAI refusal、incomplete、schema 或 locator 驗證失敗會使用各自的分析失敗 reason code；技術失敗不得轉成 domain 的「證據不足」，也不得顯示成「沒有問題」。
+
+正式上線前必須公布實際使用的服務供應商、處理目的、資料類別、處理地區／國際傳輸、保存設定與可用的資料控制。OpenAI 的實際資料處理條件應以 production Project 設定與當時官方文件重新核對；詳見 [OpenAI Cloud LLM 整合](OPENAI_INTEGRATION.md)。其他 identity、hosting、database、object storage、email、security 或 support 供應商也必須在啟用前納入受託處理者清冊。
+
+帳戶改採self-hosted Email／密碼Auth。正式政策仍須填入Transactional Email供應商、實際處理地區、subprocessors、保存／刪除、國際傳輸與DPA；尚未選定前不能把任何Email服務寫成已啟用的正式受託者。初期不提供SMS／phone或宣稱MFA；日後新增任何相關provider前須另行揭露、威脅建模與審查。
+
+## 6. 資料利用、揭露與國際傳輸
+
+RentProof 只在提供、保護與依法營運服務所需範圍內利用資料，不出售租約、看屋影像或分析結果，也不以這些內容建立房東／房客信用分數、人物黑名單或廣告受眾。
+
+RentProof 不把使用者真實案件內容用於訓練自身模型、一般產品研究資料集或行銷。若未來希望把資料用於與原案件分析不同的研究／改善用途，必須先提出獨立、具體、可拒絕的選擇與保留／刪除說明；不得以接受服務條款概括取得。
+
+資料可能提供給經選定並受契約與權限限制的服務供應商，或於法律要求、保護權利及處理安全事件所必要時依法揭露。若資料傳輸至台灣以外地區，正式版須揭露實際地區、接收者類別與保護措施；在完成供應商與法務核對前不作具體地區承諾。
+
+## 7. 自動化處理的限制
+
+RentProof 會使用 AI 協助抽取與比對，但不自動判定：
+
+- 某物件或人物是不是詐騙。
+- 某契約條款是否合法／違法。
+- 租金是否合理、建物是否安全、是否漏水或責任歸屬。
+- 使用者是否應付款、簽約、報警或封鎖他人。
+
+使用者會看到來源定位、差異與待確認事項，最終決定仍由當事人、消保單位或專業人士作成。
+
+## 8. 保存、封存與刪除
+
+正式版須在程式設定、資料庫清除工作、備份流程與本政策中使用一致的保存表；不得在政策先承諾尚未實作的天數。
+
+| 資料類別                           | 起算點                              | 正式版需填的保存／刪除規則                                                                                                   |
+| ---------------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| 未完成註冊／驗證資料               | 發起註冊或驗證                      | `[期限與清除方式]`                                                                                                           |
+| Active account metadata            | 帳戶建立                            | `[帳戶期間＋法定／安全必要期間]`                                                                                             |
+| 訪客租屋案件原檔與 derivative      | Guest Session建立／到期或使用者刪除 | Session固定24小時；到期或刪除後立即停止一般存取，並於24小時內清除線上案件資料                                                |
+| 帳戶租屋案件原檔與 derivative      | 保存到帳戶／案件或帳戶刪除          | 帳戶有效期間保存至使用者刪除案件或帳戶；刪除後立即停止一般存取，並於7個日曆日內清除線上資料                                  |
+| 分析 runs、snapshots、報告與 cache | 分析完成／案件刪除                  | `[一致 cascade 與 cache 清除期限]`                                                                                           |
+| Raw conversation text              | Turn建立                            | 固定7個日曆日；到期立即停止一般存取並於24小時內online purge。Guest／Demo／案件刪除較短期限優先；typed events可依案件政策保留 |
+| Account session                    | 建立／合格主動使用／登出／重設密碼  | 7天sliding idle expiry；合格主動使用原子延長，登出／重設密碼／帳戶停用或刪除立即撤銷；DB只存server-keyed digest              |
+| Guest session                      | 建立／到期                          | 建立後固定24小時到期、不滑動；到期立即拒絕存取，相關線上案件資料於24小時內purge                                              |
+| Security／deletion audit events    | 事件發生                            | 最小化allowlist metadata保存180個日曆日，到期後24小時內清除；限受授權security／privacy維運角色                               |
+| 備份                               | 各backup／PITR log建立              | 加密保存最多14個日曆日，只供災難復原；不可逐筆刪除，還原前須重播仍有效的deletion tombstones                                  |
+| Deletion tombstone                 | 刪除請求                            | 保存21個日曆日；只含重播所需opaque references、target、event與時間，不含案件內容                                             |
+| 支援／權利請求                     | 案件結束                            | `[必要保存期限]`                                                                                                             |
+
+訪客若清除或遺失 guest session，系統不會用租約內容、檔名或 case ID 代為找回；資料仍依公開的短期保存與 purge 規則刪除。案件刪除會先停止一般存取，再清除 quarantine、原始檔、衍生檔、cache、runs、snapshots、reports、object 與適用的第三方 file objects。帳戶刪除會撤銷 sessions 並逐案執行刪除工作。只有所有線上刪除步驟完成後才顯示完成；備份14天輪替與tombstone 21天規則依本節分開告知。
+
+未明確轉移到帳戶的訪客案件，自Guest Session建立起最長約48小時離開線上系統；這是24小時Session加上最長24小時purge SLA，不代表到期後仍可存取。備份、必要security audit與法定例外不包含在此線上清除承諾內，必須在正式上線前另訂並揭露。
+
+帳戶案件不因閒置自動到期，會保存至使用者刪除個別案件或帳戶。產品需持續提供可發現的刪除控制，不得以使用者可能忘記刪除為由把此政策描述成永久保證。刪除確認後立即無法一般存取，PostgreSQL案件內容、quarantine、原檔、derivative、cache、runs、snapshots、reports、索引與適用第三方file objects於7個日曆日內清除；服務終止與必要security／legal retention仍須另行揭露。
+
+不可變backup無法針對單一案件即時抽除；backup及適用PITR logs自建立起最多保存14個日曆日，期間加密、隔離且不得用於一般查詢、客服找回或分析。若需restore，系統會先在隔離環境重播保存21天的最小化deletion tombstones並驗證已刪資料不會恢復，之後才可重新開放服務。介面需區分「線上資料已清除」與「備份尚待輪替到期」。
+
+Security／deletion audit只保存allowlisted事件類型、時間、結果、reason／correlation ID及pseudonymous internal references等最小metadata，最多180天；不保存案件文字／影像、地址、檔名、email／phone、request body、prompt／output或認證祕密，也不能用來重建已刪案件。
+
+Raw user／assistant conversation text不因案件長期保存而永久保留；建立7天後hidden並於24小時內清除online copies、cache與search。系統只留下typed intents／candidates／confirmations及不含原文的turn metadata。不可變backup仍依14天輪替，restore先重播不含內容的21天retention tombstone；介面需區分online purge與backup expiry。
+
+## 9. 使用者的資料權利
+
+在適用法令範圍內，使用者可透過帳戶資料頁或正式隱私聯絡管道提出：
+
+- 查詢或請求閱覽。
+- 請求製給複製本。
+- 請求補充或更正。
+- 請求停止蒐集、處理或利用。
+- 請求刪除。
+
+正式流程需驗證請求人身分、提供案件進度、不要求超過必要程度的證件，並處理依法不能立即刪除或需保存的例外。拒絕或限制請求時應提供理由與可用申訴方式。
+
+## 10. 資訊安全
+
+規劃中的措施包括：HTTPS、self-hosted Argon2id credential handling、server-side keyed-digest session、Email verification、owner-scoped authorization、private object storage、quarantine／sanitization、加密、最小權限、secrets management、CSRF／Origin防護、rate limits、schema／locator驗證、稽核事件與刪除測試。完整控制與release gate見[安全與隱私規格](SECURITY_PRIVACY.md)。
+
+任何措施都不能保證零風險。發生個人資料事故時，RentProof 將依適用法令、事件處理程序與實際風險採取控制、調查與通知；正式版須填入聯絡與通報流程。
+
+## 11. 未成年人
+
+RentProof 尚未決定 production 的最低註冊年齡、法定代理人同意或未成年人請求流程。這是接受真實資料前的 release blocker；不得以本草案推定未成年人可以自行同意所有資料處理或契約條款。
+
+## 12. 政策變更與版本
+
+- 每份公告政策都有類型、版本、生效日、內容 hash 與語言。
+- 重大變更以明顯方式通知；是否需要重新同意或僅重新告知，依變更內容與法務審查決定。
+- 不以「繼續使用即一律同意所有變更」取代必要通知或同意。
+- 使用者可在未登入狀態查看現行政策，帳戶中可查看適用版本與重要歷史版本。
+
+## 13. 聯絡與申訴
+
+正式版必須提供可運作的隱私聯絡方式、身分驗證方式、處理狀態與申訴管道：`[待填]`。
+
+## 14. 法規與審閱基準
+
+本草案依產品資料流與台灣 [個人資料保護法（全國法規資料庫）](https://law.moj.gov.tw/LawClass/LawAll.aspx?pcode=I0050021) 的告知、當事人權利、特定目的、安全維護、刪除與國際傳輸等要求規劃。該官方頁面目前同時標示部分修正條文尚未施行，因此正式公告時必須重新核對實際生效條文、主管機關解釋與營運者適用義務。
+
+政府網站的 [我的 E 政府隱私權暨資訊安全政策](https://www.gov.tw/CP_16) 僅作政策資訊架構與 Cookie 揭露方式的參考，不代表 RentProof 已獲政府認證或完成法令遵循。

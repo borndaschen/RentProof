@@ -1,0 +1,36 @@
+import { NextResponse, type NextRequest } from "next/server";
+import { getServerEnvironment } from "@/server/env";
+import {
+  sanitizedDirectRequestHeaders,
+  validateGlobalNetworkBoundary,
+} from "@/server/network/request-boundary";
+
+export default function proxy(request: NextRequest) {
+  let environment;
+  try {
+    environment = getServerEnvironment();
+  } catch {
+    return networkBoundaryError(503);
+  }
+  const boundary = validateGlobalNetworkBoundary(request.headers, environment);
+  if (!boundary.ok) return networkBoundaryError(400);
+  const sanitizedHeaders = sanitizedDirectRequestHeaders(request.headers);
+  return NextResponse.next({ request: { headers: sanitizedHeaders } });
+}
+
+export const config = {
+  matcher: ["/:path*"],
+};
+
+function networkBoundaryError(status: 400 | 503): NextResponse {
+  return NextResponse.json(
+    { error: "REQUEST_NETWORK_BOUNDARY_REJECTED" },
+    {
+      status,
+      headers: {
+        "cache-control": "private, no-store",
+        "x-content-type-options": "nosniff",
+      },
+    },
+  );
+}

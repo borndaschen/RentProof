@@ -1,0 +1,14 @@
+packages:
+  - "."
+
+allowBuilds:
+  argon2: true
+  unrs-resolver: true
+
+minimumReleaseAgeExclude:
+  - "@testing-library/user-event@14.6.7"
+  - lucide-react@1.39.0
+  - openai@7.9.0
+
+onlyBuiltDependencies:
+  - "sharp"

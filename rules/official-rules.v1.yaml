@@ -1,0 +1,380 @@
+schema_version: "1.0"
+ruleset_id: rentproof-tw-rental-rules
+ruleset_version: 1.0.0-draft
+jurisdiction: TW
+verified_at: "2026-09-01T00:00:00+08:00"
+disclaimer: >-
+  These rules surface possible textual or numerical differences for human review.
+  They do not determine legality, validity, fraud, liability, or case outcomes.
+
+allowed_results:
+  - no_difference_found
+  - possible_difference
+  - missing_information
+
+evaluation_policy:
+  applicability_values: [applicable, not_applicable, unknown]
+  unknown_applicability_result: missing_information
+  not_applicable_behavior: create_skipped_rule_check_with_null_result
+  unknown_required_input_result: missing_information
+  scope_gate: case.general_residential_scope must be confirmed true
+  source_resolution: resolve source_id to URL and persist rule locator, ruleset version, and source snapshot SHA-256 in every RuleCheck
+  draft_promotion_gate: every source must have a frozen snapshot SHA-256 before this ruleset is production-ready
+  execution: evaluator_id maps to an allowlisted TypeScript function; never eval predicate text from YAML
+  predicate_fields: documentation_only
+  date_gate: every evaluator applies effective_date to case.intended_signed_at before rule-specific logic
+  result_precedence: possible_difference_then_no_difference_if_complete_else_missing_information
+
+profiles:
+  p0:
+    active_rule_ids: [RP-003, RP-004, RP-006, RP-008, RP-009, RP-010]
+  p1:
+    active_rule_ids:
+      [RP-001, RP-002, RP-003, RP-004, RP-005, RP-006, RP-007, RP-008, RP-009, RP-010]
+    added_after_p0: [RP-001, RP-002, RP-005, RP-007]
+
+sources:
+  CURRENT_TERMS:
+    title: 住宅租賃定型化契約應記載及不得記載事項
+    publisher: 行政院
+    url: https://www.ey.gov.tw/Page/DFB720D019CCCB0A/478917df-7599-418f-8715-fd2716b623b4
+    current_revision_date: "2025-04-18"
+    retrieved_at: "2026-09-01"
+    snapshot_path: rules/snapshots/2026-09-01/current-terms.html
+    snapshot_sha256: 1672682d2794413065bd5b16a710db55cad8197ba9fbf688ed881a50cde60593
+  CURRENT_TERMS_PDF:
+    title: 住宅租賃定型化契約應記載及不得記載事項 PDF
+    publisher: 行政院
+    url: https://www.ey.gov.tw/File/43BC094940995CFC?A=C
+    current_revision_date: "2025-04-18"
+    retrieved_at: "2026-09-01"
+    snapshot_path: rules/snapshots/2026-09-01/current-terms.pdf
+    snapshot_sha256: fb25806446b812295e95237409e51f4eccffef18c134db126ded65610d2ddbb4
+  CONTRACT_TEMPLATE:
+    title: 住宅租賃契約書範本（企業或個人出租通用）
+    publisher: 內政部不動產資訊平台
+    url: https://pip.moi.gov.tw/Publicize/Info/G1020
+    snapshot_url: https://pip.moi.gov.tw/Upload/File/Contract/33-%28113-07-08%29%E4%BD%8F%E5%AE%85%E7%A7%9F%E8%B3%83%E5%A5%91%E7%B4%84%E6%9B%B8%E7%AF%84%E6%9C%AC%28%E4%BC%81%E6%A5%AD%E6%88%96%E5%80%8B%E4%BA%BA%E5%87%BA%E7%A7%9F%E9%80%9A%E7%94%A8%29.pdf
+    template_revision_date: "2024-07-08"
+    retrieved_at: "2026-09-01"
+    snapshot_path: rules/snapshots/2026-09-01/contract-template.pdf
+    snapshot_sha256: 012ed306a85a76d30c09e4f15943509a81ae4a55443e7e8d97a8c9ee1f0b420b
+    landing_snapshot_path: rules/snapshots/2026-09-01/contract-template.html
+    landing_snapshot_sha256: 86e668f985b81cd7f18c51f63967bd795918f375737a92a8736349cf05103c8f
+  ELECTRICITY_2024:
+    title: 住宅租賃定型化契約電費規定修正
+    publisher: 內政部
+    url: https://www.moi.gov.tw/News_Content.aspx?n=145&s=317657
+    snapshot_url: https://ws.moi.gov.tw/Download.ashx?n=5YWs5ZGK5L%2Bu5q2j5qKd5paHXyjmoLjlrprniYgpLnBkZg%3D%3D&u=LzAwMS9VcGxvYWQvNDAwL3JlbGZpbGUvOTA4Mi8zMTc2NTcvMDY0NWFhNmMtYTcyMy00ZmQ1LWE1YmUtMDY4NTQ4NWYzZTQ2LnBkZg%3D%3D
+    effective_date: "2024-07-15"
+    retrieved_at: "2026-09-01"
+    snapshot_path: rules/snapshots/2026-09-01/electricity-rules-2024.pdf
+    snapshot_sha256: e42c7e7bea8b8b3568a79c5c938bb12023b5bd3c7e3cfedd9e3450f48dd4666d
+    landing_snapshot_path: rules/snapshots/2026-09-01/electricity-rules-2024.html
+    landing_snapshot_sha256: 48a8c802f5a08df3134796fc4a80207049e4dda7e177c1acc7d275eca0384df2
+  ELECTRICITY_NEWS_2024:
+    title: 租屋電費新制7月15日正式上路 新約應依新制約定
+    publisher: 內政部
+    url: https://www.moi.gov.tw/News_Content.aspx?n=4&s=317872
+    effective_date: "2024-07-15"
+    retrieved_at: "2026-09-01"
+    snapshot_path: rules/snapshots/2026-09-01/electricity-news-2024.html
+    snapshot_sha256: ba7fd2bcfbc307452f176d2f0e37a0db214ff1212648e187c2bcc80e72305976
+  SUBSIDY_2023:
+    title: 租金補貼不得記載事項修正
+    publisher: 內政部
+    url: https://www.moi.gov.tw/News_Content.aspx?n=145&s=280625
+    snapshot_url: https://ws.moi.gov.tw/Download.ashx?n=5L%2Bu5q2j6KaP5a6aLnBkZg%3D%3D&u=LzAwMS9VcGxvYWQvNDAwL3JlbGZpbGUvOTA4Mi8yODA2MjUvODhiZDAyZWYtZTM2OS00MjYzLThkNWQtZDZhYmE5NzkzOGIwLnBkZg%3D%3D
+    effective_date: "2023-06-14"
+    retrieved_at: "2026-09-01"
+    snapshot_path: rules/snapshots/2026-09-01/rent-subsidy-2023.pdf
+    snapshot_sha256: 57ad6ecc21739a979f0edaa1b07c22ab6dce07222655dd897545e1c47ec5771b
+    landing_snapshot_path: rules/snapshots/2026-09-01/rent-subsidy-2023.html
+    landing_snapshot_sha256: d067191dc1a63f1f295f337b76f410476fbaba52f35dbb4e091968f7f4767daa
+
+rules:
+  - id: RP-001
+    title: 契約審閱期
+    implementation_status: p1
+    evaluator_status: implemented
+    evaluator_id: review_period_v1
+    rule_version: "1.0.0-draft"
+    effective_date: "2017-01-01"
+    verified_against_revision: "2025-04-18"
+    source_id: CURRENT_TERMS_PDF
+    source_locator: 應記載事項第1點；不得記載事項第1點
+    applicable_when: case.general_residential_scope is true
+    derived_inputs:
+      review_days: contract.explicit_review_days or days_between(contract.delivered_at, contract.intended_signed_at)
+    required_inputs:
+      [
+        case.general_residential_scope,
+        contract.document_complete,
+        contract.review_days,
+        contract.review_waiver_text,
+      ]
+    missing_when: any required input is unknown
+    possible_difference_when: contract.review_days < 3 or contract.review_waiver_text is true
+    messages:
+      possible_difference: 契約中的審閱期間或放棄審閱文字可能與官方規範不同，請確認完整契約交付日與簽約日。
+      missing_information: 尚缺契約審閱日數或交付日期，無法核對。
+    reason_codes:
+      possible_difference_short_period: REVIEW_PERIOD_UNDER_THREE_DAYS
+      possible_difference_waiver: REVIEW_PERIOD_WAIVER_TEXT
+      missing_information: REVIEW_PERIOD_INFORMATION_MISSING
+      no_difference_found: REVIEW_PERIOD_AT_LEAST_THREE_DAYS_NO_WAIVER_FOUND
+
+  - id: RP-002
+    title: 廣告承諾不得整體排除
+    implementation_status: p1
+    evaluator_status: implemented
+    evaluator_id: advertisement_exclusion_v1
+    rule_version: "1.0.0-draft"
+    effective_date: "2017-01-01"
+    verified_against_revision: "2025-04-18"
+    source_id: CURRENT_TERMS_PDF
+    source_locator: 應記載事項第22點；不得記載事項第2點
+    applicable_when: case.general_residential_scope is true
+    required_inputs:
+      [case.general_residential_scope, contract.document_complete, contract.advertisement_exclusion]
+    missing_when: any required input is unknown
+    possible_difference_when: contract.advertisement_exclusion is true
+    messages:
+      possible_difference: 契約含可能整體排除廣告內容的文字，請人工確認是否修改，並逐項確認廣告承諾是否寫入契約或附件。
+      missing_information: 尚未取得相關條款或完整契約，無法核對廣告效力文字。
+    reason_codes:
+      possible_difference: ADVERTISEMENT_EXCLUSION_TEXT
+      missing_information: ADVERTISEMENT_EXCLUSION_INFORMATION_MISSING
+      no_difference_found: ADVERTISEMENT_EXCLUSION_NOT_PRESENT_IN_COMPLETE_CONTRACT
+
+  - id: RP-003
+    title: 租賃範圍與附屬設備
+    implementation_status: p0
+    evaluator_id: rental_scope_and_equipment_v1
+    rule_version: "1.0.0-draft"
+    effective_date: "2017-01-01"
+    verified_against_revision: "2025-04-18"
+    source_id: CONTRACT_TEMPLATE
+    source_locator: 租賃標的與附件一租賃標的現況確認書
+    applicable_when: case.general_residential_scope is true
+    required_inputs:
+      [
+        case.general_residential_scope,
+        contract.document_complete,
+        contract.rental_scope,
+        contract.equipment_appendix,
+      ]
+    missing_when: any required input is unknown or contract.rental_scope is incomplete or contract.equipment_appendix is missing
+    possible_difference_when: false
+    messages:
+      missing_information: 契約的租賃範圍或設備附件尚未完整，請補入設備名稱、數量與交付狀態。
+    reason_codes:
+      missing_information: RENTAL_SCOPE_OR_EQUIPMENT_MISSING
+      no_difference_found: RENTAL_SCOPE_AND_EQUIPMENT_PRESENT
+
+  - id: RP-004
+    title: 租金與完整費用
+    implementation_status: p0
+    evaluator_id: rent_and_fees_v1
+    rule_version: "1.0.0-draft"
+    effective_date: "2020-09-01"
+    verified_against_revision: "2025-04-18"
+    source_id: CURRENT_TERMS_PDF
+    source_locator: 應記載事項第4點、第6點
+    applicable_when: case.general_residential_scope is true
+    required_inputs:
+      [
+        case.general_residential_scope,
+        contract.document_complete,
+        contract.monthly_rent,
+        contract.fees,
+        contract.allows_unilateral_rent_increase,
+      ]
+    missing_when: any required input is unknown or contract.fees have unspecified items
+    possible_difference_when: contract.allows_unilateral_rent_increase is true
+    messages:
+      possible_difference: 契約含租期內可單方調整租金的文字，建議人工確認。
+      missing_information: 租金或相關費用尚未完整載明，請逐項確認管理、水、電、網路、停車與一次性費用。
+    reason_codes:
+      possible_difference: UNILATERAL_RENT_INCREASE_TEXT
+      missing_information: RENT_OR_FEES_INCOMPLETE
+      no_difference_found: RENT_AND_FEES_COMPLETE
+
+  - id: RP-005
+    title: 押金上限與返還
+    implementation_status: p1
+    evaluator_status: implemented
+    evaluator_id: deposit_limit_and_return_v1
+    rule_version: "1.0.0-draft"
+    effective_date: "2017-01-01"
+    verified_against_revision: "2025-04-18"
+    source_id: CURRENT_TERMS_PDF
+    source_locator: 應記載事項第5點
+    applicable_when: case.general_residential_scope is true
+    required_inputs:
+      [
+        case.general_residential_scope,
+        contract.monthly_rent,
+        contract.deposit_amount,
+        contract.deposit_return_terms,
+      ]
+    missing_when: monthly rent, deposit amount, or deposit return terms are not present and known
+    possible_difference_when: contract.deposit_amount > contract.monthly_rent * 2
+    messages:
+      possible_difference: 契約押金高於兩個月租金，與官方規範所列上限可能不同，請人工確認是否修改或向地政／消保單位確認。
+      missing_information: 尚缺月租、押金金額或押金返還／抵充約定，暫時無法完整核對。
+    reason_codes:
+      possible_difference: DEPOSIT_ABOVE_TWO_MONTHS_RENT
+      missing_information: DEPOSIT_OR_RETURN_TERMS_MISSING
+      no_difference_found: DEPOSIT_WITHIN_TWO_MONTHS_AND_RETURN_TERMS_PRESENT
+
+  - id: RP-006
+    title: 按度電費
+    implementation_status: p0
+    evaluator_id: per_kwh_electricity_v1
+    rule_version: "1.0.0-draft"
+    effective_date: "2024-07-15"
+    verified_against_revision: "2025-04-18"
+    source_id: ELECTRICITY_2024
+    source_locator: 應記載事項第6點第3款
+    applicable_when: case.general_residential_scope is true and case.intended_signed_at >= 2024-07-15 and case.electricity_payer == tenant and electricity.billing_mode == per_kwh
+    required_inputs:
+      [
+        case.general_residential_scope,
+        case.intended_signed_at,
+        case.electricity_payer,
+        electricity.billing_mode,
+        electricity.charged_rate,
+        bill.average_unit_price,
+        bill.period,
+        bill.meter_scope,
+      ]
+    missing_when: any required input is unknown or bill does not match the same property and period
+    possible_difference_when: electricity.charged_rate > bill.average_unit_price
+    messages:
+      possible_difference: 所提供的按度單價高於同一標的同一期帳單平均單價，兩者可能不一致，請人工確認。
+      missing_information: 尚缺同一標的同一期電費單，無法核對每度金額。
+    reason_codes:
+      possible_difference: ELECTRICITY_RATE_ABOVE_BILL_AVERAGE
+      missing_information: SAME_PROPERTY_PERIOD_BILL_MISSING
+      no_difference_found: ELECTRICITY_RATE_NOT_ABOVE_BILL_AVERAGE
+
+  - id: RP-007
+    title: 非按度計費與公共用電
+    implementation_status: p1
+    evaluator_status: implemented
+    evaluator_id: non_metered_and_public_electricity_v1
+    rule_version: "1.0.0-draft"
+    effective_date: "2024-07-15"
+    verified_against_revision: "2025-04-18"
+    source_id: ELECTRICITY_2024
+    source_locator: 應記載事項第6點第3款
+    applicable_when: case.general_residential_scope is true and case.intended_signed_at >= 2024-07-15 and case.electricity_payer == tenant
+    required_inputs:
+      [
+        case.general_residential_scope,
+        case.intended_signed_at,
+        case.electricity_payer,
+        electricity.billing_mode,
+        electricity.charged_total,
+        electricity.extra_public_charge,
+        bill.total_amount,
+        bill.usage_kwh,
+        bill.meter_scope,
+        bill.period,
+        bill.public_area_allocation,
+      ]
+    missing_when: applicability is unknown or same-property same-period bill, bill usage, rental meter scope, bill total, required charged total, or the public allocation for an extra public charge is missing
+    possible_difference_when: (electricity.billing_mode == non_metered and electricity.charged_total > bill.total_amount) or (electricity.extra_public_charge is present and bill.public_area_allocation is false)
+    messages:
+      possible_difference: 收取總額或公共用電文字與本期帳單資訊可能不一致，請人工確認。
+      missing_information: 缺少同一標的同一期帳單、用電度數、租賃範圍、電費總額或公共設施分攤資訊，暫時無法核對。
+    reason_codes:
+      possible_difference_non_metered: NON_METERED_CHARGE_ABOVE_BILL_TOTAL
+      possible_difference_public_area: PUBLIC_ELECTRICITY_CHARGED_OUTSIDE_BILL
+      missing_information: NON_METERED_OR_PUBLIC_ELECTRICITY_INFORMATION_MISSING
+      no_difference_found: NON_METERED_AND_PUBLIC_ELECTRICITY_NO_DIFFERENCE
+
+  - id: RP-008
+    title: 電費資訊透明
+    implementation_status: p0
+    evaluator_id: electricity_information_v1
+    rule_version: "1.0.0-draft"
+    effective_date: "2024-07-15"
+    verified_against_revision: "2025-04-18"
+    source_id: ELECTRICITY_2024
+    source_locator: 應記載事項第11點
+    applicable_when: case.general_residential_scope is true and case.intended_signed_at >= 2024-07-15 and case.electricity_payer == tenant
+    required_inputs:
+      [
+        case.general_residential_scope,
+        case.intended_signed_at,
+        case.electricity_payer,
+        bill.average_unit_price,
+        bill.usage_kwh,
+        bill.total_amount,
+        bill.public_area_allocation,
+        contract.blocks_tenant_bill_inquiry,
+      ]
+    missing_when: any required input is unknown
+    possible_difference_when: contract.blocks_tenant_bill_inquiry is true
+    messages:
+      possible_difference: 契約含可能限制承租人查詢電費資訊的文字，建議人工確認。
+      missing_information: 目前提供資料未包含可核對的電費資訊；建議補最近一期電費單或向台電申辦查詢。
+    reason_codes:
+      possible_difference: TENANT_BILL_INQUIRY_RESTRICTED
+      missing_information: ELECTRICITY_INFORMATION_MISSING
+      no_difference_found: ELECTRICITY_INFORMATION_PRESENT
+
+  - id: RP-009
+    title: 修繕責任與聯絡方式
+    implementation_status: p0
+    evaluator_id: repair_responsibility_v1
+    rule_version: "1.0.0-draft"
+    effective_date: "2020-09-01"
+    verified_against_revision: "2025-04-18"
+    source_id: CURRENT_TERMS_PDF
+    source_locator: 應記載事項第9點、第11點與附件三
+    applicable_when: case.general_residential_scope is true
+    required_inputs:
+      [
+        case.general_residential_scope,
+        contract.tenant_repair_items,
+        contract.repair_contact,
+        contract.assigns_all_repairs_to_tenant_without_itemization,
+      ]
+    missing_when: any required input is unknown or contract.tenant_repair_items are not individually confirmed
+    possible_difference_when: contract.assigns_all_repairs_to_tenant_without_itemization is true
+    messages:
+      possible_difference: 契約可能未逐項約明即由承租人負擔全部修繕，建議人工確認修繕附件。
+      missing_information: 修繕項目、範圍或聯絡方式尚未完整，請補件確認。
+    reason_codes:
+      possible_difference: REPAIRS_ASSIGNED_WITHOUT_ITEMIZATION
+      missing_information: REPAIR_SCOPE_OR_CONTACT_MISSING
+      no_difference_found: REPAIR_SCOPE_AND_CONTACT_PRESENT
+
+  - id: RP-010
+    title: 租金補貼限制
+    implementation_status: p0
+    evaluator_id: rent_subsidy_restriction_v1
+    rule_version: "1.0.0-draft"
+    effective_date: "2023-06-14"
+    verified_against_revision: "2025-04-18"
+    source_id: SUBSIDY_2023
+    source_locator: 不得記載事項第10點
+    applicable_when: case.general_residential_scope is true
+    required_inputs:
+      [
+        case.general_residential_scope,
+        contract.document_complete,
+        contract.rent_subsidy_restriction,
+      ]
+    missing_when: any required input is unknown
+    possible_difference_when: contract.rent_subsidy_restriction is true
+    messages:
+      possible_difference: 契約含限制申請租金補貼的文字，與官方不得記載事項可能不同，請人工確認是否修改並由主管機關確認。
+      missing_information: 尚未取得租金補貼相關條款或完整契約，無法核對。
+    reason_codes:
+      possible_difference: RENT_SUBSIDY_RESTRICTION_TEXT
+      missing_information: RENT_SUBSIDY_CLAUSE_UNKNOWN
+      no_difference_found: RENT_SUBSIDY_RESTRICTION_NOT_PRESENT_IN_COMPLETE_CONTRACT
