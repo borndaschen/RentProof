@@ -15,7 +15,7 @@ type AuthSessionResponse = Readonly<{
 
 const genericFailure = "無法完成要求。請稍後重試；系統不會透露帳戶是否存在。";
 
-export function AuthPanel() {
+export function AuthPanel({ usesExternalEmail = false }: { usesExternalEmail?: boolean }) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("login");
   const [session, setSession] = useState<SessionState>("loading");
@@ -74,7 +74,11 @@ export function AuthPanel() {
         if (!response.ok) throw new Error("AUTH_FAILED");
         form.reset();
         setMode("verify_registration");
-        setMessage("若可建立帳戶，驗證碼已準備完成。請前往帳戶驗證中心取得。");
+        setMessage(
+          usesExternalEmail
+            ? "若可建立帳戶，6位數驗證碼已寄至你輸入的Email。"
+            : "若可建立帳戶，驗證碼已準備完成。請前往帳戶驗證中心取得。",
+        );
         return;
       }
 
@@ -95,7 +99,11 @@ export function AuthPanel() {
         });
         form.reset();
         setMode("reset_code");
-        setMessage("若帳戶存在，重設碼已準備完成。請前往帳戶驗證中心取得。");
+        setMessage(
+          usesExternalEmail
+            ? "若帳戶存在，6位數重設碼已寄至你輸入的Email。"
+            : "若帳戶存在，重設碼已準備完成。請前往帳戶驗證中心取得。",
+        );
         return;
       }
 
@@ -236,10 +244,15 @@ export function AuthPanel() {
                 返回
               </Link>
             </nav>
-            {(mode === "verify_registration" || mode === "reset_code") && (
+            {!usesExternalEmail && (mode === "verify_registration" || mode === "reset_code") && (
               <p className="auth-demo-mailbox-note">
                 請前往<Link href="/auth/dev-mailbox">帳戶驗證中心</Link>
                 取得一次性驗證碼。
+              </p>
+            )}
+            {usesExternalEmail && (mode === "verify_registration" || mode === "reset_code") && (
+              <p className="auth-demo-mailbox-note">
+                請查看Email中的6位數驗證碼；驗證碼15分鐘後失效。
               </p>
             )}
           </>

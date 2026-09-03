@@ -162,6 +162,21 @@ describe("AuthPanel", () => {
     expect(screen.getByLabelText("密碼")).toHaveValue("");
   });
 
+  it("directs Gmail mode to the six-digit Email instead of the disabled demo mailbox", async () => {
+    mockedFetch
+      .mockResolvedValueOnce(sessionResponse())
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: "accepted" }), { status: 202 }));
+    const user = userEvent.setup();
+    render(<AuthPanel usesExternalEmail />);
+    await screen.findByRole("heading", { name: "登入 RentProof" });
+    await user.click(screen.getByRole("button", { name: "忘記密碼" }));
+    await user.type(screen.getByLabelText("Email"), "account@example.test");
+    await user.click(screen.getByRole("button", { name: "建立重設要求" }));
+    expect(await screen.findByText(/6位數重設碼已寄至/u)).toBeVisible();
+    expect(screen.getByText(/請查看Email中的6位數驗證碼/u)).toBeVisible();
+    expect(screen.queryByRole("link", { name: "帳戶驗證中心" })).not.toBeInTheDocument();
+  });
+
   it("renders generic failures without exposing server details", async () => {
     mockedFetch
       .mockResolvedValueOnce(sessionResponse())

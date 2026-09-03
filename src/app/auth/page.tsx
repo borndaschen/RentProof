@@ -12,5 +12,9 @@ export default function AuthPage() {
   ) {
     notFound();
   }
-  return <AuthPanel />;
+  return (
+    <AuthPanel
+      usesExternalEmail={environment.RENTPROOF_EMAIL_DELIVERY_MODE === "personal_gmail_api"}
+    />
+  );
 }
