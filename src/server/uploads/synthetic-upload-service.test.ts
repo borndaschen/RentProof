@@ -68,8 +68,8 @@ function headers(
   overrides: Record<string, string> = {},
 ): Headers {
   return new Headers({
-    host: "192.168.1.20:3000",
-    origin: "http://192.168.1.20:3000",
+    host: "127.0.0.1:3000",
+    origin: "http://127.0.0.1:3000",
     "content-type": "application/octet-stream",
     "x-rentproof-csrf": "rentproof-synthetic-upload-v1",
     "x-rentproof-demo-artifact-id": artifact.id,
@@ -87,7 +87,7 @@ function transport(
 ) {
   return {
     caseId: "golden-v1",
-    sourceIp: "192.168.1.44",
+    sourceIp: "127.0.0.1",
     headers: headers(artifact),
     stream: bytes,
     ...overrides,
@@ -106,12 +106,12 @@ function service(
 ) {
   return new SyntheticUploadService({
     profile: {
-      deploymentProfile: "lan_development",
+      deploymentProfile: "local_development",
       allowRealData: (overrides.allowRealData ?? false) as false,
       llmMode: overrides.llmMode ?? "fixture",
       caseVersion: "golden-v1",
-      allowedHosts: ["192.168.1.20:3000"],
-      allowedOrigins: ["http://192.168.1.20:3000"],
+      allowedHosts: ["127.0.0.1:3000"],
+      allowedOrigins: ["http://127.0.0.1:3000"],
     },
     manifestSource:
       overrides.manifestSource ??

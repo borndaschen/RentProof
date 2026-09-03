@@ -368,7 +368,7 @@ function p1MissingReason(ruleId: string): string {
   return "DETERMINISTIC_RULE_INPUT_INCOMPLETE";
 }
 
-function deterministicFinding(
+export function deterministicFinding(
   claim: Claim,
   observations: readonly Observation[],
   clauses: readonly ContractClause[],

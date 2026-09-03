@@ -2,6 +2,59 @@
 
 本檔記錄已完成的事實與驗證，不把規劃中的工作寫成已完成。最新紀錄放最上方。
 
+## 2026-09-03 — HTTPS真實素材Demo完成
+
+### 已完成
+
+- 建立並信任專用本機CA；Server憑證固定SAN `172.16.102.98`／`127.0.0.1`／`localhost`，私鑰只存於repository外且由NTFS ACL限制。
+- 新增`lan_secure_demo`：外部只監聽`https://172.16.102.98:3443`，Next.js只監聽`127.0.0.1:3100`；移除舊HTTP LAN啟動入口、3000 listener與Firewall規則。
+- 實作self-hosted Auth、Secure／HttpOnly／SameSite Cookie、內部TLS Proxy高熵標記、exact Host／Origin、CSRF與forwarded-header拒絕。
+- 新增隔離的`rentproof_secure_demo`資料庫、分離migration／app roles及`003_private_case_artifacts`；原檔名不進DB，圖片先由Sharp移除metadata，PDF先由PDF.js建立可定位文字。
+- 素材以AES-256-GCM v2加密保存於repository外私有目錄，AAD綁定案件相對路徑；所有artifact／case／analysis／delete query皆owner-scoped。刪除案件後立即停止存取並同步清除加密檔與線上案件內容，失敗保持待清除狀態供安全重試。
+- 真實素材分析入口已接OpenAI Terra三個固定抽取階段、案件Budget、schema／locator驗證、三態比較及Server snapshot；只有Live、已確認Project額度與Server-only Key同時成立時啟用。
+- 使用者可見頁面改為一般租屋者語氣，移除Demo／Fixture／Golden／P0／P1／Synthetic等工程字樣；返回連結統一為「返回」，並補強鍵盤焦點、窄螢幕與200%縮放。
+
+### 實機驗證
+
+- HTTPS首頁200，HSTS、no-store與nosniff存在；wrong Host回400。實際listeners只有`172.16.102.98:3443`及`127.0.0.1:3100`，3000為零。
+- PostgreSQL migrations 001／002／003與13-table App readiness通過；DB只監聽loopback。
+- 一次性測試帳戶完成註冊、驗證、登入、建立案件、AES-GCM圖片上傳、刪除與帳戶清理，確認零殘留。
+- OpenAI Project額度由操作者確認並已配置Live Gate；實際3-stage付費外送測試因缺少對指定檔案的逐次外送授權而未執行，沒有發出Provider request或產生本次費用。
+
+### 自動化驗證
+
+- Vitest Coverage：125 files／1,154 tests通過；statements 85.00%、branches 80.23%、functions 88.82%、lines 87.62%。
+- Production Build、Prettier、ESLint、TypeScript與538-file Security Gate通過。
+- Playwright：desktop／mobile Chromium共21 passed、3個既有mobile singleton mutation案例依設計skip。
+
+### 仍需外部完成
+
+- 其他LAN裝置需各自安裝公開CA憑證後才能無警告連線。
+- 政策仍缺營運者法定資訊、聯絡方式、未成年人、處理地區、爭議條款及台灣法務／隱私審閱，因此維持DRAFT，不虛稱正式生效。
+
+---
+
+## 2026-09-03 — HTTP LAN退役與公開文件整理
+
+### 已完成
+
+- 新增D-093：HTTP只保留`127.0.0.1`本機開發；LAN統一使用`lan_secure_demo` HTTPS。
+- 移除公開指引中的`dev:lan`、`start:lan`、`.env.lan.local`與`--profile=lan`可執行說明；Demo readiness只接受local profile。
+- README改為一般GitHub讀者可快速理解的問題、功能、架構、技術、執行方式、安全限制及授權說明。
+- 隱私政策、使用條款及Cookie政策維持DRAFT，並集中列出營運者法定資訊、聯絡方式、未成年人、處理地區、爭議處理與法務／隱私審閱缺口。
+- 操作者已確認OpenAI Project額度設定；Live runtime仍須由啟動環境明確設定`OPENAI_PROJECT_LIMITS_CONFIRMED=true`。
+
+### 驗證
+
+- 舊`lan_development`仍由Server環境schema拒絕；沒有新增HTTP LAN fallback。
+- 本次未執行Git。
+
+### 尚未完成／風險
+
+- 正式政策仍待營運者資料與台灣法務／隱私審閱，不得標示為已生效。
+
+---
+
 ## 2026-09-03 — 公開GitHub repository交付Gate
 
 ### 已完成

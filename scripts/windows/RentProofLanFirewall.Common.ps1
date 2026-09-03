@@ -1,8 +1,8 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$script:RentProofRuleName = 'RentProof-Lan-Development-Managed'
-$script:RentProofRuleDisplayName = 'RentProof LAN Development (Managed)'
+$script:RentProofRuleName = 'RentProof-Lan-Secure-Demo-Managed'
+$script:RentProofRuleDisplayName = 'RentProof LAN HTTPS Demo (Managed)'
 
 function Assert-RentProofRfc1918Address {
     param([Parameter(Mandatory = $true)][string]$Address)

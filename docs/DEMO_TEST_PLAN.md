@@ -117,18 +117,18 @@
 6. 報告列印預覽沒有截斷主要表格或遺失來源。
 7. 自動結論沒有禁止措辭，且缺少外部資料時清楚失敗。
 
-### 5.4 HTTP LAN development tests
+### 5.4 HTTPS LAN tests
 
 - `local_development` 實際只 listen loopback；其他 LAN 裝置不能連線。
-- `lan_development` 只 listen 指定 RFC1918 IPv4，測試手機可用 `http://private-ip:port` 開啟；`0.0.0.0`、`::`、public／未配置 IP 拒絕啟動。
+- `lan_secure_demo`只listen指定RFC1918 IPv4的HTTPS，測試手機可用`https://private-ip:port`開啟；`0.0.0.0`、`::`、public／未配置IP及舊`lan_development`拒絕啟動。
 - Wrong／DNS-rebinding Host、missing／`null`／cross-site Origin 與 CSRF failure 均拒絕 mutation；無 wildcard CORS。
-- UI 持續顯示 HTTP／LAN／synthetic-only banner；production auth／history／password-reset routes 不存在或固定回 disabled。
+- Root CA／Server憑證、exact HTTPS origin、Secure Cookie、Auth／history／password-reset與owner scope通過整合驗證。
 - 只接受 Demo manifest 中 `synthetic: true` 且 SHA-256 相符的素材；未知檔案回 `DEV_SYNTHETIC_ARTIFACT_NOT_ALLOWLISTED`，不寫 runtime available store、不呼叫 OpenAI。
 - Fixture network request count 為 0；Live 重複 stage key 不重打 API，client bundle／source map／error overlay／log 不含 key。
 - Golden case從顯式`golden-vN`載入；manifest seal與所有listed files的path／MIME／bytes／SHA-256一致，missing／extra／mismatch皆拒絕。已sealed版本不得被測試或App修改。
 - `RENTPROOF_DEMO_CASE_VERSION`測missing／empty／leading zero／uppercase／whitespace／latest／dot／slash／backslash／drive／UNC／encoded traversal；任一無效值在filesystem lookup前拒絕，且不fallback其他版本。
 - Manifest測UTF-8 BOM／invalid JSON／unknown key／oversize／over-100 entries、duplicate semantic ID、case-only collision、absolute／UNC／drive／dot-segment／reserved-name／trailing-dot-space與raw-byte seal mismatch；任何失敗不載入fallback。
-- 正式Demo由Production Build以`lan_development`啟動，無HMR／browser或server source maps／詳細error overlay；`NODE_ENV=production`不會組裝Production auth／database／storage adapters。
+- LAN展示由Production Build以`lan_secure_demo`啟動，無HMR／browser或server source maps／詳細error overlay；`NODE_ENV=production`不會繞過profile與security Gates。
 - LAN composer接受free text但持續HTTP／no-real-data警告；Fixture network為0。注入字串、role spoof、要求洩露prompt／key、偽造JSON／confirmation、Unicode混淆與文件內指示不得取得tools、改domain state或跨case。
 - 一般PII pattern顯示可返回修改的warning與payload-bound acknowledgement；未ack不persist／model。Password／OTP／API key／token／金融帳號／QR hard block無繼續選項，logs只含reason code不含matched value。
 - Windows Firewall 僅 Private profile＋指定來源 IP／子網可連，Public profile、IPv6 與非允許裝置無法連線；Router 無 port forwarding／UPnP。

@@ -88,7 +88,7 @@ export type SyntheticUploadTransport = {
 };
 
 export type SyntheticUploadProfile = {
-  deploymentProfile: "local_development" | "lan_development";
+  deploymentProfile: "local_development";
   allowRealData: false;
   llmMode: "fixture" | "live";
   caseVersion: string;

@@ -3,13 +3,13 @@ import { z } from "zod";
 
 const baseEnvironmentSchema = z
   .object({
-    RENTPROOF_DEPLOYMENT_PROFILE: z.enum(["local_development", "lan_development"]),
+    RENTPROOF_DEPLOYMENT_PROFILE: z.enum(["local_development", "lan_secure_demo"]),
     RENTPROOF_BIND_HOST: z.string().min(1),
     RENTPROOF_PORT: z.coerce.number().int().min(1024).max(65535),
     RENTPROOF_PUBLIC_ORIGIN: z.url(),
     RENTPROOF_ALLOWED_HOSTS: z.string().min(1),
     RENTPROOF_ALLOWED_ORIGINS: z.string().min(1),
-    RENTPROOF_ALLOW_REAL_DATA: z.literal("false"),
+    RENTPROOF_ALLOW_REAL_DATA: z.enum(["true", "false"]),
     RENTPROOF_AUTH_MODE: z.enum(["synthetic", "self_hosted"]).default("synthetic"),
     RENTPROOF_RULE_PROFILE: z.enum(["p0", "p1"]).default("p0"),
     RENTPROOF_LLM_MODE: z.enum(["fixture", "live"]),
@@ -20,6 +20,10 @@ const baseEnvironmentSchema = z
     OPENAI_EVIDENCE_MODEL: z.literal("gpt-5.6-terra"),
     OPENAI_EVIDENCE_REASONING_EFFORT: z.literal("medium"),
     OPENAI_SERVICE_TIER: z.literal("default"),
+    RENTPROOF_INTERNAL_PROXY_TOKEN: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]{43}$/u)
+      .optional(),
   })
   .strict();
 
@@ -55,6 +59,7 @@ export function getServerEnvironment(): ServerEnvironment {
     OPENAI_EVIDENCE_MODEL: process.env["OPENAI_EVIDENCE_MODEL"],
     OPENAI_EVIDENCE_REASONING_EFFORT: process.env["OPENAI_EVIDENCE_REASONING_EFFORT"],
     OPENAI_SERVICE_TIER: process.env["OPENAI_SERVICE_TIER"],
+    RENTPROOF_INTERNAL_PROXY_TOKEN: process.env["RENTPROOF_INTERNAL_PROXY_TOKEN"],
   });
 
   if (parsed.RENTPROOF_LLM_MODE === "live" && !process.env["OPENAI_API_KEY"]) {
@@ -77,10 +82,30 @@ function validateAuthProfile(environment: z.infer<typeof baseEnvironmentSchema>)
   }
   const tokenKey = process.env["RENTPROOF_AUTH_TOKEN_KEY"];
 
-  if (environment.RENTPROOF_DEPLOYMENT_PROFILE === "lan_development") {
-    if (environment.RENTPROOF_AUTH_MODE !== "synthetic" || tokenKey)
-      throw new Error("LAN_AUTH_FORBIDDEN");
+  if (environment.RENTPROOF_DEPLOYMENT_PROFILE === "lan_secure_demo") {
+    const origin = new URL(environment.RENTPROOF_PUBLIC_ORIGIN);
+    if (
+      origin.protocol !== "https:" ||
+      environment.RENTPROOF_ALLOW_REAL_DATA !== "true" ||
+      environment.RENTPROOF_AUTH_MODE !== "self_hosted" ||
+      process.env["RENTPROOF_DATABASE_ADAPTER"] !== "postgres" ||
+      process.env["RENTPROOF_DATABASE_ROLE"] !== "app" ||
+      process.env["RENTPROOF_DATABASE_ENVIRONMENT"] !== "secure_demo" ||
+      !environment.RENTPROOF_INTERNAL_PROXY_TOKEN ||
+      !tokenKey ||
+      !/^[A-Za-z0-9_-]{43,}$/u.test(tokenKey) ||
+      Buffer.from(tokenKey, "base64url").byteLength < 32
+    ) {
+      throw new Error("SECURE_LAN_CONFIGURATION_INVALID");
+    }
     return;
+  }
+
+  if (environment.RENTPROOF_ALLOW_REAL_DATA !== "false") {
+    throw new Error("LOCAL_REAL_DATA_FORBIDDEN");
+  }
+  if (environment.RENTPROOF_INTERNAL_PROXY_TOKEN) {
+    throw new Error("LOCAL_PROXY_TOKEN_FORBIDDEN");
   }
 
   if (environment.RENTPROOF_AUTH_MODE === "self_hosted") {

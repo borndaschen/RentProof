@@ -6,18 +6,18 @@ export function HistoryList({ cases }: { cases: readonly CaseHistorySummary[] })
     <main className="history-shell">
       <header className="history-header">
         <div>
-          <p className="eyebrow">ACCOUNT HISTORY · SYNTHETIC DEMO</p>
+          <p className="eyebrow">我的案件</p>
           <h1>歷史租屋案件</h1>
-          <p>只顯示目前登入帳戶擁有的案件；Demo 資料皆為虛構內容。</p>
+          <p>在這裡查看目前帳戶保存的租屋案件。</p>
         </div>
         <Link className="secondary-button" href="/">
-          返回目前案件
+          返回
         </Link>
       </header>
       {cases.length === 0 ? (
         <section className="history-empty" aria-labelledby="history-empty-title">
           <h2 id="history-empty-title">目前沒有已保存案件</h2>
-          <p>登入不會自動保存訪客案件；必須明確完成案件轉移。</p>
+          <p>建立新案件後，就能在這裡繼續查看與管理。</p>
         </section>
       ) : (
         <ul className="history-list" aria-label="帳戶擁有的租屋案件">

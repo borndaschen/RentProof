@@ -10,10 +10,10 @@ import {
 
 const configuration = {
   bindAddress: "192.168.10.24",
-  port: 3000,
-  publicOrigin: "http://192.168.10.24:3000",
-  allowedHosts: ["192.168.10.24:3000"],
-  allowedOrigins: ["http://192.168.10.24:3000"],
+  port: 3443,
+  publicOrigin: "https://192.168.10.24:3443",
+  allowedHosts: ["192.168.10.24:3443"],
+  allowedOrigins: ["https://192.168.10.24:3443"],
   nodeExecutable: "C:\\Program Files\\nodejs\\node.exe",
 };
 
@@ -59,9 +59,9 @@ describe("buildWindowsLanNetworkPolicy", () => {
   it("builds an exact disabled-by-default Private LocalSubnet rule", () => {
     expect(policy()).toEqual({
       bindAddress: "192.168.10.24",
-      port: 3000,
-      exactHost: "192.168.10.24:3000",
-      exactOrigin: "http://192.168.10.24:3000",
+      port: 3443,
+      exactHost: "192.168.10.24:3443",
+      exactOrigin: "https://192.168.10.24:3443",
       nodeExecutable: "C:\\Program Files\\nodejs\\node.exe",
       firewall: {
         ruleName: RENTPROOF_FIREWALL_RULE_NAME,
@@ -70,7 +70,7 @@ describe("buildWindowsLanNetworkPolicy", () => {
         action: "Allow",
         protocol: "TCP",
         localAddress: "192.168.10.24",
-        localPort: 3000,
+        localPort: 3443,
         remoteAddress: "LocalSubnet",
         profiles: ["Private"],
         programPath: "C:\\Program Files\\nodejs\\node.exe",
@@ -111,20 +111,20 @@ describe("buildWindowsLanNetworkPolicy", () => {
         buildWindowsLanNetworkPolicy({
           ...configuration,
           bindAddress,
-          publicOrigin: `http://${bindAddress}:3000`,
-          allowedHosts: [`${bindAddress}:3000`],
-          allowedOrigins: [`http://${bindAddress}:3000`],
+          publicOrigin: `https://${bindAddress}:3443`,
+          allowedHosts: [`${bindAddress}:3443`],
+          allowedOrigins: [`https://${bindAddress}:3443`],
         }),
       "LAN_BIND_UNSAFE",
     );
   });
 
   it.each([
-    "https://192.168.10.24:3000",
-    "http://192.168.10.24:3001",
-    "http://192.168.10.24:3000/path",
-    "http://user@192.168.10.24:3000",
-    "http://192.168.10.24:3000?query=1",
+    "http://192.168.10.24:3443",
+    "https://192.168.10.24:3444",
+    "https://192.168.10.24:3443/path",
+    "https://user@192.168.10.24:3443",
+    "https://192.168.10.24:3443?query=1",
     "not a URL",
   ])("rejects non-exact origin %s", (publicOrigin) => {
     expectCode(
@@ -136,7 +136,7 @@ describe("buildWindowsLanNetworkPolicy", () => {
   it("rejects wildcard, alternate, and multiple Host/Origin allowlists", () => {
     for (const change of [
       { allowedHosts: ["*"] },
-      { allowedHosts: [configuration.allowedHosts[0], "localhost:3000"] },
+      { allowedHosts: [configuration.allowedHosts[0], "localhost:3443"] },
       { allowedOrigins: ["*"] },
       { allowedOrigins: [configuration.allowedOrigins[0], "null"] },
     ]) {
@@ -276,7 +276,7 @@ describe("buildFirewallManagementInvocation", () => {
         "-BindAddress",
         configuration.bindAddress,
         "-Port",
-        "3000",
+        "3443",
         "-WhatIf",
       ],
       requiresElevation: true,

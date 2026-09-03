@@ -8,20 +8,21 @@ import {
 
 function environment(overrides: Record<string, string | undefined> = {}) {
   return {
-    RENTPROOF_DEPLOYMENT_PROFILE: "lan_development",
+    RENTPROOF_DEPLOYMENT_PROFILE: "lan_secure_demo",
     RENTPROOF_BIND_HOST: "172.16.102.98",
-    RENTPROOF_PORT: "3000",
-    RENTPROOF_PUBLIC_ORIGIN: "http://172.16.102.98:3000",
-    RENTPROOF_ALLOWED_HOSTS: "172.16.102.98:3000",
-    RENTPROOF_ALLOWED_ORIGINS: "http://172.16.102.98:3000",
-    RENTPROOF_ALLOW_REAL_DATA: "false",
-    RENTPROOF_AUTH_MODE: "synthetic",
+    RENTPROOF_PORT: "3443",
+    RENTPROOF_PUBLIC_ORIGIN: "https://172.16.102.98:3443",
+    RENTPROOF_ALLOWED_HOSTS: "172.16.102.98:3443",
+    RENTPROOF_ALLOWED_ORIGINS: "https://172.16.102.98:3443",
+    RENTPROOF_ALLOW_REAL_DATA: "true",
+    RENTPROOF_AUTH_MODE: "self_hosted",
+    RENTPROOF_AUTH_TOKEN_KEY: "a".repeat(43),
     ...overrides,
   };
 }
 
 describe("parseLanFirewallOperatorConfig", () => {
-  it("accepts only the exact synthetic LAN listener and ignores exposure assertions", () => {
+  it("accepts only the exact HTTPS LAN listener and ignores exposure assertions", () => {
     expect(
       parseLanFirewallOperatorConfig(
         environment({ RENTPROOF_LAN_NO_TUNNEL: "confirmed-for-this-run" }),
@@ -29,17 +30,17 @@ describe("parseLanFirewallOperatorConfig", () => {
       ),
     ).toEqual({
       bindAddress: "172.16.102.98",
-      port: 3000,
+      port: 3443,
       nodeExecutable: "C:\\Program Files\\nodejs\\node.exe",
     });
   });
 
   it.each([
     { RENTPROOF_BIND_HOST: "0.0.0.0" },
-    { RENTPROOF_PUBLIC_ORIGIN: "http://172.16.102.98:4000" },
+    { RENTPROOF_PUBLIC_ORIGIN: "https://172.16.102.98:4000" },
     { RENTPROOF_ALLOWED_HOSTS: "*" },
-    { RENTPROOF_ALLOW_REAL_DATA: "true" },
-    { RENTPROOF_AUTH_MODE: "self_hosted" },
+    { RENTPROOF_ALLOW_REAL_DATA: "false" },
+    { RENTPROOF_AUTH_MODE: "synthetic" },
     { RENTPROOF_AUTH_TOKEN_KEY: "configured" },
     { CLERK_SECRET_KEY: "configured" },
   ])("blocks unsafe configuration %#", (change) => {

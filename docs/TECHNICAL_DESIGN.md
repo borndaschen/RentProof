@@ -4,7 +4,7 @@
 - 版本：0.4
 - 日期：2026-09-02
 
-系統上下文、layer／module、ports／adapters、stage DAG、state machine、失效矩陣與 P1 演進以 [系統架構](SYSTEM_ARCHITECTURE.md) 為準；listener、HTTP LAN 與 Production HTTPS 以 [Server 配置](SERVER_CONFIGURATION.md) 為準；真實資料版的 guest／account、Email／SMS password reset、history 與 policy events 以 [選用帳戶、登入與歷史租約架構](AUTH_AND_HISTORY.md) 為準。本文件保留 domain schema、判定演算法與 API 細節。
+系統上下文、layer／module、ports／adapters、stage DAG、state machine與失效矩陣以 [系統架構](SYSTEM_ARCHITECTURE.md) 為準；listener、本機HTTP、LAN HTTPS與Production HTTPS以 [Server 配置](SERVER_CONFIGURATION.md) 為準；guest／account、Email password reset、history與policy events以 [選用帳戶、登入與歷史租約架構](AUTH_AND_HISTORY.md) 為準。本文件保留domain schema、判定演算法與API細節。
 
 ## 1. 技術決策摘要
 
@@ -39,7 +39,7 @@ Development與Demo執行於目前Windows桌面電腦；filesystem／path／proce
 
 P0 runtime由原生Node.js 24＋pnpm scripts啟動Next.js，不加入Docker、Apache／WAMP、IIS或Windows Service adapter。集中launcher驗證deployment profile、bind host、port、origin與allowlists後才啟動，並將host／port實際傳給Next CLI；不得只驗證env後仍使用wildcard listener。
 
-日常開發使用Next Dev Server；正式Demo使用Production Build但deployment profile仍為`lan_development`。Next的`NODE_ENV`與RentProof capability profile分離：Production Build不會自動開啟真實資料、auth、Production storage或credentials。Formal Demo關閉HMR、browser／server source maps與詳細error overlay，並以Fixture／預先分析snapshot為預設。
+日常開發使用loopback Next Dev Server；LAN展示使用Production Build與`lan_secure_demo`。Next的`NODE_ENV`與RentProof capability profile分離：Production Build不會自動開啟私有資料、Auth、PostgreSQL或OpenAI Live。展示環境關閉HMR、browser／server source maps與詳細error overlay。
 
 Next.js 不使用跨 major 的 `latest` range；Next／React／React DOM／相關 type packages 以同一相容集合鎖入 `pnpm-lock.yaml`。Turbopack 可採 Next.js 16 預設，但仍需 Golden／LAN／production build 驗證。
 
@@ -59,7 +59,7 @@ Compiler使用TypeScript 6.0 stable line，不採TypeScript 7／nightly。Scaffo
 
 P0 model routing固定：Conversation intent／explanation為`gpt-5.6-luna`＋low，Evidence extraction為`gpt-5.6-terra`＋medium；都由分離allowlisted env載入，不使用latest alias或跨route fallback。OpenAI官方分別將Luna定位為成本敏感高流量、Terra定位為智慧與成本平衡：[Luna](https://developers.openai.com/api/docs/models/gpt-5.6-luna)、[Terra](https://developers.openai.com/api/docs/models/gpt-5.6-terra)。完整規格見[OpenAI整合](OPENAI_INTEGRATION.md)。
 
-開發 HTTP／LAN 設定集中於 `RENTPROOF_DEPLOYMENT_PROFILE`、`RENTPROOF_BIND_HOST`、`RENTPROOF_PORT`、`RENTPROOF_PUBLIC_ORIGIN`、`RENTPROOF_ALLOWED_HOSTS` 與 `RENTPROOF_ALLOWED_ORIGINS`。`lan_development` 只能綁定明確 private IP 且只使用 synthetic data；Production 不共用這個例外。Scaffold 後的啟動器必須實際把 bind host／port 傳給 Next listener，不能只驗證環境變數卻仍默認 listen `0.0.0.0`。
+Listener設定集中於 `RENTPROOF_DEPLOYMENT_PROFILE`、`RENTPROOF_BIND_HOST`、`RENTPROOF_PORT`、`RENTPROOF_PUBLIC_ORIGIN`、`RENTPROOF_ALLOWED_HOSTS` 與 `RENTPROOF_ALLOWED_ORIGINS`。HTTP只允許loopback；`lan_secure_demo`只能以HTTPS綁定明確private IP。啟動器必須實際傳遞已驗證的host／port，不得默認listen `0.0.0.0`。
 
 ## 2. 邏輯架構
 
@@ -343,8 +343,8 @@ Production 不建立另一套會員 API。相同 case routes 一律接收 server
 - 註冊／登入不是分析入口門檻；D-089改採窄ports／adapters的self-hosted Email／密碼Auth，code／session token／密碼不進OpenAI、browser storage或log。Server route仍以RentProof owner query授權，不信任Client登入畫面狀態。
 - Password adapter固定鎖版`argon2` Argon2id `m=19456 KiB／t=2／p=1`；PostgreSQL保存PHC password hash及account session的server-keyed HMAC digest，不保存原始Cookie／code。合格使用原子延長7天idle expiry並刷新Cookie，passive查詢不滑動。
 - 政策文件與事件使用 version＋content hash；Cookie purpose preferences 另行建模。三份草案在 placeholder 與法務／隱私 Gate 完成前不視為正式政策。
-- P0 預設 loopback；需要手機／其他電腦測試時使用 `lan_development` HTTP profile。它拒絕 wildcard／public bind、使用 exact Host／Origin allowlist，且不註冊 production auth／history／recovery routes。
-- LAN Fixture 是預設；LAN Live 仍只送 synthetic data，OpenAI key 留在 server，並強制 request／cost limit。HTTP LAN client 不得取得 key、帳戶 cookie 或 OTP。
+- 本機HTTP固定loopback；需要手機／其他電腦測試時使用`lan_secure_demo` HTTPS。它拒絕wildcard／public bind並使用exact Host／Origin allowlist。
+- LAN Live的OpenAI key留在server，並強制request／cost limit。Browser不得取得key、帳戶Cookie或OTP。
 
 ## 10. 可觀測性與可重現性
 
@@ -352,6 +352,6 @@ Production 不建立另一套會員 API。相同 case routes 一律接收 server
 
 ## 11. 部署與演進
 
-MVP以本機Demo與trusted private LAN HTTP測試RWD為目前交付範圍。`public_http_showcase`static export規格保留但依D-046停用，不建立公網Hosting／Port Forwarding／VPS。任何未來公開Showcase需新決策；真實資料或互動服務仍必須使用HTTPS Production、PostgreSQL／private object storage及完整owner／retention／deletion Gate。
+目前交付範圍為本機HTTP開發與trusted private LAN HTTPS展示。`public_http_showcase`static export規格保留但停用，不建立公網Hosting／Port Forwarding／VPS。任何未來公開Showcase需新決策；正式服務仍必須使用HTTPS、PostgreSQL／private object storage及完整owner／retention／deletion Gate。
 
 後續可替換的邊界包括：OpenAI adapter、資料庫、物件儲存、背景工作執行器與 PDF 匯出。P0 不實作第二個 LLM provider；證據 graph、三態語意、rule schema 與 source locator 不應因部署方式改變。

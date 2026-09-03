@@ -20,7 +20,7 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const action = LanFirewallOperatorActionSchema.parse(process.argv[2]);
 
 function readEnvironment(): Record<string, string | undefined> {
-  const path = resolve(repositoryRoot, ".env.lan.local");
+  const path = resolve(repositoryRoot, ".env.secure-lan.local");
   if (!existsSync(path)) throw new Error("RENTPROOF_ENV_FILE_MISSING");
   return { ...parseEnv(readFileSync(path, "utf8")), ...process.env };
 }

@@ -74,7 +74,7 @@ export function AuthPanel() {
         if (!response.ok) throw new Error("AUTH_FAILED");
         form.reset();
         setMode("verify_registration");
-        setMessage("若可建立帳戶，驗證信已送出。請從本機 Demo 信箱取得驗證碼。");
+        setMessage("若可建立帳戶，驗證碼已準備完成。請前往帳戶驗證中心取得。");
         return;
       }
 
@@ -95,7 +95,7 @@ export function AuthPanel() {
         });
         form.reset();
         setMode("reset_code");
-        setMessage("若帳戶存在，重設信已送出。請從本機 Demo 信箱取得驗證碼。");
+        setMessage("若帳戶存在，重設碼已準備完成。請前往帳戶驗證中心取得。");
         return;
       }
 
@@ -136,9 +136,9 @@ export function AuthPanel() {
   return (
     <main className="auth-page">
       <section className="auth-panel" aria-labelledby="auth-title">
-        <p className="eyebrow">LOCALHOST · SYNTHETIC DEMO</p>
-        <h1 id="auth-title">{session === "authenticated" ? "帳戶工作階段" : titleFor(mode)}</h1>
-        <p>登入不是使用門檻；登入後才可查詢保存在這個 Demo 資料庫中的虛構案件。</p>
+        <p className="eyebrow">RentProof 帳戶</p>
+        <h1 id="auth-title">{session === "authenticated" ? "我的帳戶" : titleFor(mode)}</h1>
+        <p>登入後可以保存、查詢與刪除你的案件。</p>
 
         {session === "loading" && <p role="status">正在檢查工作階段…</p>}
         {session === "unavailable" && (
@@ -146,7 +146,7 @@ export function AuthPanel() {
         )}
         {session === "authenticated" && (
           <div className="auth-session-actions">
-            <p role="status">目前已登入。每次有效使用會由伺服器重新計算七天閒置期限。</p>
+            <p role="status">你已登入。持續使用時，登入狀態會自動延長，最長保留七天。</p>
             <Link className="primary-button" href="/history">
               查看歷史案件
             </Link>
@@ -195,8 +195,8 @@ export function AuthPanel() {
                 <label className="auth-consent">
                   <input name="demoPolicyAcknowledged" type="checkbox" required />
                   <span>
-                    我已閱讀<Link href="/terms">使用條款草案</Link>與
-                    <Link href="/privacy">隱私政策草案</Link>，並了解此功能只可使用虛構資料。
+                    我已閱讀<Link href="/terms">使用條款草案</Link>、
+                    <Link href="/privacy">隱私政策草案</Link>與資料處理方式。
                   </span>
                 </label>
               )}
@@ -226,13 +226,12 @@ export function AuthPanel() {
               >
                 忘記密碼
               </button>
-              <Link href="/">不登入，返回 Demo</Link>
+              <Link href="/">返回</Link>
             </nav>
             {(mode === "verify_registration" || mode === "reset_code") && (
               <p className="auth-demo-mailbox-note">
-                Synthetic Demo 不寄真實 Email。
-                <Link href="/auth/dev-mailbox">開啟本機 Demo 信箱</Link>
-                取得一次性驗證碼；正式環境不提供此頁。
+                請前往<Link href="/auth/dev-mailbox">帳戶驗證中心</Link>
+                取得一次性驗證碼。
               </p>
             )}
           </>
@@ -241,10 +240,7 @@ export function AuthPanel() {
         <p role="status" aria-live="polite">
           {message}
         </p>
-        <p className="auth-safety-note">
-          僅限本機 synthetic
-          Demo，不蒐集手機號碼。密碼與重設憑證不會出現在網址、瀏覽器儲存區或回應內容。
-        </p>
+        <p className="auth-safety-note">我們不蒐集手機號碼。密碼與驗證碼不會顯示在網址中。</p>
       </section>
     </main>
   );
@@ -307,7 +303,7 @@ function titleFor(mode: Mode): string {
 
 function actionFor(mode: Mode): string {
   if (mode === "login") return "登入";
-  if (mode === "register") return "建立 Demo 帳戶";
+  if (mode === "register") return "建立帳戶";
   if (mode === "verify_registration") return "驗證 Email";
   if (mode === "forgot") return "建立重設要求";
   return "設定新密碼並撤銷工作階段";

@@ -29,18 +29,18 @@ Raw conversation text另採固定7天retention，到期隱藏並24小時內onlin
 
 ## 2. Product profiles
 
-| Profile                | Registration／login               | Data                                            | History                                                             |
-| ---------------------- | --------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------- |
-| `local_development`    | 可啟用自建Auth；只限精確loopback  | synthetic external Demo；Fixture／Live 明確設定 | PostgreSQL owner-scoped synthetic history                           |
-| `lan_development`      | 不啟用；HTTP 禁止 production auth | synthetic external Demo／synthetic 補件         | 僅目前 dev case，不是帳戶歷史                                       |
-| `public_http_showcase` | 不啟用、HTTP靜態唯讀              | 預先分析synthetic data                          | 無session／Cookie／history，不保存訪客資料                          |
-| `production`           | 選用；訪客與帳戶共用單一入口      | 使用者真實案件                                  | 訪客無歷史查詢；登入者有 owner-scoped cross-session／device history |
+| Profile                | Registration／login              | Data                                            | History                                                             |
+| ---------------------- | -------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------- |
+| `local_development`    | 可啟用自建Auth；只限精確loopback | synthetic external Demo；Fixture／Live 明確設定 | PostgreSQL owner-scoped synthetic history                           |
+| `lan_secure_demo`      | 自建Email／密碼Auth或訪客Session | 私有資料；PostgreSQL＋private storage           | Owner-scoped；帳戶可查歷史，訪客不可列出歷史                        |
+| `public_http_showcase` | 不啟用、HTTP靜態唯讀             | 預先分析synthetic data                          | 無session／Cookie／history，不保存訪客資料                          |
+| `production`           | 選用；訪客與帳戶共用單一入口     | 使用者真實案件                                  | 訪客無歷史查詢；登入者有 owner-scoped cross-session／device history |
 
 Production profile 可建立 guest case，但不提供公開／無 session 的 case，也不允許 guest 列出歷史。Profile 由 deployment config 固定，不能由 query／UI 切換。
 
 ## 3. 身分供應策略：RentProof self-hosted Auth
 
-D-089已取代Clerk決策。Demo採Application ports＋PostgreSQL adapter的自建Email／密碼Auth；Clerk SDK、subject mapping、Dashboard設定與Session皆不再構成現行架構。帳戶功能只在精確loopback Demo或未來HTTPS環境開啟，HTTP LAN持續404／disabled。
+D-089已取代Clerk決策。系統採Application ports＋PostgreSQL adapter的自建Email／密碼Auth；Clerk SDK、subject mapping、Dashboard設定與Session皆不再構成現行架構。帳戶功能只在精確loopback測試或`lan_secure_demo`／未來Production HTTPS環境開啟；舊HTTP LAN profile已退役。
 
 ```ts
 interface PasswordHasherPort {
@@ -112,7 +112,7 @@ sequenceDiagram
 
 - 帳戶與訪客皆使用RentProof server-managed opaque cookie，但使用不同名稱、key與資料表；禁止把session／refresh token或guest secret放入localStorage／sessionStorage。
 - Cookie 使用 `Secure`、`HttpOnly`、明確 `SameSite=Lax` 或 `Strict`、host-only scope 與 `Path=/`。
-- Production account／guest session 使用 HTTPS；登入／權限變更後 rotate session ID。HTTP `lan_development` 不啟用本節帳戶、recovery、history 或 production guest session。
+- `lan_secure_demo`與Production的account／guest session使用HTTPS；登入／權限變更後rotate session ID。本機HTTP只允許loopback測試，舊`lan_development`拒絕啟動。
 - Account Session採7天sliding idle expiry。只有通過owner／policy Gate的主動HTML mutation或明確案件／history操作可在單一原子DB statement延長server expiry，且同一成功response同步刷新Cookie Max-Age；`GET /api/auth/session`、prefetch、polling、靜態資源、健康檢查與失敗request不得延長。
 - Guest Session自建立起固定24小時到期且不滑動；server只存opaque token hash，cookie不得晚於server expiry。到期後立即拒絕案件存取並停止未完成工作，所有線上案件資料於24小時內完成purge。
 - 刪除帳戶、匯出敏感資料、變更Email／密碼等高敏感操作要求15分鐘內密碼reverification；不得以「Session尚在7天內」省略。
@@ -164,7 +164,7 @@ OWASP 將 authentication 與 authorization 明確區分，並建議每次 reques
 
 ## 7. Production data model
 
-目前repository已包含feature-gated Kysely／node-postgres schema、owner-scoped case state、self-hosted credential／session／challenge、policy／consent、deletion request與最小security audit adapter；此基礎尚未因存在而自動啟用Production。只有精確loopback local可用PostgreSQL驗證完全虛構帳戶資料；HTTP LAN Auth固定disabled，web process不自動migration，真實資料仍須完成Transactional Email、object storage、retention／purge、backup與Production Gate。
+目前repository已包含feature-gated Kysely／node-postgres schema、owner-scoped case state、self-hosted credential／session／challenge、policy／consent、deletion request與最小security audit adapter；此基礎尚未因存在而自動啟用Production。`lan_secure_demo`可在HTTPS、loopback PostgreSQL、private storage與完整owner Gate下驗證私有案件；Web process不自動migration。正式上線仍須完成Transactional Email、排程式retention／purge、off-host backup與Production Gate。
 
 ```text
 UserAccount

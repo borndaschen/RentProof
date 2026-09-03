@@ -31,6 +31,7 @@ async function load(overrides: Record<string, string | undefined>) {
     "RENTPROOF_DATABASE_ADAPTER",
     "RENTPROOF_DATABASE_ROLE",
     "RENTPROOF_DATABASE_ENVIRONMENT",
+    "RENTPROOF_INTERNAL_PROXY_TOKEN",
     "CLERK_PUBLISHABLE_KEY",
     "CLERK_SECRET_KEY",
     "RENTPROOF_CLERK_FRONTEND_ORIGIN",
@@ -70,7 +71,7 @@ describe("self-hosted authentication deployment gate", () => {
     expect(environment.RENTPROOF_AUTH_MODE).toBe("self_hosted");
   });
 
-  it("rejects self-hosted auth and dormant auth secrets from LAN HTTP", async () => {
+  it("removes the legacy HTTP LAN deployment profile", async () => {
     await expect(
       load({
         RENTPROOF_DEPLOYMENT_PROFILE: "lan_development",
@@ -81,7 +82,26 @@ describe("self-hosted authentication deployment gate", () => {
         RENTPROOF_AUTH_MODE: "self_hosted",
         RENTPROOF_AUTH_TOKEN_KEY: tokenKey,
       }),
-    ).rejects.toThrow("LAN_AUTH_FORBIDDEN");
+    ).rejects.toThrow();
+  });
+
+  it("accepts self-hosted auth only in the HTTPS secure LAN profile", async () => {
+    const environment = await load({
+      RENTPROOF_DEPLOYMENT_PROFILE: "lan_secure_demo",
+      RENTPROOF_BIND_HOST: "192.168.1.20",
+      RENTPROOF_PORT: "3443",
+      RENTPROOF_PUBLIC_ORIGIN: "https://192.168.1.20:3443",
+      RENTPROOF_ALLOWED_HOSTS: "192.168.1.20:3443",
+      RENTPROOF_ALLOWED_ORIGINS: "https://192.168.1.20:3443",
+      RENTPROOF_ALLOW_REAL_DATA: "true",
+      RENTPROOF_AUTH_MODE: "self_hosted",
+      RENTPROOF_AUTH_TOKEN_KEY: tokenKey,
+      RENTPROOF_DATABASE_ADAPTER: "postgres",
+      RENTPROOF_DATABASE_ROLE: "app",
+      RENTPROOF_DATABASE_ENVIRONMENT: "secure_demo",
+      RENTPROOF_INTERNAL_PROXY_TOKEN: "p".repeat(43),
+    });
+    expect(environment.RENTPROOF_DEPLOYMENT_PROFILE).toBe("lan_secure_demo");
   });
 
   it("rejects the HMAC key when auth is disabled", async () => {

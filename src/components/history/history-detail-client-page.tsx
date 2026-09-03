@@ -55,7 +55,7 @@ export function HistoryDetailClientPage({ caseId }: { caseId: string }) {
         </h1>
         <p>不存在、未登入與非案件擁有者不會揭露不同的案件內容。</p>
         <Link className="secondary-button" href="/history">
-          返回歷史案件
+          返回
         </Link>
       </section>
     </main>

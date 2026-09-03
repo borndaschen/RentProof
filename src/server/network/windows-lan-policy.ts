@@ -1,8 +1,8 @@
 import { win32 } from "node:path";
 import { z } from "zod";
 
-export const RENTPROOF_FIREWALL_RULE_NAME = "RentProof-Lan-Development-Managed" as const;
-export const RENTPROOF_FIREWALL_DISPLAY_NAME = "RentProof LAN Development (Managed)" as const;
+export const RENTPROOF_FIREWALL_RULE_NAME = "RentProof-Lan-Secure-Demo-Managed" as const;
+export const RENTPROOF_FIREWALL_DISPLAY_NAME = "RentProof LAN HTTPS Demo (Managed)" as const;
 
 export type LanNetworkPolicyErrorCode =
   | "LAN_BIND_UNSAFE"
@@ -72,9 +72,9 @@ export function buildWindowsLanNetworkPolicy(
     throw new LanNetworkPolicyError("LAN_BIND_UNSAFE");
   }
   const exactHost = `${configuration.bindAddress}:${configuration.port}`;
-  const exactOrigin = `http://${exactHost}`;
+  const exactOrigin = `https://${exactHost}`;
   if (
-    !isExactHttpOrigin(configuration.publicOrigin, configuration.bindAddress, configuration.port)
+    !isExactHttpsOrigin(configuration.publicOrigin, configuration.bindAddress, configuration.port)
   ) {
     throw new LanNetworkPolicyError("LAN_ORIGIN_UNSAFE");
   }
@@ -227,12 +227,12 @@ export function isRfc1918Ipv4(address: string): boolean {
   );
 }
 
-function isExactHttpOrigin(origin: string, address: string, port: number): boolean {
+function isExactHttpsOrigin(origin: string, address: string, port: number): boolean {
   try {
     const parsed = new URL(origin);
     return (
-      origin === `http://${address}:${port}` &&
-      parsed.protocol === "http:" &&
+      origin === `https://${address}:${port}` &&
+      parsed.protocol === "https:" &&
       parsed.hostname === address &&
       parsed.port === String(port) &&
       parsed.username.length === 0 &&

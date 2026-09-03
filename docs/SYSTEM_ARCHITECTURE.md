@@ -6,7 +6,7 @@
 - 架構型態：Next.js／TypeScript 模組化單體
 - P0 執行環境：本機 Node.js process、synthetic-only
 
-本文件是系統邊界、模組、依賴方向、分析流程、儲存、API、部署與失敗模式的架構來源。Server profile／listener／HTTP LAN／Production HTTPS 的 canonical contract 見 [Server 配置](SERVER_CONFIGURATION.md)；詳細 domain schema／演算法見 [技術設計](TECHNICAL_DESIGN.md)，前端與 RWD 見 [UI 設計](UI_DESIGN.md)，OpenAI 呼叫契約見 [OpenAI 整合](OPENAI_INTEGRATION.md)，安全 Gate 見 [安全與隱私規格](SECURITY_PRIVACY.md)，真實資料版的 guest／account contract 見 [選用帳戶、登入與歷史租約架構](AUTH_AND_HISTORY.md)。
+本文件是系統邊界、模組、依賴方向、分析流程、儲存、API、部署與失敗模式的架構來源。Server profile／listener／本機HTTP／LAN HTTPS／Production HTTPS的canonical contract見[Server配置](SERVER_CONFIGURATION.md)；詳細domain schema／演算法見[技術設計](TECHNICAL_DESIGN.md)，前端與RWD見[UI設計](UI_DESIGN.md)，OpenAI呼叫契約見[OpenAI整合](OPENAI_INTEGRATION.md)，安全Gate見[安全與隱私規格](SECURITY_PRIVACY.md)，guest／account contract見[選用帳戶、登入與歷史租約架構](AUTH_AND_HISTORY.md)。
 
 ## 1. 架構目標
 
@@ -28,7 +28,7 @@
 - 本機 filesystem＋JSON state；不使用 SQLite／PostgreSQL／object storage。
 - 不使用 OpenAI Conversations、Assistants、File Search、Web Search、background mode、MCP 或 tools。
 - 不接受真實租約、真實影像、身分文件或銀行資料。
-- 不公開部署；P0 預設只綁定 loopback，另允許明確的 `lan_development` HTTP profile 供私人區域網路測試。
+- 不公開部署；本機HTTP只綁定loopback，私人區域網路測試只使用`lan_secure_demo` HTTPS。
 
 ## 3. 核心架構決策
 
@@ -79,33 +79,34 @@ flowchart LR
 | Profile                | Network／data                            | OpenAI                                       | Storage／write policy                                                                                |
 | ---------------------- | ---------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | `local_development`    | HTTP loopback、synthetic                 | 由 `RENTPROOF_LLM_MODE` 明確選 Fixture／Live | Demo read-only＋runtime writable；無 production auth                                                 |
-| `lan_development`      | HTTP、明確私人 LAN IP、synthetic-only    | Fixture 預設；Live 需顯式啟用與成本限制      | Demo read-only＋runtime writable；無 auth／真實資料                                                  |
+| `lan_secure_demo`      | HTTPS、明確私人LAN IP                    | Fixture或顯式Live＋成本限制                  | PostgreSQL＋private storage；guest／self-hosted auth                                                 |
 | `public_http_showcase` | 未來profile；D-046期間disabled／不可部署 | 停用；無runtime／key／API                    | 若未來啟用才產生static fixture；目前無Build產物                                                      |
 | `production`           | 單一入口；guest 或登入後真實案件         | worker-only live                             | App＋local-only PostgreSQL同一Server；off-host private object／backup storage＋queue；guest短期purge |
 
 Profile在process startup或static build固定，不能由request／query／UI切換。`production`永遠不允許Fixture mode；`public_http_showcase`永遠不含Node runtime、OpenAI key、API／upload／auth／Cookie。
 
-P0 `local_development`／`lan_development`固定在目前Windows桌面電腦驗證。Production OS尚未決定，P0程式不得依賴Windows Server或Linux專用service／path；Domain與Application保持平台中立。
+`local_development`／`lan_secure_demo`固定在目前Windows桌面電腦驗證。Production OS尚未決定，程式不得依賴Windows Server或Linux專用service／path；Domain與Application保持平台中立。
 
-`lan_development` 的啟動條件：
+`lan_secure_demo` 的啟動條件：
 
-- `NODE_ENV`可為`development`或`production`，但`RENTPROOF_ALLOW_REAL_DATA=false`，auth／password-reset／history routes不註冊。日常測試用Dev Server；正式Demo用Production Build。`NODE_ENV=production`不得提升deployment capability。
+- 使用Production Build；`NODE_ENV=production`不得自行提升deployment capability，私有資料、Auth、PostgreSQL與OpenAI能力仍由profile及各自Gate決定。
 - `RENTPROOF_BIND_HOST` 必須是本機實際擁有的單一 RFC1918 private address；拒絕 `0.0.0.0`、`::`、public address 與 wildcard hostname。
-- `RENTPROOF_PUBLIC_ORIGIN` 是產生絕對 URL 的唯一 canonical origin；LAN 必須是完整 `http://private-ip:port`。`RENTPROOF_ALLOWED_HOSTS`／`RENTPROOF_ALLOWED_ORIGINS` 使用精確值；拒絕 `*`、`null` 與非 allowlisted Host／Origin。
+- `RENTPROOF_PUBLIC_ORIGIN`是產生絕對URL的唯一canonical origin；LAN必須是完整`https://private-ip:port`。`RENTPROOF_ALLOWED_HOSTS`／`RENTPROOF_ALLOWED_ORIGINS`使用精確值；拒絕`*`、`null`與非allowlisted Host／Origin。
 - OS firewall只在Windows Private network profile對整個可達網路開放RentProof指定LAN IP／TCP port；Public／Domain profiles禁止。Router禁止port forwarding／UPnP exposure。
-- Browser 與 server 間沒有 TLS，因此此 profile 永遠不能處理真實租約、帳戶憑證、Email／SMS OTP、production session 或其他秘密。
-- Fixture 是 LAN 預設。若明確切換 Live，OpenAI key 仍留在 server，且需 request／case rate limit、並行限制與 OpenAI Project spend limit；輸入仍只能是 synthetic。
-- LAN ingest 只接受外部 Demo manifest 中 `synthetic: true` 且 MIME／bytes／SHA-256 相符的 artifact；其餘回 `DEV_SYNTHETIC_ARTIFACT_NOT_ALLOWLISTED`，不保存、不送 OpenAI。
+- Browser與server之間使用受信任TLS；帳戶Session使用Secure／HttpOnly Cookie，每個case／artifact／report request仍需owner-scoped authorization。
+- 若明確切換Live，OpenAI key仍留在server，且需request／case rate limit、並行限制及已確認的OpenAI Project spend limit。
+- LAN ingest只接受通過MIME／bytes／SHA-256、解析器及私有儲存Gate的artifact；拒絕資料不保存、不送OpenAI。
 - `authEnabled`、`secureCookies`、`uploadsEnabled`、`readOnly`、`requireHttps` 等安全能力由 deployment profile 的 discriminated union 衍生，不提供獨立環境 boolean 任意降級。非 production 若設定 `RENTPROOF_ALLOW_REAL_DATA=true` 必須拒絕啟動。
 
-若後續只需要本機持久化，可為 `local_development`／`lan_development` 加 SQLite repository adapter；這不是 public deployment topology，production 仍使用 PostgreSQL。
+本機與LAN持久資料使用既有typed repository ports；LAN安全展示採PostgreSQL adapter，Production仍使用PostgreSQL。
 
 ```mermaid
 flowchart TB
   subgraph HOST[Developer machine]
     BROWSER[Browser]
-    NODE[Next.js Node Server<br/>single process / loopback or explicit private LAN]
-    LANCLIENT[LAN phone / browser<br/>synthetic development only]
+    TLS[TLS LAN listener<br/>exact private IP]
+    NODE[Next.js Node Server<br/>loopback internal listener]
+    LANCLIENT[LAN phone / browser<br/>HTTPS]
     DEMODIR[(RENTPROOF_DEMO_DIR<br/>read-only synthetic data)]
     QUAR[(Runtime quarantine<br/>untrusted uploads)]
     RUNTIMEDIR[(RENTPROOF_RUNTIME_DIR<br/>validated artifacts + case state)]
@@ -116,7 +117,8 @@ flowchart TB
   OPENAI[OpenAI Cloud API]
 
   BROWSER -->|HTTP localhost| NODE
-  LANCLIENT -->|HTTP private LAN / lan_development only| NODE
+  LANCLIENT -->|HTTPS private LAN / lan_secure_demo only| TLS
+  TLS -->|HTTP loopback| NODE
   NODE -->|read| DEMODIR
   NODE -->|received bytes| QUAR
   QUAR --> PARSER
@@ -125,7 +127,7 @@ flowchart TB
   NODE -->|HTTPS / server key| OPENAI
 ```
 
-P0 不部署到 serverless／Edge：local JSON、external Demo directory、private runtime directory 與單 process lock 都依賴長生命週期 Node process。`lan_development` 只是同一開發 process 的受限 bind mode，不是 public deployment 或 production substitute。
+目前不部署到serverless／Edge：local JSON、external Demo directory、private runtime directory與單process lock都依賴長生命週期Node process。`lan_secure_demo`是內部HTTPS展示，不是public deployment或production substitute。
 
 Windows P0 runtime未覆寫時解析為`%LOCALAPPDATA%\RentProof\runtime`，並分離`quarantine`／`artifacts`／`state`／`cache`。Resolver拒絕repository、Demo、public、Documents／OneDrive、UNC／network、removable及reparse paths；不得fallback到`%TEMP%`或cwd。
 
@@ -781,7 +783,7 @@ Priority 是 reason-code mapping：`stop_and_verify` 最前，其次明確矛盾
 
 ### 21.2 P0 controls
 
-- `local_development` 綁 loopback；`lan_development` 只綁明確 private LAN IP，並持續顯示 synthetic-only／HTTP／LAN banner。
+- `local_development`的HTTP綁loopback；`lan_secure_demo`的HTTPS只綁明確private LAN IP。
 - 驗證 Host／Origin；mutation route 使用 CSRF 防護，即使在 local profile 也不信任瀏覽器來源。
 - LAN profile使用exact Host／Origin allowlist、不回wildcard CORS、拒絕public／wildcard bind；OS firewall限Windows Private profile及RentProof指定LAN IP／port，但D-065允許該Private網路中所有可達來源。
 - LAN profile 不啟用 account／recovery／history routes，不建立 production guest／account session cookie；需要本機 case association 時只可使用 session-only、synthetic dev context。
@@ -795,7 +797,7 @@ Priority 是 reason-code mapping：`stop_and_verify` 最前，其次明確矛盾
 - No logs with key、Authorization、prompt、raw contract、phone、account、OTP。
 - Fallback provenance mismatch fail closed。
 - Browser 不保存素材、findings、報告於 localStorage／IndexedDB；官方 registry URL 之外的使用者 URL 都是 inert text。
-- HSTS與`Secure` production account cookie不適用純HTTP LAN dev／static HTTP showcase。LAN仍保留CSP／CSRF／Host／Origin／no-store；Showcase沒有mutation／Cookie並使用`connect-src 'none'`。這些HTTP例外不得流入`production`。
+- LAN HTTPS使用Secure／HttpOnly Cookie並保留CSP／CSRF／Host／Origin／no-store。只有停用的static HTTP showcase不含mutation／Cookie並使用`connect-src 'none'`；其HTTP例外不得流入其他profiles。
 
 ### 21.3 Before public/real data
 
@@ -914,9 +916,9 @@ P1 遷移界面：
 - FRS-001 時間未知安全降級為 insufficient。
 - Report 不生成新事實、詐騙 verdict、法律結論或責任歸屬。
 - API key 不進 client bundle、state、fixture、report 或 log。
-- P0 預設 loopback；`lan_development` 只允許明確 private IP＋HTTP＋synthetic data，拒絕 wildcard／public bind，Demo／runtime directories 位於 repository 外。
+- 本機HTTP固定loopback；`lan_secure_demo`只允許明確private IP＋HTTPS，拒絕wildcard／public bind，private storage位於repository外。
 - Runtime composition 不可讀 Golden truth；Demo directory 永遠 read-only。
-- `local_development`／`lan_development`／`public_http_showcase`／`production` profiles不可由request動態切換；Fixture／Live另由startup-only`RENTPROOF_LLM_MODE`決定。
+- `local_development`／`lan_secure_demo`／`public_http_showcase`／`production` profiles不可由request動態切換；Fixture／Live另由startup-only`RENTPROOF_LLM_MODE`決定。
 - Public HTTP Showcase只有static fixture、無runtime／upload／API／OpenAI key／Cookie；Production不允許Fixture且必須HTTPS。
-- LAN profile 的 auth routes 關閉、exact Host／Origin checks、Firewall／synthetic-only banner 與 Live cost limits具自動或操作清單驗收。
+- LAN HTTPS profile的TLS、Secure Cookie、owner-scoped auth、exact Host／Origin、Firewall、private storage與Live cost limits具自動或操作清單驗收。
 - 來源 snapshots 與 fallback provenance hash mismatch fail closed。

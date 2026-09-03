@@ -6,6 +6,7 @@ describe("runtime status safe projection", () => {
     const projection = createRuntimeStatusProjection({
       RENTPROOF_LLM_MODE: "live",
       RENTPROOF_DEPLOYMENT_PROFILE: "local_development",
+      RENTPROOF_ALLOW_REAL_DATA: "false",
       OPENAI_PROJECT_LIMITS_CONFIRMED: "false",
       RENTPROOF_AUTH_MODE: "synthetic",
       RENTPROOF_RULE_PROFILE: "p0",
@@ -28,16 +29,19 @@ describe("runtime status safe projection", () => {
     expect(
       createRuntimeStatusProjection({
         RENTPROOF_LLM_MODE: "fixture",
-        RENTPROOF_DEPLOYMENT_PROFILE: "lan_development",
+        RENTPROOF_DEPLOYMENT_PROFILE: "lan_secure_demo",
+        RENTPROOF_ALLOW_REAL_DATA: "true",
         OPENAI_PROJECT_LIMITS_CONFIRMED: "true",
-        RENTPROOF_AUTH_MODE: "synthetic",
+        RENTPROOF_AUTH_MODE: "self_hosted",
         RENTPROOF_RULE_PROFILE: "p1",
       }),
     ).toMatchObject({
       llmMode: "fixture",
-      deploymentProfile: "lan_development",
+      deploymentProfile: "lan_secure_demo",
+      transport: "https",
+      dataPolicy: "real_data_enabled",
       projectLimits: "confirmed",
-      authMode: "synthetic",
+      authMode: "self_hosted",
       ruleProfile: "p1",
     });
   });
@@ -46,11 +50,12 @@ describe("runtime status safe projection", () => {
     const projection = createRuntimeStatusProjection({
       RENTPROOF_LLM_MODE: "fixture",
       RENTPROOF_DEPLOYMENT_PROFILE: "local_development",
+      RENTPROOF_ALLOW_REAL_DATA: "false",
       OPENAI_PROJECT_LIMITS_CONFIRMED: "false",
       RENTPROOF_AUTH_MODE: "self_hosted",
       RENTPROOF_RULE_PROFILE: "p0",
     });
-    expect(projection.authMode).toBe("self_hosted_local");
+    expect(projection.authMode).toBe("self_hosted");
     expect(JSON.stringify(projection)).not.toMatch(/token|password|email|database/iu);
   });
 });

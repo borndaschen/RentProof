@@ -12,6 +12,9 @@ export function getSyntheticUploadService(): SyntheticUploadService {
     return service;
   }
   const env = getServerEnvironment();
+  if (env.RENTPROOF_DEPLOYMENT_PROFILE !== "local_development") {
+    throw new Error("SYNTHETIC_UPLOAD_PROFILE_DISABLED");
+  }
   service = new SyntheticUploadService({
     profile: {
       deploymentProfile: env.RENTPROOF_DEPLOYMENT_PROFILE,
@@ -41,8 +44,5 @@ export function getSyntheticUploadService(): SyntheticUploadService {
 }
 
 export function getSyntheticUploadSourceBucketKey(): string {
-  const env = getServerEnvironment();
-  return env.RENTPROOF_DEPLOYMENT_PROFILE === "local_development"
-    ? "127.0.0.1"
-    : env.RENTPROOF_BIND_HOST;
+  return "127.0.0.1";
 }

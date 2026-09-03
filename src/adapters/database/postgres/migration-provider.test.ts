@@ -9,12 +9,17 @@ describe("FrozenPostgresMigrationProvider", () => {
     expect(Object.keys(migrations)).toEqual([
       "001_initial_real_data_schema",
       "002_self_hosted_auth",
+      "003_private_case_artifacts",
     ]);
     expect(migrations["001_initial_real_data_schema"]).toMatchObject({
       up: expect.any(Function),
       down: expect.any(Function),
     });
     expect(migrations["002_self_hosted_auth"]).toMatchObject({
+      up: expect.any(Function),
+      down: expect.any(Function),
+    });
+    expect(migrations["003_private_case_artifacts"]).toMatchObject({
       up: expect.any(Function),
       down: expect.any(Function),
     });
@@ -54,12 +59,14 @@ describe("FrozenPostgresMigrationProvider", () => {
     expect(queries.join("\n")).toContain('create table "auth_sessions"');
     expect(queries.join("\n")).toContain('create table "auth_password_reset_challenges"');
     expect(queries.join("\n")).toContain('create table "auth_email_verification_challenges"');
+    expect(queries.join("\n")).toContain('create table "case_artifacts"');
     expect(queries.join("\n")).toContain("argon2id");
     for (const migration of Object.values(migrations).reverse()) {
       if (!migration.down) throw new Error("TEST_DOWN_MIGRATION_MISSING");
       await migration.down(database);
     }
     expect(queries.join("\n")).toContain('drop table if exists "auth_sessions"');
+    expect(queries.join("\n")).toContain('drop table if exists "case_artifacts"');
     expect(queries.join("\n")).toContain("DELETE FROM internal_users WHERE clerk_user_id IS NULL");
     expect(queries.join("\n")).toContain('drop table if exists "internal_users"');
     await database.destroy();

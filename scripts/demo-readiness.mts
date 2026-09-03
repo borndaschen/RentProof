@@ -18,24 +18,14 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 export function parseProfile(arguments_: readonly string[]): DemoReadinessProfile {
   if (arguments_.length === 0) return "local";
-  if (
-    arguments_.length === 2 &&
-    arguments_[0] === "--profile" &&
-    (arguments_[1] === "local" || arguments_[1] === "lan")
-  ) {
-    return arguments_[1];
-  }
-  if (arguments_.length === 1) {
-    const match = /^--profile=(local|lan)$/u.exec(arguments_[0] ?? "");
-    if (match?.[1] === "local" || match?.[1] === "lan") return match[1];
-  }
+  if (arguments_.length === 2 && arguments_[0] === "--profile" && arguments_[1] === "local")
+    return "local";
+  if (arguments_.length === 1 && arguments_[0] === "--profile=local") return "local";
   throw new Error("DEMO_CHECK_ARGUMENTS_INVALID");
 }
 
-export function readReadinessEnvironment(
-  profile: DemoReadinessProfile,
-): Record<string, string | undefined> {
-  const filename = profile === "lan" ? ".env.lan.local" : ".env.local";
+export function readReadinessEnvironment(): Record<string, string | undefined> {
+  const filename = ".env.local";
   const path = resolve(repositoryRoot, filename);
   if (!existsSync(path)) throw new Error("RENTPROOF_ENV_FILE_MISSING");
   const fromFile = parseEnv(readFileSync(path, "utf8"));
@@ -60,78 +50,12 @@ async function verifyFixedLocalVolume(path: string): Promise<void> {
     throw new Error("WINDOWS_FIXED_VOLUME_REQUIRED");
 }
 
-async function getLanFirewallState(
-  host: string,
-  port: number,
-): Promise<"ready" | "missing" | "disabled" | "permission_required" | "invalid"> {
-  const ruleName = "RentProof-Lan-Development-Managed";
-  const inventory = spawnSync(
-    "netsh.exe",
-    ["advfirewall", "firewall", "show", "rule", `name=${ruleName}`, "verbose"],
-    { encoding: "utf8", windowsHide: true, timeout: 10_000 },
-  );
-  if (
-    (inventory.status === 0 || inventory.status === 1) &&
-    inventory.stdout.trim() !== "" &&
-    !inventory.stdout.includes(ruleName)
-  )
-    return "missing";
-  const stateScript = resolve(
-    repositoryRoot,
-    "scripts",
-    "windows",
-    "Get-RentProofLanFirewallState.ps1",
-  );
-  const result = spawnSync(
-    "powershell.exe",
-    [
-      "-NoProfile",
-      "-NonInteractive",
-      "-ExecutionPolicy",
-      "Bypass",
-      "-File",
-      stateScript,
-      "-NodeExe",
-      process.execPath,
-      "-BindAddress",
-      host,
-      "-Port",
-      String(port),
-      "-ConfirmNoPortForwarding",
-      "-ConfirmNoUpnpExposure",
-      "-ConfirmNoTunnel",
-    ],
-    { encoding: "utf8", windowsHide: true, timeout: 10_000 },
-  );
-  if (result.status !== 0) {
-    if (result.stderr.includes("LAN_FIREWALL_RULE_MISSING")) return "missing";
-    if (
-      result.stderr.includes("PermissionDenied") ||
-      result.stderr.includes("0x80041003") ||
-      result.stderr.includes("拒絕存取") ||
-      result.stderr.toLowerCase().includes("access is denied")
-    )
-      return "permission_required";
-    return "invalid";
-  }
-  try {
-    const state = JSON.parse(result.stdout) as {
-      networkCategory?: unknown;
-      firewallRule?: { enabled?: unknown };
-    };
-    if (state.networkCategory !== "Private") return "invalid";
-    return state.firewallRule?.enabled === true ? "ready" : "disabled";
-  } catch {
-    return "invalid";
-  }
-}
-
 export async function runDemoReadiness(arguments_: readonly string[]): Promise<number> {
   let profile: DemoReadinessProfile;
   let environment: Record<string, string | undefined>;
   try {
     profile = parseProfile(arguments_);
-    environment = readReadinessEnvironment(profile);
+    environment = readReadinessEnvironment();
   } catch (error: unknown) {
     process.stderr.write(
       `BLOCKED ${error instanceof Error ? error.message : "DEMO_CHECK_START_FAILED"} — Readiness check could not start.\n`,
@@ -156,7 +80,6 @@ export async function runDemoReadiness(arguments_: readonly string[]): Promise<n
         return verifyRuntimeRootReadonly(input);
       },
       isPortAvailable: defaultPortAvailabilityProbe,
-      getLanFirewallState,
       isTcpListenerReachable: defaultTcpListenerProbe,
     },
   });

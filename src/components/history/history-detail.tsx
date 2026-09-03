@@ -5,12 +5,12 @@ export function HistoryDetail({ rentalCase }: { rentalCase: CaseHistoryDetailMod
   return (
     <main className="history-shell">
       <Link className="legal-back" href="/history">
-        ← 返回歷史案件
+        返回
       </Link>
       <article className="history-detail">
-        <p className="eyebrow">OWNER-SCOPED CASE</p>
+        <p className="eyebrow">案件摘要</p>
         <h1>{rentalCase.displayName}</h1>
-        <p>這是帳戶擁有的 Synthetic Demo 案件摘要，不包含原始認證或資料庫識別資訊。</p>
+        <p>這個案件只有目前登入的帳戶可以查看。</p>
         <dl>
           <div>
             <dt>案件狀態</dt>
@@ -22,7 +22,7 @@ export function HistoryDetail({ rentalCase }: { rentalCase: CaseHistoryDetailMod
           </div>
           <div>
             <dt>分析來源</dt>
-            <dd>{rentalCase.sourceMode === "fixture" ? "Fixture" : "OpenAI Live"}</dd>
+            <dd>{rentalCase.sourceMode === "fixture" ? "已整理的資料" : "OpenAI 雲端分析"}</dd>
           </div>
           <div>
             <dt>建立時間</dt>

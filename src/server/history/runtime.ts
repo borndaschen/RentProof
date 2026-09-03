@@ -1,17 +1,16 @@
 import "server-only";
-import { cookies } from "next/headers";
 import {
   CaseHistoryService,
   type CaseHistoryDetail,
   type CaseHistorySummary,
 } from "@/application/history";
+import type { ActorContext } from "@/application/repositories";
 import {
   PostgresCaseHistoryRepository,
   createPostgresRuntime,
   parsePostgresDatabaseConfig,
 } from "@/adapters/database/postgres";
-import { readSessionCookie, setSessionCookie } from "@/server/auth/http";
-import { getSelfHostedAuthRuntime } from "@/server/auth/runtime";
+import { resolveCurrentAccountActor } from "@/server/auth/current-actor";
 import { getServerEnvironment } from "@/server/env";
 
 export type HistoryRuntimeErrorCode = "HISTORY_FEATURE_DISABLED" | "HISTORY_DATABASE_UNCONFIGURED";
@@ -41,12 +40,12 @@ async function withHistoryRuntime<T>(
   request: Request,
   operation: (
     history: CaseHistoryService,
-    actor: Awaited<ReturnType<typeof resolveEligibleActor>>,
+    actor: (ActorContext & { kind: "user" }) | null,
   ) => Promise<T>,
 ): Promise<T> {
   const environment = getServerEnvironment();
   if (
-    environment.RENTPROOF_DEPLOYMENT_PROFILE !== "local_development" ||
+    !["local_development", "lan_secure_demo"].includes(environment.RENTPROOF_DEPLOYMENT_PROFILE) ||
     environment.RENTPROOF_AUTH_MODE !== "self_hosted"
   ) {
     throw new HistoryRuntimeError("HISTORY_FEATURE_DISABLED");
@@ -63,7 +62,12 @@ async function withHistoryRuntime<T>(
   }
   if (config.role !== "app") throw new HistoryRuntimeError("HISTORY_DATABASE_UNCONFIGURED");
 
-  const actor = await resolveEligibleActor(request);
+  let actor;
+  try {
+    actor = await resolveCurrentAccountActor(request, true);
+  } catch {
+    throw new HistoryRuntimeError("HISTORY_DATABASE_UNCONFIGURED");
+  }
   const postgres = createPostgresRuntime(config);
   try {
     return await operation(
@@ -73,20 +77,4 @@ async function withHistoryRuntime<T>(
   } finally {
     await postgres.close();
   }
-}
-
-async function resolveEligibleActor(request: Request) {
-  const environment = getServerEnvironment();
-  let resolution;
-  try {
-    resolution = await (
-      await getSelfHostedAuthRuntime()
-    ).service.resolveSession(readSessionCookie(request, environment), true);
-  } catch {
-    throw new HistoryRuntimeError("HISTORY_DATABASE_UNCONFIGURED");
-  }
-  if (resolution.status === "signed_out") return null;
-  if (!resolution.refreshCookie) throw new HistoryRuntimeError("HISTORY_DATABASE_UNCONFIGURED");
-  setSessionCookie(await cookies(), environment, resolution.refreshCookie);
-  return resolution.actor;
 }

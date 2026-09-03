@@ -38,13 +38,26 @@ describe("AuthPanel", () => {
     const user = userEvent.setup();
     const { container } = render(<AuthPanel />);
     expect(await screen.findByRole("heading", { name: "登入 RentProof" })).toBeVisible();
-    expect(screen.getByRole("link", { name: "不登入，返回 Demo" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "返回" })).toHaveAttribute("href", "/");
+    expect(container).not.toHaveTextContent(/Demo|Fixture|Golden|P0|Synthetic|虛構/u);
     await user.click(screen.getByRole("button", { name: "註冊" }));
     expect(screen.getByRole("heading", { name: "建立帳戶" })).toBeVisible();
     expect(screen.getByRole("checkbox")).not.toBeChecked();
     await user.click(screen.getByRole("button", { name: "忘記密碼" }));
     expect(screen.getByRole("heading", { name: "重設密碼" })).toBeVisible();
     expect((await axe(container)).violations).toHaveLength(0);
+  });
+
+  it("keeps the account controls reachable in keyboard order", async () => {
+    const user = userEvent.setup();
+    render(<AuthPanel />);
+    await screen.findByRole("heading", { name: "登入 RentProof" });
+    await user.tab();
+    expect(screen.getByLabelText("Email")).toHaveFocus();
+    await user.tab();
+    expect(screen.getByLabelText("密碼")).toHaveFocus();
+    await user.tab();
+    expect(screen.getAllByRole("button", { name: "登入" })[0]).toHaveFocus();
   });
 
   it("sends login only to the server and never stores a provider session in client state", async () => {
@@ -75,7 +88,7 @@ describe("AuthPanel", () => {
     expect(localStorage).toHaveLength(0);
   });
 
-  it("requires an explicit synthetic Demo policy acknowledgement for registration", async () => {
+  it("requires an explicit policy acknowledgement for registration", async () => {
     mockedFetch
       .mockResolvedValueOnce(sessionResponse())
       .mockResolvedValueOnce(new Response(JSON.stringify({ status: "accepted" }), { status: 202 }));
@@ -86,10 +99,10 @@ describe("AuthPanel", () => {
     await user.type(screen.getByLabelText("Email"), "new@example.test");
     await user.type(screen.getByLabelText("密碼"), "new-password-12");
     await user.click(screen.getByRole("checkbox"));
-    await user.click(screen.getByRole("button", { name: "建立 Demo 帳戶" }));
-    expect(await screen.findByText(/驗證信已送出/u)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "建立帳戶" }));
+    expect(await screen.findByText(/驗證碼已準備完成/u)).toBeVisible();
     expect(screen.getByRole("button", { name: "驗證 Email" })).toBeVisible();
-    expect(screen.getByRole("link", { name: "開啟本機 Demo 信箱" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "帳戶驗證中心" })).toHaveAttribute(
       "href",
       "/auth/dev-mailbox",
     );
@@ -142,7 +155,7 @@ describe("AuthPanel", () => {
       .mockResolvedValueOnce(new Response(null, { status: 204 }));
     const user = userEvent.setup();
     render(<AuthPanel />);
-    expect(await screen.findByRole("heading", { name: "帳戶工作階段" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "我的帳戶" })).toBeVisible();
     expect(screen.queryByLabelText("密碼")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "登出" }));
     expect(

@@ -89,16 +89,16 @@
 - First real-data Production將Next.js App與PostgreSQL部署於同一Server；DB只聽loopback／local socket且Firewall禁止LAN／Internet DB port，App／migration／backup roles與OS權限分離。此拓撲不具HA；backup／PITR必須加密送往off-host不同故障域，不能只留同機。
 - Development／Demo固定使用目前Windows桌面電腦驗證Windows path、NTFS ACL、Private network／Firewall與Node.js 24。Production OS暫不決定；不得提前加入Windows Server、Linux、systemd或特定reverse proxy假設。
 - P0 Development／Demo使用原生Node.js 24＋pnpm直接啟動Next.js，不經Docker、WAMP／Apache、IIS或Windows Service。Validated launcher必須把明確host／port傳入listener；Node不以Administrator執行，LAN Firewall rule只限Private profile與指定來源。
-- 日常開發使用Next Dev Server；正式Demo使用Production Build＋`lan_development`。`NODE_ENV=production`不得開啟RentProof Production能力；正式Demo仍synthetic-only、Fixture預設、無Production adapters／credentials／HMR／source maps／詳細error overlay。Scaffold後才補實際可用pnpm指令。
+- 日常開發只以`local_development`在`127.0.0.1`使用HTTP；區域網路展示使用Production Build＋`lan_secure_demo` HTTPS。`NODE_ENV=production`不得自行開啟RentProof Production能力；是否啟用私有資料、Auth、PostgreSQL及Live OpenAI仍由validated profile決定。
 - RentProof PostgreSQL可保存Internal User、正規化Email、Argon2id PHC hash、session／challenge keyed digest、Case Owner、Policy／Consent、Deletion與Security Audit；不得保存明文密碼、原始Session Cookie、原始Reset／Verification Code或pre-auth nonce。
 - 使用條款接受、隱私告知、OpenAI Cloud Processing Notice 與非必要 Cookie 選擇必須使用各自版本／hash／event；第一版不啟用 analytics 或 marketing Cookie。
-- 開發階段可用`lan_development`透過HTTP供私人區域網路裝置連線，但只能使用synthetic data、不得啟用production auth或真實資料。必須綁定明確RFC1918 IP、使用exact Host／Origin allowlist；Windows Firewall依D-065可允許整個Private network來源，但只限RentProof指定IP／port，Public／Domain profiles禁止。Wildcard host、`0.0.0.0`、public interface、port forwarding、UPnP或tunnel仍禁止。
+- HTTP只允許`local_development`綁定`127.0.0.1`；`lan_development`、`dev:lan`、`start:lan`與`.env.lan.local`均已退役，任何舊值必須fail closed。LAN只允許`lan_secure_demo` HTTPS綁定明確RFC1918 IP，使用exact Host／Origin、受信任憑證與Private-profile Firewall；Wildcard host、`0.0.0.0`、public interface、port forwarding、UPnP或tunnel仍禁止。
 - LAN Firewall Rule依D-066保留但預設disabled；Demo前後只能由獨立elevated管理腳本enable／disable，該腳本不得啟動Node或傳遞elevated context。Launcher需檢查rule scope／status；Demo後或異常恢復發現stale enabled rule須告警／fail Gate。
-- `lan_development` 預設 Fixture mode；若明確使用 Live mode，仍只准 synthetic data，並需啟用 request／cost limit 與獨立 OpenAI Project spend control。OpenAI key 仍只在 server，LAN browser 不得取得。
-- HTTP LAN profile 不得承載帳戶密碼、Email／SMS reset、7 天 account session 或真實 guest session；Production 的 HTTPS、Secure cookie 與 owner authorization 規則不得因開發便利而降級。
+- `lan_secure_demo`可顯式使用Fixture或Live；Live必須啟用request／cost limit、已確認OpenAI Project spend control與server-only key。LAN browser不得取得key。
+- `lan_secure_demo`啟用自建Auth、PostgreSQL與私有資料時，必須使用Secure／HttpOnly Cookie、owner authorization、private storage與清理規則；不得因展示環境降低這些條件。
 - 公開預覽固定使用`public_http_showcase`：HTTP、synthetic-only、static export、read-only、無Route Handlers／upload／OpenAI key／auth／cookies／forms／service worker／source maps。必須持續顯示「公開HTTP Demo／傳輸可能被竄改／不可輸入敏感資料／不可作正式證據」，並設定noindex。任何mutation、runtime secret或dynamic API出現在bundle／routes即Gate失敗。
-- D-046之後P0只允許`local_development`／`lan_development`展示；`public_http_showcase`是停用的未來profile，不得Build、部署、開Port Forwarding、VPS或Public Firewall Rule。重新啟用需新決策與完整Showcase Gate。
-- Server profile、env contract、bind、Firewall、Host／Origin、synthetic allowlist 與 Production HTTPS invariants 以 `docs/SERVER_CONFIGURATION.md` 為準；`lan_development` 上傳只接受外部 Demo manifest 中 `synthetic: true` 且 hash 相符的素材。
+- D-093之後只允許`local_development` HTTP loopback與`lan_secure_demo` HTTPS LAN；`public_http_showcase`仍停用，不得Build、部署、開Port Forwarding、VPS或Public Firewall Rule。
+- Server profile、env contract、bind、TLS、Firewall、Host／Origin、private storage與Production HTTPS invariants以`docs/SERVER_CONFIGURATION.md`為準。
 
 ## 測試門檻
 
@@ -127,7 +127,7 @@
 - CI／交付Gate必須分開執行ESLint、Prettier check、TypeScript typecheck與tests；不得只靠`next build`推定Lint或格式通過。
 - Typecheck需包含Domain exhaustiveness、indexed access、optional-property absence與no-emit驗證；新增`@ts-ignore`／`@ts-expect-error`必須有最小範圍、理由與對應test。
 - Coverage Gate使用glob／module thresholds；type-only、官方snapshots、config與未修改的shadcn generated source可排除統計，但RentProof wrappers／variants必須計入並測行為。Coverage不取代Golden／security／E2E。
-- LAN 開發需測 private-IP bind、exact Host／Origin allowlist、public／wildcard bind fail closed、無 CORS wildcard、synthetic-only gate、持續 HTTP／LAN 警示，以及 auth routes 在 LAN profile 關閉。
+- 網路測試需證明HTTP只綁loopback；舊`lan_development`拒絕；`lan_secure_demo`只綁明確private IP的HTTPS、使用exact Host／Origin、無CORS wildcard、Secure Cookie、owner scope與private storage，且public／wildcard bind fail closed。
 - Public HTTP Showcase需測static export沒有server／API routes、network只載入same-origin static assets、無key／cookie／form／service worker／source map、persistent integrity warning與noindex；Production HTTPS regression必須維持。
 
 ## 文件與紀錄
@@ -137,7 +137,7 @@
 - 官方規則有變更時，同步更新 `docs/OFFICIAL_RULES.md`、`rules/official-rules.v1.yaml`、相關測試 fixture 與 `verified_at`。
 - 不提交真實租約、證件、臉孔、地址、電話或其他個資。Demo 素材必須完全虛構，且不提交到本 repository。
 - 三份政策維持 `DRAFT`，直到營運者、聯絡方式、保存期限、供應商／地區、未成年人規則與爭議條款全部填妥並經台灣法務／隱私審閱；不得把草案標示為已生效政策。
-- 實際可用指令：`pnpm install --frozen-lockfile`、`pnpm env:check`、`pnpm demo:check`、`pnpm demo:check -- --profile=lan`、`pnpm lan:firewall:install-disabled`、`pnpm lan:firewall:enable`、`pnpm lan:firewall:disable`、`pnpm lan:firewall:verify`、`pnpm dev`、`pnpm dev:lan`、`pnpm build`、`pnpm start`、`pnpm start:lan`、`pnpm db:demo -- <Action>`、`pnpm auth:demo -- StartAuthDemo|StatusAuthDemo|AuthHttpSmoke|AuthHttpResidueCheck|StopAuthDemo`、`pnpm format`、`pnpm format:check`、`pnpm lint`、`pnpm typecheck`、`pnpm test`、`pnpm test:coverage`、`pnpm test:e2e`、`pnpm security:check`、`pnpm eval:live -- --live`。Live eval另需`RENTPROOF_LLM_MODE=live`與`RENTPROOF_LIVE_SMOKE=1`，CI固定拒絕；新環境先執行`pnpm exec playwright install chromium`；E2E必須先完成`pnpm build`。E2E在受限沙箱可能需允許啟動本機Chromium；不得因環境限制刪除測試。
+- 實際可用指令：`pnpm install --frozen-lockfile`、`pnpm env:check`、`pnpm demo:check`、`pnpm secure-lan:firewall:install-disabled`、`pnpm secure-lan:firewall:enable`、`pnpm secure-lan:firewall:disable`、`pnpm secure-lan:firewall:verify`、`pnpm dev`、`pnpm build`、`pnpm start`、`pnpm start:secure-lan`、`pnpm db:demo -- <Action>`、`pnpm auth:demo -- StartAuthDemo|StatusAuthDemo|AuthHttpSmoke|AuthHttpResidueCheck|StopAuthDemo`、`pnpm format`、`pnpm format:check`、`pnpm lint`、`pnpm typecheck`、`pnpm test`、`pnpm test:coverage`、`pnpm test:e2e`、`pnpm security:check`、`pnpm eval:live -- --live`。Live eval另需`RENTPROOF_LLM_MODE=live`與`RENTPROOF_LIVE_SMOKE=1`，CI固定拒絕；新環境先執行`pnpm exec playwright install chromium`；E2E必須先完成`pnpm build`。E2E在受限沙箱可能需允許啟動本機Chromium；不得因環境限制刪除測試。
 
 <!-- BEGIN:nextjs-agent-rules -->
 

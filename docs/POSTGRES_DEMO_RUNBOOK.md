@@ -55,7 +55,7 @@ Launcher固定使用現有Production Build、`127.0.0.1:3000`、Fixture LLM與`s
 pnpm auth:demo -- StopAuthDemo
 ```
 
-Stop會先以private PID marker、Node executable、start time、repository root與port重新驗證process，再終止該process tree；不接受無marker的廣域process搜尋。HTTP LAN仍固定停用所有帳戶routes，這個Auth Demo只能在loopback操作。
+Stop會先以private PID marker、Node executable、start time、repository root與port重新驗證process，再終止該process tree；不接受無marker的廣域process搜尋。本手冊的Auth流程只在loopback操作；LAN帳戶流程由獨立`lan_secure_demo` HTTPS profile管理。
 
 `AuthHttpSmoke`只對已驗證且健康的managed loopback process執行。它以隨機`example.test` Email與隨機密碼完成CSRF／pre-auth Cookie、註冊、本機browser-bound mailbox、Email驗證、登入、passive session不滑動、history合格活動滑動Cookie、登出、reset及reset replay拒絕；最後只用精確生成的Email／internal user ID刪除該Synthetic帳戶，並確認credential、session及兩種challenge皆為零殘留。輸出只有`AUTH_HTTP_SYNTHETIC_SMOKE_OK`或typed failure code，不顯示Email、密碼、Cookie或一次性碼。
 

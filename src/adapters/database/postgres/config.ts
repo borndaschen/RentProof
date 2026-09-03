@@ -3,7 +3,7 @@ import { z } from "zod";
 export type PostgresDatabaseConfig = {
   connectionString: string;
   role: "app" | "migration";
-  environment: "synthetic_demo" | "local_test" | "production";
+  environment: "synthetic_demo" | "secure_demo" | "local_test" | "production";
   maxConnections: number;
 };
 
@@ -26,9 +26,14 @@ const InputSchema = z
     RENTPROOF_DATABASE_ADAPTER: z.literal("postgres"),
     RENTPROOF_DATABASE_URL: z.string().min(1),
     RENTPROOF_DATABASE_ROLE: z.enum(["app", "migration"]),
-    RENTPROOF_DATABASE_ENVIRONMENT: z.enum(["synthetic_demo", "local_test", "production"]),
+    RENTPROOF_DATABASE_ENVIRONMENT: z.enum([
+      "synthetic_demo",
+      "secure_demo",
+      "local_test",
+      "production",
+    ]),
     RENTPROOF_DATABASE_MAX_CONNECTIONS: z.coerce.number().int().min(1).max(20),
-    RENTPROOF_DEPLOYMENT_PROFILE: z.enum(["local_development", "lan_development", "production"]),
+    RENTPROOF_DEPLOYMENT_PROFILE: z.enum(["local_development", "lan_secure_demo", "production"]),
     RENTPROOF_ALLOW_REAL_DATA: z.enum(["true", "false"]),
     RENTPROOF_PUBLIC_ORIGIN: z.url(),
   })
@@ -75,6 +80,7 @@ export function parsePostgresDatabaseConfig(
   }
 
   const isProduction = parsed.data.RENTPROOF_DATABASE_ENVIRONMENT === "production";
+  const isSecureDemo = parsed.data.RENTPROOF_DATABASE_ENVIRONMENT === "secure_demo";
   if (isProduction) {
     if (
       parsed.data.RENTPROOF_DEPLOYMENT_PROFILE !== "production" ||
@@ -84,6 +90,15 @@ export function parsePostgresDatabaseConfig(
     }
     if (new URL(parsed.data.RENTPROOF_PUBLIC_ORIGIN).protocol !== "https:") {
       throw new PostgresConfigurationError("POSTGRES_TLS_REQUIRED");
+    }
+  } else if (isSecureDemo) {
+    if (
+      parsed.data.RENTPROOF_DEPLOYMENT_PROFILE !== "lan_secure_demo" ||
+      parsed.data.RENTPROOF_ALLOW_REAL_DATA !== "true" ||
+      new URL(parsed.data.RENTPROOF_PUBLIC_ORIGIN).protocol !== "https:" ||
+      databaseUrl.pathname !== "/rentproof_secure_demo"
+    ) {
+      throw new PostgresConfigurationError("POSTGRES_CONFIGURATION_INVALID");
     }
   } else if (
     parsed.data.RENTPROOF_ALLOW_REAL_DATA !== "false" ||

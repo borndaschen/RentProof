@@ -222,7 +222,7 @@ export function ConversationShell({ runtimeStatus }: { runtimeStatus: RuntimeSta
     <main className="app-shell">
       <header className="topbar">
         <div className="brand">租得明白 RentProof</div>
-        {runtimeStatus.authMode === "self_hosted_local" ? (
+        {runtimeStatus.authMode === "self_hosted" ? (
           <a href="/auth" className="auth-link">
             登入／註冊
           </a>

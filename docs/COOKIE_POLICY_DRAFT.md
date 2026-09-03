@@ -5,9 +5,15 @@
 - 日期：2026-09-03
 - 預設策略：必要 Cookie only
 
-> 本文件描述第一個 production release 的隱私優先設計，不是目前已生效的法律文件。實際網域、Cookie 名稱、期限、供應商與同意要求完成實作掃描及台灣法律／隱私審閱前，不得發布為正式政策。
+> 本文件描述未來正式服務的隱私優先設計，不是目前已生效的法律文件。
 
-HTTP `lan_development` 是 synthetic-only 工程環境，不啟用 production account／guest cookies、Email驗證／recovery或7天Account Session；本政策表格中的`Secure` cookies適用正式HTTPS production。LAN開發若需要暫時case association，只能使用不含真實資料／帳戶身分的session-only dev context，且不得被提升為正式owner record。
+### 正式發布前尚待完成
+
+- 正式網域、Cookie實際名稱、path／domain、保存期限與用途inventory。
+- 營運者及Cookie／隱私聯絡方式。
+- 實作後的瀏覽器掃描、供應商清單、同意要求及台灣法律／隱私審閱。
+
+本機HTTP只允許`local_development` loopback。區域網路`lan_secure_demo`使用HTTPS，帳戶與訪客Cookie必須為Secure／HttpOnly、host-only並使用明確SameSite；舊HTTP LAN profile已退役。
 
 ## 1. 什麼是 Cookie
 
@@ -82,7 +88,7 @@ Self-hosted Auth只使用RentProof第一方Cookie；未來若Email、CDN或其�
 
 ## 8. 聯絡方式
 
-正式 Cookie／隱私聯絡方式：`[待填]`。
+正式Cookie／隱私聯絡方式仍待營運者補齊，詳見本文件開頭。
 
 ## 9. 審閱基準
 

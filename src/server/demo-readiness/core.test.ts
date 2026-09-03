@@ -33,7 +33,6 @@ function dependencies(
     verifyGolden: vi.fn(async () => ({ manifestHash: hash, fileCount: 18 })),
     verifyRuntimeRoot: vi.fn(async () => "ready" as const),
     isPortAvailable: vi.fn(async () => true),
-    getLanFirewallState: vi.fn(async () => "ready" as const),
     isTcpListenerReachable: vi.fn(async () => true),
     ...overrides,
   };
@@ -59,61 +58,6 @@ describe("checkDemoReadiness", () => {
     expect(report.blocked).toBe(false);
     expect(report.items.every((item) => item.level === "PASS")).toBe(true);
     expect(byCode(report.items, "DEMO_SEAL_VERIFIED")?.message).toContain(hash);
-    expect(deps.getLanFirewallState).not.toHaveBeenCalled();
-  });
-
-  it("blocks account auth on LAN and does not expose its HMAC secret", async () => {
-    const secret = "s".repeat(43);
-    const report = await checkDemoReadiness({
-      profile: "lan",
-      environment: environment({
-        RENTPROOF_DEPLOYMENT_PROFILE: "lan_development",
-        RENTPROOF_BIND_HOST: "192.168.1.20",
-        RENTPROOF_PUBLIC_ORIGIN: "http://192.168.1.20:3000",
-        RENTPROOF_ALLOWED_HOSTS: "192.168.1.20:3000",
-        RENTPROOF_ALLOWED_ORIGINS: "http://192.168.1.20:3000",
-        RENTPROOF_LAN_NO_PORT_FORWARDING: "confirmed-for-this-run",
-        RENTPROOF_LAN_NO_UPNP_EXPOSURE: "confirmed-for-this-run",
-        RENTPROOF_LAN_NO_TUNNEL: "confirmed-for-this-run",
-        RENTPROOF_AUTH_MODE: "self_hosted",
-        RENTPROOF_AUTH_TOKEN_KEY: secret,
-      }),
-      repositoryRoot: "C:\\work\\RentProof",
-      userProfile: "C:\\Users\\Demo",
-      localAppData: "C:\\Users\\Demo\\AppData\\Local",
-      dependencies: dependencies({
-        getLanFirewallState: vi.fn(async () => "disabled" as const),
-      }),
-    });
-
-    expect(report.blocked).toBe(true);
-    expect(byCode(report.items, "LAN_FIREWALL_DISABLED")?.level).toBe("BLOCKED");
-    expect(byCode(report.items, "LAN_AUTH_FORBIDDEN")?.level).toBe("BLOCKED");
-    expect(JSON.stringify(report)).not.toContain(secret);
-  });
-
-  it("reports each LAN exposure confirmation and a missing firewall rule separately", async () => {
-    const report = await checkDemoReadiness({
-      profile: "lan",
-      environment: environment({
-        RENTPROOF_DEPLOYMENT_PROFILE: "lan_development",
-        RENTPROOF_BIND_HOST: "172.16.102.98",
-        RENTPROOF_PUBLIC_ORIGIN: "http://172.16.102.98:3000",
-        RENTPROOF_ALLOWED_HOSTS: "172.16.102.98:3000",
-        RENTPROOF_ALLOWED_ORIGINS: "http://172.16.102.98:3000",
-      }),
-      repositoryRoot: "C:\\work\\RentProof",
-      userProfile: "C:\\Users\\Demo",
-      localAppData: "C:\\Users\\Demo\\AppData\\Local",
-      dependencies: dependencies({
-        getLanFirewallState: vi.fn(async () => "missing" as const),
-      }),
-    });
-
-    expect(byCode(report.items, "LAN_NO_PORT_FORWARDING_UNCONFIRMED")?.level).toBe("BLOCKED");
-    expect(byCode(report.items, "LAN_NO_UPNP_EXPOSURE_UNCONFIRMED")?.level).toBe("BLOCKED");
-    expect(byCode(report.items, "LAN_NO_TUNNEL_UNCONFIRMED")?.level).toBe("BLOCKED");
-    expect(byCode(report.items, "LAN_FIREWALL_RULE_MISSING")?.level).toBe("BLOCKED");
   });
 
   it("warns for unconfirmed Live Project limits without making a provider call", async () => {

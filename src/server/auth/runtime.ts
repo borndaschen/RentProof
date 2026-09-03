@@ -50,6 +50,12 @@ async function composeRuntime(): Promise<SelfHostedAuthRuntime> {
   ) {
     throw new AuthRuntimeConfigurationError("AUTH_SYNTHETIC_DATABASE_REQUIRED");
   }
+  if (
+    environment.RENTPROOF_DEPLOYMENT_PROFILE === "lan_secure_demo" &&
+    config.environment !== "secure_demo"
+  ) {
+    throw new AuthRuntimeConfigurationError("AUTH_SECURE_DEMO_DATABASE_REQUIRED");
+  }
 
   const passwords = createInstalledArgon2idPasswordHasher();
   let tokens: HmacOpaqueTokenService;

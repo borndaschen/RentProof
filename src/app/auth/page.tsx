@@ -8,7 +8,7 @@ export default function AuthPage() {
   const environment = getServerEnvironment();
   if (
     environment.RENTPROOF_AUTH_MODE !== "self_hosted" ||
-    environment.RENTPROOF_DEPLOYMENT_PROFILE !== "local_development"
+    !["local_development", "lan_secure_demo"].includes(environment.RENTPROOF_DEPLOYMENT_PROFILE)
   ) {
     notFound();
   }

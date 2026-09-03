@@ -42,10 +42,10 @@ describe("LAN Firewall UAC scripts", () => {
       scripts: Record<string, string>;
     };
     expect(packageJson.scripts).toMatchObject({
-      "lan:firewall:install-disabled": "node scripts/lan-firewall.mts InstallDisabled",
-      "lan:firewall:enable": "node scripts/lan-firewall.mts Enable",
-      "lan:firewall:disable": "node scripts/lan-firewall.mts Disable",
-      "lan:firewall:verify": "node scripts/lan-firewall.mts Verify",
+      "secure-lan:firewall:install-disabled": "node scripts/lan-firewall.mts InstallDisabled",
+      "secure-lan:firewall:enable": "node scripts/lan-firewall.mts Enable",
+      "secure-lan:firewall:disable": "node scripts/lan-firewall.mts Disable",
+      "secure-lan:firewall:verify": "node scripts/lan-firewall.mts Verify",
     });
   });
 

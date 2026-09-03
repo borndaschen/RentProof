@@ -11,9 +11,9 @@
 
 90 秒展示從已完成分析的案件開始，唯一現場操作的媒體上傳是一次補拍照。即時模型分析腳本必須真實存在並能產生相同 schema，但正式展示不等待模型完成。影片、掃描 PDF OCR、多案件管理與完整 10 條規則執行列為 P1。
 
-開發與內部展示可使用 `lan_development`：同一私人 LAN 的手機／電腦透過 HTTP 開啟網站，以便驗證 RWD。此模式只允許 synthetic Golden case／synthetic 補件，頁面持續顯示「LAN 開發模式／HTTP／不得輸入真實資料」；不啟用正式帳戶、密碼重設或歷史資料。Production 仍使用 HTTPS。
+日常開發只在 `http://127.0.0.1:3000` 使用；同一私人 LAN 的手機／電腦改用 `lan_secure_demo` HTTPS，以便驗證 RWD與私有案件流程。舊HTTP LAN模式已退役。
 
-P0目前不建立公網預覽，只透過`local_development`或trusted private`lan_development`展示。`public_http_showcase`的靜態規格保留但停用，不列入P0交付；評審／觀看者需在同一LAN、觀看錄影或之後依新決策啟用公開Showcase。
+目前不建立公網預覽，只透過`local_development`或trusted private`lan_secure_demo`展示。`public_http_showcase`的靜態規格保留但停用；評審／觀看者需在同一LAN、觀看錄影或之後依新決策啟用公開Showcase。
 
 ## 1. 問題與產品承諾
 
@@ -86,7 +86,7 @@ Raw user／assistant文字只保存7天；之後timeline以Typed Events與Cards�
 11. 系統要求至少一次具體補拍／補件；使用者補傳後只重跑受影響項目。
 12. 系統產生簽約前待確認報告與中立雙方確認表。
 
-上傳前必須清楚告知：廣告、照片與契約中的最小必要內容會送至 OpenAI Cloud API 分析；P0 只接受 synthetic Demo 資料，真實資料需通過安全與隱私 Gate。
+上傳前必須清楚告知：廣告、照片與契約中的最小必要內容會送至 OpenAI Cloud API 分析。私有資料只可由通過安全與隱私Gate的HTTPS profile處理。
 
 真實資料版在首次 live analysis 前需取得目前 Terms acceptance、Privacy Notice acknowledgement 與 OpenAI Cloud Processing Notice event。訪客與帳戶使用者適用相同告知；非必要 Cookie 選擇獨立且預設關閉。
 

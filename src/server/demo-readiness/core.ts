@@ -5,7 +5,7 @@ import { lstat, readFile, readdir, realpath } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep, win32 } from "node:path";
 
 export type DemoReadinessLevel = "PASS" | "WARN" | "BLOCKED";
-export type DemoReadinessProfile = "local" | "lan";
+export type DemoReadinessProfile = "local";
 
 export type DemoReadinessItem = Readonly<{
   level: DemoReadinessLevel;
@@ -36,15 +36,10 @@ export type DemoReadinessDependencies = Readonly<{
     demoRoot: string;
   }) => Promise<"ready" | "safe_uninitialized">;
   isPortAvailable: (host: string, port: number) => Promise<boolean>;
-  getLanFirewallState: (
-    host: string,
-    port: number,
-  ) => Promise<"ready" | "missing" | "disabled" | "permission_required" | "invalid">;
   isTcpListenerReachable: (host: string, port: number) => Promise<boolean>;
 }>;
 
 const VERSION_PATTERN = /^golden-v[1-9][0-9]*$/u;
-const RFC1918_PATTERN = /^(?:10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.)/u;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/u;
 const browserOpenAiCredentialVariable = ["NEXT", "PUBLIC", "OPENAI", "API", "KEY"].join("_");
 const EXPECTED_GOLDEN_HASH = "f3797356a1e3ea4bbed7a87802fdaaa001985557fb7b51845a9f6a4454157d7b";
@@ -70,7 +65,7 @@ export async function checkDemoReadiness(input: {
   }
 
   const environment = input.environment;
-  const expectedDeployment = input.profile === "lan" ? "lan_development" : "local_development";
+  const expectedDeployment = "local_development";
   const host = environment["RENTPROOF_BIND_HOST"] ?? "";
   const port = parsePort(environment["RENTPROOF_PORT"]);
   const version = environment["RENTPROOF_DEMO_CASE_VERSION"] ?? "";
@@ -83,7 +78,7 @@ export async function checkDemoReadiness(input: {
     environment["RENTPROOF_RUNTIME_DIR"]?.trim() ||
     (localAppData ? win32.join(localAppData, "RentProof", "runtime") : "");
 
-  if (validateSyntheticRuntime(environment, expectedDeployment, host, port, input.profile)) {
+  if (validateSyntheticRuntime(environment, expectedDeployment, host, port)) {
     add(
       "PASS",
       "SYNTHETIC_RUNTIME_CONFIG_VALID",
@@ -206,60 +201,7 @@ export async function checkDemoReadiness(input: {
     add("BLOCKED", "LISTENER_CONFIGURATION_INVALID", "Configured application listener is invalid.");
   }
 
-  if (input.profile === "lan") {
-    for (const [variable, code, message] of [
-      [
-        "RENTPROOF_LAN_NO_PORT_FORWARDING",
-        "LAN_NO_PORT_FORWARDING_UNCONFIRMED",
-        "No-port-forwarding confirmation is required for this LAN run.",
-      ],
-      [
-        "RENTPROOF_LAN_NO_UPNP_EXPOSURE",
-        "LAN_NO_UPNP_EXPOSURE_UNCONFIRMED",
-        "No-UPnP-exposure confirmation is required for this LAN run.",
-      ],
-      [
-        "RENTPROOF_LAN_NO_TUNNEL",
-        "LAN_NO_TUNNEL_UNCONFIRMED",
-        "No-tunnel confirmation is required for this LAN run.",
-      ],
-    ] as const) {
-      const confirmed = environment[variable] === "confirmed-for-this-run";
-      add(
-        confirmed ? "PASS" : "BLOCKED",
-        confirmed ? `${code.slice(0, -"UNCONFIRMED".length)}CONFIRMED` : code,
-        confirmed ? "Operator confirmation is present for this run." : message,
-      );
-    }
-    if (host !== "" && port !== undefined) {
-      try {
-        const state = await input.dependencies.getLanFirewallState(host, port);
-        add(
-          state === "ready" ? "PASS" : "BLOCKED",
-          state === "ready"
-            ? "LAN_FIREWALL_READY"
-            : state === "missing"
-              ? "LAN_FIREWALL_RULE_MISSING"
-              : state === "disabled"
-                ? "LAN_FIREWALL_DISABLED"
-                : state === "permission_required"
-                  ? "LAN_FIREWALL_CHECK_PERMISSION_REQUIRED"
-                  : "LAN_FIREWALL_INVALID",
-          state === "ready"
-            ? "Private-profile LAN firewall rule is enabled with the expected scope."
-            : state === "missing"
-              ? "The exact managed LAN firewall rule is missing."
-              : state === "permission_required"
-                ? "Firewall verification requires an elevated read-only check; rule safety was not inferred."
-                : "LAN firewall rule is not ready for the requested profile.",
-        );
-      } catch {
-        add("BLOCKED", "LAN_FIREWALL_CHECK_FAILED", "LAN firewall state could not be verified.");
-      }
-    }
-  } else {
-    add("PASS", "LAN_FIREWALL_NOT_REQUIRED", "LAN firewall is not required by the local profile.");
-  }
+  add("PASS", "LAN_FIREWALL_NOT_REQUIRED", "Local HTTP listens on loopback only.");
 
   addSelfHostedAuthState(items, input.profile, environment);
   await addPostgresState(items, environment, input.dependencies);
@@ -278,7 +220,6 @@ function validateSyntheticRuntime(
   expectedDeployment: string,
   host: string,
   port: number | undefined,
-  profile: DemoReadinessProfile,
 ): boolean {
   if (
     environment["RENTPROOF_DEPLOYMENT_PROFILE"] !== expectedDeployment ||
@@ -287,7 +228,7 @@ function validateSyntheticRuntime(
     environment["RENTPROOF_PUBLIC_ORIGIN"] === undefined
   )
     return false;
-  if (profile === "local" ? host !== "127.0.0.1" : !RFC1918_PATTERN.test(host)) return false;
+  if (host !== "127.0.0.1") return false;
   let origin: URL;
   try {
     origin = new URL(environment["RENTPROOF_PUBLIC_ORIGIN"]);
@@ -311,7 +252,7 @@ function validateSyntheticRuntime(
 
 function addSelfHostedAuthState(
   items: DemoReadinessItem[],
-  profile: DemoReadinessProfile,
+  _profile: DemoReadinessProfile,
   env: Environment,
 ): void {
   const mode = env["RENTPROOF_AUTH_MODE"] ?? "synthetic";
@@ -322,22 +263,6 @@ function addSelfHostedAuthState(
     ["CLERK", "SECRET", "KEY"].join("_"),
     ["RENTPROOF", "CLERK", "FRONTEND", "ORIGIN"].join("_"),
   ].some((key) => Boolean(env[key]));
-  if (profile === "lan") {
-    items.push(
-      mode === "synthetic" && !hasTokenKey && !hasLegacyManagedAuth
-        ? item(
-            "PASS",
-            "AUTH_DISABLED_FOR_LAN",
-            "Account credentials and routes are absent from the HTTP LAN profile.",
-          )
-        : item(
-            "BLOCKED",
-            "LAN_AUTH_FORBIDDEN",
-            "Account credentials and routes are forbidden in the HTTP LAN Demo profile.",
-          ),
-    );
-    return;
-  }
   if (mode === "synthetic") {
     items.push(
       !hasTokenKey && !hasLegacyManagedAuth

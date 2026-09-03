@@ -1,6 +1,6 @@
 # RentProof UI／RWD 設計規格
 
-- 狀態：P0 design baseline＋first real-data account flow
+- 狀態：目前設計基線＋後續正式服務帳戶流程
 - 日期：2026-09-02
 - 風格：簡單、乾淨、極簡主義、證據優先
 - 策略：mobile-first responsive web design
@@ -14,7 +14,7 @@
 4. 不用顏色單獨表達結果；狀態必須同時有文字與 icon／shape。
 5. 不顯示整體風險分數、模型信心百分比或「可以放心簽約」。
 6. Mobile 不縮小 desktop table；改為適合窄螢幕的 card／accordion。
-7. RWD、keyboard、screen reader 與 print 是 P0，不是事後補強。
+7. RWD、keyboard、screen reader與print是基本品質要求，不是事後補強。
 
 ## 2. 視覺語言
 
@@ -56,7 +56,7 @@
 - Mobile section 間距至少 24 px，Desktop 至少 32 px；card 內距至少 16 px。
 - Card／table row 的主要內容不可低於 52 px 高度，避免文字與按鈕擁擠。
 - Badge、按鈕與 metadata 可以換行；不得為維持單行而縮小字體。
-- P0 不提供 compact／dense mode。
+- 目前不提供compact／dense mode。
 
 ## 3. Responsive breakpoints
 
@@ -104,7 +104,7 @@
 - Case title、execution mode 與 analysis state 始終可見。
 - Workspace內四個tabs在Mobile可水平捲動，但conversation與內容本身不得產生全頁水平捲動。
 - 對話是案件預設主畫面；四區Evidence Workspace保留摘要、矩陣、契約、報告，不新增第五個workspace tab。Viewing checklist、現場觀察與付款前查證可在對話卡與對應workspace投影呈現。
-- `lan_development` 在所有頁面持續顯示「LAN 開發模式・HTTP・僅限虛構資料」，不得只顯示一次 toast，也不得與 Fixture／Live banner 互相取代。
+- 一般使用者畫面不顯示內部profile、Fixture、Golden或規則階段名稱；開發狀態只放在操作人員可見的診斷資訊。
 - `public_http_showcase`持續顯示「公開HTTP Demo・傳輸途中可能被竄改・僅限虛構資料・不可作正式證據」，不可關閉；頁面不得呈現Upload、登入、保存或其他會讓人誤認可提交資料的CTA。
 
 ### Single-entry production flow
@@ -283,7 +283,7 @@ Fixture mode 需要持續 banner，不可只顯示一次 toast。
 - Dialog 開啟時管理 focus，關閉後回原觸發元件。
 - Table 有 caption／headers；Mobile card 保留同等語意標籤。
 - 圖片有可理解 alt；純裝飾 icon `aria-hidden`。
-- 支援 `prefers-reduced-motion`；P0 不依賴 animation 理解狀態。
+- 支援`prefers-reduced-motion`；任何功能都不依賴animation才能理解狀態。
 - 錯誤訊息用 `aria-live` 適度宣布，不重複洗版。
 
 ## 9. Minimalism guardrails
@@ -308,7 +308,7 @@ Fixture mode 需要持續 banner，不可只顯示一次 toast。
 - Guest notice 不得暗示未登入資料為公開，也不得宣稱 session 遺失後仍能由客服找回。
 - Email password reset的成功／失敗回應不能洩漏帳戶是否存在；reset code不回顯、不進URL。SMS／phone UI在Hobby初期不存在。
 - 第一個 production release 不載入 analytics／marketing scripts；未來非必要 Cookie 在 opt-in 前不得載入。
-- LAN HTTP profile 不顯示或啟用 production 登入、註冊、密碼重設與歷史入口；避免使用者誤把不安全開發環境當正式服務。
+- `lan_secure_demo`使用HTTPS並可顯示登入、註冊、Email密碼重設與歷史入口；這些流程仍須由Server驗證owner、session與policy，不能只靠Client顯示狀態。
 - Public HTTP Showcase只有tabs／disclosures／print等無狀態互動；沒有forms、uploads、auth、cookies、history或「開始分析」CTA，並設定noindex。
 
 ## 11. Print
@@ -370,4 +370,4 @@ Fixture mode 需要持續 banner，不可只顯示一次 toast。
 - 登入／註冊／Email 或 SMS 忘記密碼流程與政策頁通過 keyboard、screen reader、generic-response 及 RWD 驗收。
 - shadcn／Radix Dialog、Tabs、Accordion、Checkbox／Select 的 focus、keyboard、label、aria 與 200% zoom 通過測試；CLI 更新不得靜默覆寫 RentProof 客製化。
 - Component層以Testing Library／user-event／jest-dom／axe驗證semantic role、label、keyboard與focus狀態；Browser層以Playwright／axe驗證真實layout、contrast、dialogs與RWD。Axe通過不等於WCAG完整通過，仍需人工keyboard／screen-reader smoke。
-- `lan_development` 的 Mobile／Desktop RWD 可用，但持續標示 HTTP／LAN／synthetic-only，且沒有 production auth UI。
+- `lan_secure_demo`的Mobile／Desktop RWD、keyboard、200% zoom及Auth流程需與本機功能等價，且不得顯示內部profile名稱。

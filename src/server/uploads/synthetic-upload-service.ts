@@ -3,7 +3,6 @@ import { basename } from "node:path";
 import { InMemoryConversationRateLimiter } from "@/application/conversation/security";
 import { guardSingleUploadRequest } from "@/application/uploads";
 import type { DemoManifestFile } from "@/domain/demo";
-import { isRfc1918Ipv4 } from "@/server/network";
 import type {
   PrivateUploadRecord,
   SyntheticDemoManifestSource,
@@ -182,7 +181,7 @@ export class SyntheticUploadService {
     if (transport.caseId !== "golden-v1" || this.#profile.caseVersion !== "golden-v1") {
       return { ok: false, result: failure(404, "UPLOAD_CASE_NOT_ALLOWED") };
     }
-    if (!validSourceIp(transport.sourceIp, this.#profile.deploymentProfile)) {
+    if (!validSourceIp(transport.sourceIp)) {
       return { ok: false, result: failure(403, "UPLOAD_TRANSPORT_INVALID") };
     }
     const host = transport.headers.get("host");
@@ -334,11 +333,8 @@ function failure(status: number, code: SyntheticUploadErrorCode): SyntheticUploa
   return { ok: false, status, code };
 }
 
-function validSourceIp(
-  sourceIp: string,
-  profile: "local_development" | "lan_development",
-): boolean {
-  return profile === "local_development" ? sourceIp === "127.0.0.1" : isRfc1918Ipv4(sourceIp);
+function validSourceIp(sourceIp: string): boolean {
+  return sourceIp === "127.0.0.1";
 }
 
 type AllowlistedUploadFile = DemoManifestFile & {

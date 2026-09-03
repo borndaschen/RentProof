@@ -15,6 +15,15 @@ export default function proxy(request: NextRequest) {
   const boundary = validateGlobalNetworkBoundary(request.headers, environment);
   if (!boundary.ok) return networkBoundaryError(400);
   const sanitizedHeaders = sanitizedDirectRequestHeaders(request.headers);
+  if (
+    environment.RENTPROOF_DEPLOYMENT_PROFILE === "lan_secure_demo" &&
+    environment.RENTPROOF_INTERNAL_PROXY_TOKEN
+  ) {
+    sanitizedHeaders.set(
+      "x-rentproof-network-verified",
+      environment.RENTPROOF_INTERNAL_PROXY_TOKEN,
+    );
+  }
   return NextResponse.next({ request: { headers: sanitizedHeaders } });
 }
 

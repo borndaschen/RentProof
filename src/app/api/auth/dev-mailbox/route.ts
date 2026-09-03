@@ -25,7 +25,7 @@ export async function POST(request: Request): Promise<Response> {
   const environment = getServerEnvironment();
   if (
     !isSelfHostedAuthRouteEnabled(environment) ||
-    environment.RENTPROOF_DEPLOYMENT_PROFILE !== "local_development"
+    !["local_development", "lan_secure_demo"].includes(environment.RENTPROOF_DEPLOYMENT_PROFILE)
   ) {
     return new Response(null, { status: 404, headers: privateHeaders() });
   }

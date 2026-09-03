@@ -30,7 +30,7 @@
 | D-022 | 2026-09-02 | superseded by D-047/D-050 | 帳戶使用 managed identity，忘記密碼支援已驗證 Email 或已綁定手機 SMS                      |
 | D-023 | 2026-09-02 | accepted                  | 隱私政策、使用條款與 Cookie 政策採版本化草案；第一版只使用必要 Cookie                     |
 | D-024 | 2026-09-02 | superseded by D-051/D-089 | 登入帳戶 session 採合格活動後延長 7 天的 sliding idle expiry                              |
-| D-025 | 2026-09-02 | accepted                  | 開發階段允許 synthetic-only HTTP LAN profile；Production HTTPS 不變                       |
+| D-025 | 2026-09-02 | superseded by D-093       | 開發階段允許 synthetic-only HTTP LAN profile；Production HTTPS 不變                       |
 | D-026 | 2026-09-02 | accepted                  | JavaScript／TypeScript 套件管理器使用 pnpm                                                |
 | D-027 | 2026-09-02 | accepted                  | Application runtime 使用 Node.js 24 LTS                                                   |
 | D-028 | 2026-09-02 | accepted                  | Web framework 使用 Next.js 16 Active LTS＋App Router                                      |
@@ -69,9 +69,9 @@
 | D-061 | 2026-09-02 | accepted                  | Production App與PostgreSQL部署在同一台Server，DB只聽本機介面                              |
 | D-062 | 2026-09-02 | accepted                  | Development／Demo使用目前Windows桌面電腦；Production OS暫緩決定                           |
 | D-063 | 2026-09-02 | accepted                  | P0 Development／Demo以原生Node.js＋pnpm直接啟動Next.js                                    |
-| D-064 | 2026-09-02 | accepted                  | 日常開發使用Next Dev Server；正式Demo使用Production Build＋lan_development安全profile     |
-| D-065 | 2026-09-02 | accepted                  | LAN Demo Firewall允許整個Windows Private Network連入指定RentProof IP／Port                |
-| D-066 | 2026-09-02 | accepted                  | LAN Demo Firewall Rule保留但預設停用，只在Demo前後獨立切換                                |
+| D-064 | 2026-09-02 | superseded by D-093       | 日常開發使用Next Dev Server；正式Demo使用Production Build＋lan_development安全profile     |
+| D-065 | 2026-09-02 | superseded by D-093       | LAN Demo Firewall允許整個Windows Private Network連入指定RentProof IP／Port                |
+| D-066 | 2026-09-02 | superseded by D-093       | LAN Demo Firewall Rule保留但預設停用，只在Demo前後獨立切換                                |
 | D-067 | 2026-09-02 | accepted                  | Windows P0 Runtime預設使用`%LOCALAPPDATA%\RentProof\runtime`                              |
 | D-068 | 2026-09-02 | accepted                  | Development Runtime保留7天；Formal Demo Run結束即清除                                     |
 | D-069 | 2026-09-02 | accepted                  | 外部Demo資料夾預設使用`%USERPROFILE%\RentProof-Demo`                                      |
@@ -97,9 +97,16 @@
 | D-090 | 2026-09-03 | accepted                  | RentProof repository改採Apache License 2.0並附NOTICE                                      |
 | D-091 | 2026-09-03 | accepted                  | 「凶宅」需求只實作為專有部分非自然死亡揭露核對，不輸出物件判決                            |
 | D-092 | 2026-09-03 | accepted                  | P1啟用RP-001／002／005／007，P0 profile與Golden結果維持不變                               |
+| D-093 | 2026-09-03 | accepted                  | 退役HTTP LAN；本機HTTP只限loopback，LAN改用HTTPS secure demo                              |
 | D-088 | 2026-09-02 | accepted                  | Development Luna Project限制30 RPM／500K TPM／300 RPD（若支援）                           |
 
 ## 詳細理由與影響
+
+### D-093：退役HTTP LAN，改用HTTPS區域網路展示
+
+**理由：** 使用者需要從LAN裝置操作私有租屋素材與帳戶流程。HTTP無法保護租約、照片、密碼及Session在網路傳輸時的機密性與完整性，因此不再保留HTTP LAN例外。
+
+**影響：** `local_development`是唯一HTTP profile，固定綁定`127.0.0.1`。舊`lan_development`、`dev:lan`、`start:lan`、`.env.lan.local`與`demo:check -- --profile=lan`退役並須fail closed。LAN只使用`lan_secure_demo`：明確RFC1918 IP、HTTPS、受信任憑證、exact Host／Origin、Private-profile Firewall、Secure Cookie、self-hosted Auth、loopback PostgreSQL、private storage與owner-scoped authorization。Fixture／Live仍由startup-only設定決定；Live另要求Server-only key與已確認的OpenAI Project限制。D-025、D-064、D-065、D-066中關於HTTP LAN的現行效力由本決策取代；歷史紀錄保留。
 
 ### D-001：模組化單體與固定管線
 

@@ -36,7 +36,7 @@ export class PostgresReadinessError extends Error {
 }
 
 const LOOPBACK_ADDRESSES = new Set(["127.0.0.1", "::1"]);
-const EXPECTED_PRODUCT_TABLE_COUNT = 12;
+const EXPECTED_PRODUCT_TABLE_COUNT = 13;
 
 export function assertPostgresDemoReadiness(
   config: PostgresDatabaseConfig,

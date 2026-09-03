@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export default function HistoryPage() {
   const environment = getServerEnvironment();
   if (
-    environment.RENTPROOF_DEPLOYMENT_PROFILE !== "local_development" ||
+    !["local_development", "lan_secure_demo"].includes(environment.RENTPROOF_DEPLOYMENT_PROFILE) ||
     environment.RENTPROOF_AUTH_MODE !== "self_hosted"
   )
     notFound();

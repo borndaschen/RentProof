@@ -27,7 +27,7 @@ describe("HistoryClientPage", () => {
         cases: [
           {
             caseId: "case_owner_scoped_00000001",
-            displayName: "虛構套房案件",
+            displayName: "南京東路套房",
             status: "ready",
             updatedAt: "2026-09-03T00:00:00.000Z",
           },
@@ -35,7 +35,7 @@ describe("HistoryClientPage", () => {
       }),
     );
     render(<HistoryClientPage />);
-    expect(await screen.findByText("虛構套房案件")).toBeVisible();
+    expect(await screen.findByText("南京東路套房")).toBeVisible();
     expect(mockedFetch).toHaveBeenCalledWith("/api/history", {
       cache: "no-store",
       credentials: "same-origin",

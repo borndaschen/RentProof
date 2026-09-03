@@ -19,6 +19,7 @@ type AuthGuardEnvironment = Readonly<{
   RENTPROOF_PUBLIC_ORIGIN: string;
   allowedHosts: readonly string[];
   allowedOrigins: readonly string[];
+  RENTPROOF_INTERNAL_PROXY_TOKEN?: string | undefined;
 }>;
 
 export type AuthCookieNames = Readonly<{
@@ -39,7 +40,10 @@ export type SelfHostedAuthReadDiagnosis =
     }>;
 
 export function authCookieNames(environment: AuthGuardEnvironment): AuthCookieNames {
-  if (environment.RENTPROOF_DEPLOYMENT_PROFILE === "production") {
+  if (
+    environment.RENTPROOF_DEPLOYMENT_PROFILE === "production" ||
+    environment.RENTPROOF_DEPLOYMENT_PROFILE === "lan_secure_demo"
+  ) {
     return {
       csrf: AUTH_CSRF_COOKIE_PRODUCTION,
       session: AUTH_SESSION_COOKIE_PRODUCTION,
@@ -71,7 +75,11 @@ export function isSelfHostedAuthRouteEnabled(environment: AuthGuardEnvironment):
       (origin.hostname === "127.0.0.1" || origin.hostname === "localhost")
     );
   }
-  return environment.RENTPROOF_DEPLOYMENT_PROFILE === "production" && origin.protocol === "https:";
+  return (
+    (environment.RENTPROOF_DEPLOYMENT_PROFILE === "production" ||
+      environment.RENTPROOF_DEPLOYMENT_PROFILE === "lan_secure_demo") &&
+    origin.protocol === "https:"
+  );
 }
 
 export function validateSelfHostedAuthRead(
@@ -88,6 +96,14 @@ export function diagnoseSelfHostedAuthRead(
   if (!isSelfHostedAuthRouteEnabled(environment)) return { ok: false, reason: "AUTH_DISABLED" };
   const host = request.headers.get("host");
   if (!host) return { ok: false, reason: "HOST_MISSING" };
+  if (environment.RENTPROOF_DEPLOYMENT_PROFILE === "lan_secure_demo") {
+    const expected = environment.RENTPROOF_INTERNAL_PROXY_TOKEN;
+    const verified = request.headers.get("x-rentproof-network-verified");
+    if (!expected || verified !== expected || !environment.allowedHosts.includes(host)) {
+      return { ok: false, reason: "NETWORK_FORWARDED_HEADER_FORBIDDEN" };
+    }
+    return { ok: true, reason: "OK" };
+  }
   const network = validateGlobalNetworkBoundary(request.headers, environment);
   if (!network.ok) return { ok: false, reason: `NETWORK_${network.reason}` };
   return { ok: true, reason: "OK" };
@@ -110,6 +126,25 @@ export function validateSelfHostedAuthMutation(
   const csrfHeader = request.headers.get("x-rentproof-csrf");
   const csrfCookie = readUniqueCookie(request.headers.get("cookie"), names.csrf);
   return safeTokenEqual(csrfHeader, csrfCookie);
+}
+
+export function validateSelfHostedAuthBinaryMutation(
+  request: Request,
+  environment: AuthGuardEnvironment,
+): boolean {
+  if (!validateSelfHostedAuthRead(request, environment)) return false;
+  const origin = request.headers.get("origin");
+  if (!origin || !environment.allowedOrigins.includes(origin)) return false;
+  const fetchSite = request.headers.get("sec-fetch-site");
+  if (fetchSite !== null && fetchSite !== "same-origin") return false;
+  if (request.headers.get("content-type")?.toLowerCase() !== "application/octet-stream") {
+    return false;
+  }
+  const names = authCookieNames(environment);
+  return safeTokenEqual(
+    request.headers.get("x-rentproof-csrf"),
+    readUniqueCookie(request.headers.get("cookie"), names.csrf),
+  );
 }
 
 export function validateSelfHostedAuthFormMutation(

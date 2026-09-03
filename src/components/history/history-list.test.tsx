@@ -10,7 +10,7 @@ describe("HistoryList", () => {
         cases={[
           {
             caseId: "case_owned_by_a_00000001",
-            displayName: "虛構套房 A",
+            displayName: "民生東路套房 A",
             status: "needs_attention",
             updatedAt: "2026-09-03T08:00:00.000Z",
           },
@@ -18,17 +18,18 @@ describe("HistoryList", () => {
       />,
     );
     expect(screen.getByRole("heading", { name: "歷史租屋案件" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /虛構套房 A/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /民生東路套房 A/ })).toHaveAttribute(
       "href",
       "/history/case_owned_by_a_00000001",
     );
+    expect(container).not.toHaveTextContent(/Demo|Fixture|Golden|P0|Synthetic|虛構/u);
     expect((await axe(container)).violations).toHaveLength(0);
   });
 
-  it("explains that login does not automatically save guest cases", () => {
+  it("explains how to start when no case has been saved", () => {
     render(<HistoryList cases={[]} />);
-    expect(screen.getByText(/登入不會自動保存訪客案件/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "返回目前案件" })).toHaveAttribute("href", "/");
+    expect(screen.getByText(/建立新案件/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "返回" })).toHaveAttribute("href", "/");
   });
 
   it("labels every case state and safely encodes opaque case IDs in links", () => {

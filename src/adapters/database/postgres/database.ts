@@ -141,6 +141,26 @@ export interface SecurityAuditEventsTable {
   provider_ref: string | null;
 }
 
+export interface CaseArtifactsTable {
+  id: string;
+  case_id: string;
+  owner_type: "user" | "guest";
+  owner_subject_id: string;
+  artifact_kind: "listing_image" | "viewing_image" | "contract_pdf" | "follow_up_image";
+  state: "quarantined" | "available" | "deletion_pending" | "purged";
+  mime: "image/jpeg" | "image/png" | "application/pdf";
+  original_sha256: string;
+  derivative_sha256: string | null;
+  original_bytes: number;
+  derivative_bytes: number | null;
+  original_relative_path: string;
+  derivative_relative_path: string | null;
+  extracted_text_relative_path: string | null;
+  created_at: GeneratedTimestampColumn;
+  updated_at: GeneratedTimestampColumn;
+  deleted_at: TimestampColumn | null;
+}
+
 export interface RentProofDatabase {
   internal_users: InternalUsersTable;
   auth_credentials: AuthCredentialsTable;
@@ -154,4 +174,5 @@ export interface RentProofDatabase {
   consent_preferences: ConsentPreferencesTable;
   deletion_requests: DeletionRequestsTable;
   security_audit_events: SecurityAuditEventsTable;
+  case_artifacts: CaseArtifactsTable;
 }

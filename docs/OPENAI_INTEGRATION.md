@@ -145,7 +145,7 @@ SDK 的 retry 設定集中在 `OpenAIResponsesGateway`，adapter 不再疊加第
 - 公開部署時使用平台 secret manager，並為 RentProof 建立獨立 OpenAI Project／key，以便限制存取與追蹤用量。
 - 不提供可由使用者控制的 `base_url`；避免把租約或 API key 導向非 OpenAI endpoint。
 - 真實資料版以 server secret 對內部 guest／user actor ID 作 HMAC 後提供穩定的 `safety_identifier`；不得傳 email、電話、session token或身分證號，也不得跨 owner 共用 identifier。
-- `lan_development` 預設 Fixture；若顯式使用 Live，仍只接受 Demo manifest allowlisted synthetic artifacts，並啟用來源 IP／case／request／concurrency limit與獨立 OpenAI Project spend control。Browser 到 RentProof 可為開發 HTTP，但 RentProof 到 OpenAI 永遠使用 HTTPS；key 不得進 source map、error overlay 或任何 LAN response。
+- `lan_secure_demo`可顯式使用Fixture或Live。Live必須啟用來源IP／case／request／concurrency limit及獨立OpenAI Project spend control；Browser到RentProof及RentProof到OpenAI皆使用HTTPS，key不得進source map、error overlay或任何LAN response。
 - D-076允許LAN conversation free text；Fixture adapter本機處理且network count為0。Live intent request只含最小structured case projection＋目前turn，固定`tools: []`、`store: false`與strict JSON Schema output；不傳API key、system secret、raw documents或完整conversation history。Structured Outputs只保證schema shape，Server仍需allowlist語意與confirmation Gate。OpenAI API reference說明`json_schema`可強制符合所提供Schema，message roles具有指令優先序：[Responses API](https://developers.openai.com/api/reference/cli/resources/beta/subresources/responses)。
 - Conversation turn只有通過8 KiB raw UTF-8／NFC 2,000 code-point Gate才可進Live request；超限、invalid encoding或NUL不得呼叫OpenAI。長文件改走各自最小必要preprocessing／extraction request，不把全文偽裝成chat turn。
 - Live conversation request還需通過Actor＋IP 10／minute、burst 3、case concurrency 1與idempotency Gate；duplicate同payload重用既有run，rate／concurrency／key conflict不得呼叫OpenAI或計入模型成功。

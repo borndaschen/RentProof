@@ -37,15 +37,15 @@ export function parseLanFirewallOperatorConfig(
 }> {
   const schema = z
     .object({
-      deployment: z.literal("lan_development"),
+      deployment: z.literal("lan_secure_demo"),
       bindAddress: Rfc1918Schema,
       port: z.coerce.number().int().min(1024).max(65535),
       publicOrigin: z.url(),
       allowedHosts: z.string().min(1),
       allowedOrigins: z.string().min(1),
-      allowRealData: z.literal("false"),
-      authMode: z.literal("synthetic").default("synthetic"),
-      authToken: z.string().max(0).optional(),
+      allowRealData: z.literal("true"),
+      authMode: z.literal("self_hosted"),
+      authToken: z.string().regex(/^[A-Za-z0-9_-]{43,}$/u),
       clerkPublishable: z.string().max(0).optional(),
       clerkSecret: z.string().max(0).optional(),
       clerkOrigin: z.string().max(0).optional(),
@@ -60,15 +60,15 @@ export function parseLanFirewallOperatorConfig(
     allowedHosts: environment["RENTPROOF_ALLOWED_HOSTS"],
     allowedOrigins: environment["RENTPROOF_ALLOWED_ORIGINS"],
     allowRealData: environment["RENTPROOF_ALLOW_REAL_DATA"],
-    authMode: environment["RENTPROOF_AUTH_MODE"] || "synthetic",
-    authToken: environment["RENTPROOF_AUTH_TOKEN_KEY"] || undefined,
+    authMode: environment["RENTPROOF_AUTH_MODE"],
+    authToken: environment["RENTPROOF_AUTH_TOKEN_KEY"],
     clerkPublishable: environment[clerkPublishableVariable] || undefined,
     clerkSecret: environment[clerkSecretVariable] || undefined,
     clerkOrigin: environment["RENTPROOF_CLERK_FRONTEND_ORIGIN"] || undefined,
     nodeExecutable,
   });
   if (!parsed.success) throw new Error("LAN_FIREWALL_OPERATOR_CONFIG_INVALID");
-  const expectedOrigin = `http://${parsed.data.bindAddress}:${String(parsed.data.port)}`;
+  const expectedOrigin = `https://${parsed.data.bindAddress}:${String(parsed.data.port)}`;
   const allowedHosts = csv(parsed.data.allowedHosts);
   const allowedOrigins = csv(parsed.data.allowedOrigins);
   if (

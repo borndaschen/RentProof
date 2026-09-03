@@ -143,7 +143,7 @@ export function guardAuthRead(
   if (!diagnosis.ok) {
     if (
       environment.RENTPROOF_AUTH_MODE === "self_hosted" &&
-      environment.RENTPROOF_DEPLOYMENT_PROFILE === "local_development"
+      ["local_development", "lan_secure_demo"].includes(environment.RENTPROOF_DEPLOYMENT_PROFILE)
     ) {
       console.warn(`AUTH_READ_REJECTED_${diagnosis.reason}`);
     }

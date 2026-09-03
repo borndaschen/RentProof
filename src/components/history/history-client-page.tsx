@@ -47,10 +47,7 @@ export function HistoryClientPage() {
     return <HistoryNotice title="請先登入" message="登入後才能查詢目前帳戶已保存的歷史案件。" />;
   }
   return (
-    <HistoryNotice
-      title="歷史案件目前無法使用"
-      message="請檢查本機 Demo 的帳戶與 PostgreSQL 設定；系統不會改用記憶體資料假裝成功。"
-    />
+    <HistoryNotice title="歷史案件目前無法使用" message="目前無法讀取案件資料，請稍後再試。" />
   );
 }
 
@@ -58,7 +55,7 @@ function HistoryNotice({ title, message }: { title: string; message: string }) {
   return (
     <main className="history-shell">
       <section className="history-empty">
-        <p className="eyebrow">ACCOUNT HISTORY</p>
+        <p className="eyebrow">我的案件</p>
         <h1>{title}</h1>
         <p>{message}</p>
         <div className="card-actions">
@@ -66,7 +63,7 @@ function HistoryNotice({ title, message }: { title: string; message: string }) {
             前往登入／註冊
           </Link>
           <Link className="secondary-button" href="/">
-            返回 Demo
+            返回
           </Link>
         </div>
       </section>

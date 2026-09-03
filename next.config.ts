@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const isDevelopment = process.env["NODE_ENV"] === "development";
 const publicOrigin = process.env["RENTPROOF_PUBLIC_ORIGIN"] ?? "http://127.0.0.1:3000";
+const isSecureLanDemo = process.env["RENTPROOF_DEPLOYMENT_PROFILE"] === "lan_secure_demo";
 const websocketOrigin = publicOrigin.replace(/^http/u, "ws");
 const contentSecurityPolicy = [
   "default-src 'self'",
@@ -41,6 +42,9 @@ const nextConfig: NextConfig = {
           },
           { key: "X-DNS-Prefetch-Control", value: "off" },
           { key: "Cache-Control", value: "private, no-store" },
+          ...(isSecureLanDemo
+            ? [{ key: "Strict-Transport-Security", value: "max-age=86400" }]
+            : []),
         ],
       },
     ];
