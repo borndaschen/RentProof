@@ -2,6 +2,23 @@
 
 本檔記錄已完成的事實與驗證，不把規劃中的工作寫成已完成。最新紀錄放最上方。
 
+## 2026-09-03 — 公開GitHub repository交付Gate
+
+### 已完成
+
+- 建立並推送公開repository `https://github.com/borndaschen/RentProof`，預設分支為`main`；初始commit包含可執行的TypeScript／Next.js實作、測試、Apache-2.0 License與文件。
+- README補齊問題、核心功能、架構與技術、執行方式及限制；新增`SOURCES_AND_ATTRIBUTIONS.md`與`PUBLIC_REPOSITORY_CHECKLIST.md`。
+- 公開提交排除`.env.*`實值、credentials、憑證／私鑰、PostgreSQL、Runtime、uploads、Demo／真實素材、建置／測試產物及完整官方HTML／PDF快照；官方來源只留URL、SHA-256與規則metadata。
+- 移除文件中的本機Windows使用者名稱與絕對使用者路徑，改用`%USERPROFILE%`、`%LOCALAPPDATA%`或泛用範例。
+
+### 驗證
+
+- 446個staged檔案的禁止路徑、private-key／常見credential pattern、大於1MiB檔案及個人使用者路徑掃描皆為零；`pnpm security:check`為510 files passed。
+- 最終Build、Prettier、ESLint與TypeScript通過；文案變更的2個Vitest files／20 tests通過。
+- 不帶GitHub登入資訊的公開HTTP請求確認repository、README、LICENSE與`src`皆回200；GitHub API確認`visibility=public`、`private=false`。
+
+---
+
 ## 2026-09-03 — LAN Firewall UAC恢復與Fixture重啟
 
 ### 已完成

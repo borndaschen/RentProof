@@ -4,8 +4,9 @@
 
 ## 目前結果
 
-- [ ] GitHub／GitLab儲存庫可由無痕視窗直接開啟
-  - 尚未符合：本機repository尚無remote與第一個commit，且GitHub CLI的`borndaschen`登入已失效。完成重新登入、建立Public repository及push後，必須再用未登入的無痕視窗驗證。
+- [x] GitHub／GitLab儲存庫可由無痕視窗直接開啟
+  - 公開網址：https://github.com/borndaschen/RentProof
+  - 已以不帶GitHub登入資訊的公開HTTP請求驗證repository首頁、raw README、raw LICENSE及`src` contents API均回200；GitHub API回報`visibility=public`、`private=false`、預設分支`main`。
 - [x] 儲存庫包含可辨識的實作內容
   - 預備提交包含`src/`、`scripts/`及`tests/`共400個實作／測試檔，其中121個為自動化測試檔；不是只有企劃文件或畫面稿。
 - [x] README包含問題、功能、架構、技術、執行方式與限制
@@ -30,8 +31,8 @@
 
 ## Push後驗證
 
-1. 以`gh repo view`確認visibility為`PUBLIC`。
-2. 複製repository HTTPS URL，以未登入的瀏覽器無痕視窗開啟。
+1. 以`gh repo view`確認visibility為`PUBLIC`。（已完成）
+2. 複製repository HTTPS URL，以未登入的瀏覽器無痕視窗開啟。（匿名HTTP驗證已完成；仍可人工複核畫面）
 3. 確認README、LICENSE、來源揭露及`src/`可直接瀏覽。
 4. 對遠端預設分支重新clone到新的空目錄，執行`pnpm install --frozen-lockfile`、format、lint、typecheck、tests、security check及build。
 5. 在GitHub搜尋常見secret pattern，並確認push protection／secret scanning沒有警示。
