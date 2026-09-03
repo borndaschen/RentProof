@@ -15,6 +15,16 @@ const otherActor = {
   userId: "user_other_abcdefghijklmnopqrstuvwxyz",
   sessionId: "session_other_abcdefghijklmnopqrstuv",
 } as const satisfies ActorContext;
+const guestActor = {
+  kind: "guest",
+  guestId: "guest_abcdefghijklmnopqrstuvwxyz12345",
+  guestSessionId: "guest_session_abcdefghijklmnopqrstuv",
+} as const satisfies ActorContext;
+const otherGuestActor = {
+  kind: "guest",
+  guestId: "guest_other_abcdefghijklmnopqrstuvwxyz",
+  guestSessionId: "guest_session_other_abcdefghijklmnop",
+} as const satisfies ActorContext;
 const caseId = "case_abcdefghijklmnopqrstuvwxyz1234567890";
 const now = new Date("2026-09-03T12:00:00.000Z");
 
@@ -113,6 +123,47 @@ describe("PostgresRealDemoRepository", () => {
     expect(fixture.pool.queries.some((query) => query.text.includes('"deletion_requests"'))).toBe(
       false,
     );
+    await fixture.destroy();
+  });
+
+  it("isolates guest A from guest B using the database owner scope", async () => {
+    const fixture = createDatabaseFixture();
+    const repository = new PostgresRealDemoRepository(fixture.database);
+    fixture.pool.enqueue([], []);
+
+    await expect(repository.deleteCase({ actor: otherGuestActor, caseId, now })).resolves.toBe(
+      false,
+    );
+    const caseQueries = fixture.pool.queries.filter((query) =>
+      query.text.includes('"rental_cases"'),
+    );
+    expect(caseQueries).toHaveLength(2);
+    expect(caseQueries.every((query) => query.parameters.includes("guest"))).toBe(true);
+    expect(
+      caseQueries.every((query) => query.parameters.includes(otherGuestActor.guestSessionId)),
+    ).toBe(true);
+    expect(
+      caseQueries.every((query) => !query.parameters.includes(guestActor.guestSessionId)),
+    ).toBe(true);
+    await fixture.destroy();
+  });
+
+  it("sets a guest deletion deadline to 24 hours instead of the account deadline", async () => {
+    const fixture = createDatabaseFixture();
+    const repository = new PostgresRealDemoRepository(fixture.database);
+    fixture.pool.enqueue([{ id: caseId }], [], []);
+
+    await expect(repository.deleteCase({ actor: guestActor, caseId, now })).resolves.toBe(true);
+    const deletion = fixture.pool.queries.find((query) =>
+      query.text.includes('insert into "deletion_requests"'),
+    );
+    expect(deletion?.parameters).toContain(guestActor.guestSessionId);
+    expect(
+      deletion?.parameters.some(
+        (value) =>
+          value instanceof Date && value.getTime() === Date.parse("2026-09-04T12:00:00.000Z"),
+      ),
+    ).toBe(true);
     await fixture.destroy();
   });
 

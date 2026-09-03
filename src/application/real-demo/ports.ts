@@ -8,44 +8,36 @@ import type {
 
 export interface RealDemoRepositoryPort {
   createCase(input: {
-    actor: ActorContext & { kind: "user" };
+    actor: ActorContext;
     displayName: string;
     cloudProcessingConsentVersion: string;
     cloudProcessingConsentHash: string;
     now: Date;
   }): Promise<{ caseId: string }>;
   reserveArtifact(input: {
-    actor: ActorContext & { kind: "user" };
+    actor: ActorContext;
     reservation: RealArtifactReservation;
     now: Date;
   }): Promise<void>;
   finalizeArtifact(input: {
-    actor: ActorContext & { kind: "user" };
+    actor: ActorContext;
     reservation: RealArtifactReservation;
     stored: StoredArtifactPaths;
     now: Date;
   }): Promise<void>;
   abandonArtifact(input: {
-    actor: ActorContext & { kind: "user" };
+    actor: ActorContext;
     reservation: RealArtifactReservation;
     now: Date;
   }): Promise<void>;
-  deleteCase(input: {
-    actor: ActorContext & { kind: "user" };
-    caseId: string;
-    now: Date;
-  }): Promise<boolean>;
-  completeCaseDeletion(input: {
-    actor: ActorContext & { kind: "user" };
-    caseId: string;
-    now: Date;
-  }): Promise<void>;
+  deleteCase(input: { actor: ActorContext; caseId: string; now: Date }): Promise<boolean>;
+  completeCaseDeletion(input: { actor: ActorContext; caseId: string; now: Date }): Promise<void>;
   listAvailableArtifacts(input: {
-    actor: ActorContext & { kind: "user" };
+    actor: ActorContext;
     caseId: string;
   }): Promise<readonly AvailableRealArtifact[]>;
   commitAnalysis(input: {
-    actor: ActorContext & { kind: "user" };
+    actor: ActorContext;
     caseId: string;
     snapshot: RealAnalysisSnapshot;
     now: Date;

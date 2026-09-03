@@ -5,13 +5,13 @@ vi.mock("server-only", () => ({}));
 
 const mocks = vi.hoisted(() => ({
   analyzeRealCase: vi.fn(),
-  resolveCurrentAccountActor: vi.fn(),
+  resolveCurrentCaseActor: vi.fn(),
   validateMutation: vi.fn(() => true),
 }));
 
 vi.mock("@/server/real-demo/analysis", () => ({ analyzeRealCase: mocks.analyzeRealCase }));
 vi.mock("@/server/auth/current-actor", () => ({
-  resolveCurrentAccountActor: mocks.resolveCurrentAccountActor,
+  resolveCurrentCaseActor: mocks.resolveCurrentCaseActor,
 }));
 vi.mock("@/server/auth/request-guard", () => ({
   validateSelfHostedAuthMutation: mocks.validateMutation,
@@ -37,7 +37,7 @@ describe("POST /api/real-cases/:caseId/analysis", () => {
   beforeEach(() => {
     process.env["OPENAI_API_KEY"] = "test-only-not-a-real-key";
     mocks.analyzeRealCase.mockReset();
-    mocks.resolveCurrentAccountActor.mockReset().mockResolvedValue(actor);
+    mocks.resolveCurrentCaseActor.mockReset().mockResolvedValue(actor);
     mocks.validateMutation.mockClear();
   });
 

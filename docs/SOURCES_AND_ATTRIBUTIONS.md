@@ -30,9 +30,9 @@
 
 規則內容仍是工程用草案，不是法律意見；公開展示前必須重新查核官方版本。
 
-## 展示素材
+## 測試素材
 
-- Golden Demo廣告、契約、照片、truth與fallback位於repository外的`RentProof-Demo`資料夾。
+- 測試用廣告、契約、照片、人工預期結果與預先分析結果位於repository外的`RentProof-Demo`資料夾。
 - 這些素材由本專案自行建立作測試用途，不會隨公開source repository散布。
 - Manifest version、檔案種類、bytes及SHA-256只用於本機完整性驗證，不代表第三方素材授權。
 - 真實租約、地址、姓名、電話、臉孔、證件、帳號與使用者上傳檔案禁止提交到repository。

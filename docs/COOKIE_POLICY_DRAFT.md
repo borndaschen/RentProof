@@ -9,7 +9,7 @@
 
 ### 正式發布前尚待完成
 
-- 正式網域、Cookie實際名稱、path／domain、保存期限與用途inventory。
+- 正式網域，以及正式環境的Cookie掃描與用途inventory複核。
 - 營運者及Cookie／隱私聯絡方式。
 - 實作後的瀏覽器掃描、供應商清單、同意要求及台灣法律／隱私審閱。
 
@@ -21,14 +21,14 @@ Cookie 是網站由瀏覽器保存並在後續 request 帶回的小型資料。R
 
 ## 2. 預設使用方式
 
-| 類別              | 第一個 production release | 用途                                                              | 是否可關閉                                                 |
-| ----------------- | ------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------- |
-| 必要 session      | 啟用                      | 維持 server-side guest／登入 session；browser 只持有 opaque token | 使用 active case／登入功能時必要；可刪除 Cookie 或登出終止 |
-| 安全／CSRF        | 啟用                      | 驗證 mutation request、降低跨站請求與濫用                         | 使用受保護功能時必要                                       |
-| Cookie preference | 視實作啟用                | 保存使用者非必要 Cookie 選擇與政策版本                            | 可清除；清除後重新詢問                                     |
-| 功能偏好          | 預設停用                  | 只有在確有必要且不含案件內容時才加入                              | 可選擇                                                     |
-| Analytics／效能   | 不啟用                    | 第一版不使用第三方 analytics Cookie                               | 未經 opt-in 不載入                                         |
-| Marketing／廣告   | 不啟用                    | 不建立廣告受眾或跨站追蹤                                          | 不提供                                                     |
+| 類別              | 第一個正式版本 | 用途                                                              | 是否可關閉                                                 |
+| ----------------- | -------------- | ----------------------------------------------------------------- | ---------------------------------------------------------- |
+| 必要 session      | 啟用           | 維持 server-side guest／登入 session；browser 只持有 opaque token | 使用 active case／登入功能時必要；可刪除 Cookie 或登出終止 |
+| 安全／CSRF        | 啟用           | 驗證 mutation request、降低跨站請求與濫用                         | 使用受保護功能時必要                                       |
+| Cookie preference | 視實作啟用     | 保存使用者非必要 Cookie 選擇與政策版本                            | 可清除；清除後重新詢問                                     |
+| 功能偏好          | 預設停用       | 只有在確有必要且不含案件內容時才加入                              | 可選擇                                                     |
+| Analytics／效能   | 不啟用         | 第一版不使用第三方 analytics Cookie                               | 未經 opt-in 不載入                                         |
+| Marketing／廣告   | 不啟用         | 不建立廣告受眾或跨站追蹤                                          | 不提供                                                     |
 
 OpenAI API 呼叫由 RentProof server／worker 發出，不讓瀏覽器直接連 OpenAI，因此 OpenAI 不應因 RentProof 的分析 request 在使用者瀏覽器設定 Cookie。
 
@@ -36,18 +36,19 @@ Self-hosted Auth只使用RentProof第一方Cookie；未來若Email、CDN或其�
 
 ## 3. Cookie inventory
 
-實作前不得虛構實際 Cookie 名稱或期限。Scaffold 後需由自動掃描與設定產生下表，政策、測試與 production 行為必須一致：
+目前程式使用下列第一方Cookie；正式網域上線前仍須以瀏覽器掃描複核，政策、測試與實際行為必須一致：
 
-| 實際名稱                   | Provider  | First／third party | Purpose                        | Data                        | Duration                   | Secure                          | HttpOnly   | SameSite    |
-| -------------------------- | --------- | ------------------ | ------------------------------ | --------------------------- | -------------------------- | ------------------------------- | ---------- | ----------- |
-| `[account session cookie]` | RentProof | First party        | Self-hosted account session    | 32-byte CSPRNG opaque token | 7天sliding idle expiry     | yes；精確loopback Demo可為false | yes        | Strict／Lax |
-| `[guest session cookie]`   | RentProof | First party        | 目前訪客案件 owner binding     | opaque random token         | 自建立起固定24小時；不滑動 | yes                             | yes        | Lax／Strict |
-| `[CSRF cookie if used]`    | RentProof | First party        | CSRF validation                | random token／binding       | `[duration]`               | yes                             | `[design]` | Strict／Lax |
-| `[preference cookie]`      | RentProof | First party        | Cookie choices＋policy version | preference enums only       | `[duration]`               | yes                             | no         | Lax         |
+| 實際名稱                   | Provider  | First／third party | Purpose                     | Data                        | Duration                   | Secure | HttpOnly | SameSite |
+| -------------------------- | --------- | ------------------ | --------------------------- | --------------------------- | -------------------------- | ------ | -------- | -------- |
+| `__Host-rentproof_account` | RentProof | First party        | Self-hosted account session | 32-byte CSPRNG opaque token | 7天sliding idle expiry     | yes    | yes      | Strict   |
+| `__Host-rentproof_guest`   | RentProof | First party        | 目前訪客案件 owner binding  | 32-byte CSPRNG opaque token | 自建立起固定24小時；不滑動 | yes    | yes      | Strict   |
+| `__Host-rentproof_csrf`    | RentProof | First party        | CSRF validation             | opaque random token         | 由目前安全設定控制         | yes    | no       | Strict   |
+| `__Host-rentproof_preauth` | RentProof | First party        | 註冊／驗證流程的瀏覽器綁定  | opaque random token         | 短期                       | yes    | yes      | Strict   |
+| `__Host-rentproof_reset`   | RentProof | First party        | 密碼重設流程綁定            | opaque random token         | 短期                       | yes    | yes      | Strict   |
 
 規則：
 
-- Production session cookie 優先使用 `__Host-` 約束；最終名稱由實作決定。
+- HTTPS區域網路使用上述`__Host-` Cookie；本機loopback開發使用對應的`*_dev`名稱且不對區域網路開放。
 - Cookie 不得保存 email、user ID 明文、case ID、租約內容、圖片、findings、private storage key 或 OpenAI token。
 - Session token在server database只保存以獨立server key計算的HMAC-SHA-256 digest，登入／權限變更後rotate，登出時server-side revoke。
 - Account Session為7天sliding idle expiry；只有合格主動使用以原子DB更新延長並在同一成功response刷新Cookie。Guest Session自建立起固定24小時且不滑動，到期後相關線上案件資料於24小時內purge。
@@ -68,9 +69,7 @@ Self-hosted Auth只使用RentProof第一方Cookie；未來若Email、CDN或其�
 
 ## 5. 瀏覽器控制
 
-使用者可透過 RentProof Cookie 設定或瀏覽器刪除／封鎖 Cookie。封鎖必要 session／安全 Cookie 可能導致無法維持訪客案件、登入、上傳或修改案件；清除 guest cookie 後可能無法找回未綁定帳戶的案件。公開唯讀 showcase 應在沒有 session Cookie 的情況下仍可查看 synthetic Demo。
-
-`public_http_showcase`不得設定任何RentProof Cookie或browser storage，也不載入會設定Cookie的第三方資源；它只是靜態Synthetic Demo。
+使用者可透過瀏覽器刪除／封鎖 Cookie。封鎖必要 session／安全 Cookie 可能導致無法維持訪客案件、登入、上傳或修改案件；清除guest cookie後可能無法找回未保存到帳戶的案件。目前沒有公開HTTP展示站。
 
 ## 6. 其他瀏覽器儲存與追蹤
 

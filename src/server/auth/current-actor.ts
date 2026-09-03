@@ -4,9 +4,22 @@ import type { ActorContext } from "@/application/repositories";
 import { getServerEnvironment } from "@/server/env";
 import { readSessionCookie, setSessionCookie } from "./http";
 import { getSelfHostedAuthRuntime } from "./runtime";
+import { GUEST_SESSION_COOKIE, getGuestSessionRuntime } from "./guest-session";
+import { readUniqueCookie } from "./request-guard";
 
 export class CurrentActorResolutionError extends Error {
   override readonly name = "CurrentActorResolutionError";
+}
+
+export async function resolveCurrentCaseActor(request: Request): Promise<ActorContext | null> {
+  const account = await resolveCurrentAccountActor(request, true);
+  if (account) return account;
+  try {
+    const rawGuestToken = readUniqueCookie(request.headers.get("cookie"), GUEST_SESSION_COOKIE);
+    return await (await getGuestSessionRuntime()).resolve(rawGuestToken ?? undefined);
+  } catch {
+    throw new CurrentActorResolutionError();
+  }
 }
 
 export async function resolveCurrentAccountActor(

@@ -50,7 +50,7 @@ const ExtractedContractSchema = z
   });
 
 export async function analyzeRealCase(input: {
-  actor: ActorContext & { kind: "user" };
+  actor: ActorContext;
   caseId: string;
   apiKey: string;
 }) {
@@ -66,7 +66,7 @@ export async function analyzeRealCase(input: {
 
 export async function runRealCaseAnalysis(
   input: {
-    actor: ActorContext & { kind: "user" };
+    actor: ActorContext;
     caseId: string;
   },
   dependencies: {

@@ -74,7 +74,7 @@
 
 ```text
 ┌──────────────────────────────────────────────────────────────┐
-│ RentProof                         Golden case   Fixture mode │
+│ RentProof                                      我的案件     │
 ├──────────────────────────────────────────────────────────────┤
 │ 對話                                             [證據工作區]│
 ├──────────────────────────────────────────────────────────────┤
@@ -88,8 +88,8 @@
 
 ```text
 ┌──────────────────────┐
-│ RentProof   Fixture  │
-│ 晴光套房 302         │
+│ RentProof   帳戶     │
+│ 我的租屋案件         │
 ├──────────────────────┤
 │ 對話       [證據工作區]│
 ├──────────────────────┤
@@ -105,7 +105,7 @@
 - Workspace內四個tabs在Mobile可水平捲動，但conversation與內容本身不得產生全頁水平捲動。
 - 對話是案件預設主畫面；四區Evidence Workspace保留摘要、矩陣、契約、報告，不新增第五個workspace tab。Viewing checklist、現場觀察與付款前查證可在對話卡與對應workspace投影呈現。
 - 一般使用者畫面不顯示內部profile、Fixture、Golden或規則階段名稱；開發狀態只放在操作人員可見的診斷資訊。
-- `public_http_showcase`持續顯示「公開HTTP Demo・傳輸途中可能被竄改・僅限虛構資料・不可作正式證據」，不可關閉；頁面不得呈現Upload、登入、保存或其他會讓人誤認可提交資料的CTA。
+- 目前沒有公開HTTP展示profile；私人LAN只由`lan_secure_demo`以HTTPS提供，內部profile名稱不出現在一般使用者畫面。
 
 ### Single-entry production flow
 
@@ -115,16 +115,15 @@
 ┌──────────────────────────────────────────────────────────────┐
 │ RentProof                              [登入／註冊]          │
 ├──────────────────────────────────────────────────────────────┤
-│ 未登入：此案件不會出現在歷史紀錄，session 遺失後可能找不回 │
-│ [繼續使用]                         [登入／註冊並保存]        │
+│ 跟著對話加入案件名稱、廣告、看屋照片與租約                 │
+│ [直接開始]                              [登入／註冊]        │
 ├──────────────────────────────────────────────────────────────┤
 │                 對話主流程＋可開啟四區證據工作區            │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-- 訪客可以直接選「繼續使用」；不得以 disabled upload、強制 modal 或 dark pattern 強迫註冊。
-- 未登入提醒在建立案件前完整呈現，進入案件後以低噪音但持續可見的 notice 保留，不能只用一次性 toast。
-- 文案必須同時說明兩件事：案件仍為私有；但不會進入歷史查詢，Cookie／session 遺失或換裝置後可能無法找回。
+- 訪客工作階段由Server在同一入口自動建立；不得以disabled upload、強制modal或dark pattern迫使註冊。
+- 首頁直接以對話依序引導案件名稱、租屋廣告、看屋照片與租約；登入／註冊是保存與查詢歷史的選用功能。
 - 訪客報告頁提供「下載報告」與「登入／註冊並保存」，並顯示固定24小時Session的明確到期時間；到期後不可存取，線上案件資料於24小時內purge。
 - 登入案件的history與detail提供清楚的「下載」與「刪除案件」動作；不顯示24個月到期日、到期通知或延長按鈕。刪除確認需說明會立即停止存取、不可恢復，且線上case／artifact／report等資料最多7個日曆日完成清除；未完成所有targets不得顯示「已完全刪除」。
 - 已登入header顯示「歷史案件」與account menu；案件預設回到對話，Evidence Workspace仍只有摘要、證據矩陣、契約檢查、簽約前報告四區。
@@ -141,10 +140,10 @@
 
 ### 歷史案件與政策頁
 
-- `/cases` 只對登入者顯示：Desktop 使用 quiet table／list，Mobile 使用單欄 cards。
+- `/history` 只對登入者顯示：Desktop 使用 quiet table／list，Mobile 使用單欄 cards。
 - 清單只顯示案件名稱、概略地區、更新時間、分析狀態與待處理數，不顯示契約原文、照片或聊天摘要。
 - Guest 開啟歷史入口時顯示 `AUTH_REQUIRED_FOR_HISTORY` 對應說明與選用登入／註冊，不把它偽裝成空清單。
-- `/legal/privacy`、`/legal/terms`、`/legal/cookies` 公開可讀、可列印，顯示版本、生效日與更新摘要；正文至少 16 px，長文行寬不超過 68ch。
+- `/privacy`、`/terms`、`/cookies` 公開可讀、可列印，顯示草案狀態與更新摘要；正文至少16 px，長文行寬不超過68ch。
 - 所有頁面 footer 都能到三份政策與 Cookie 設定，連結不得以低對比或小於 14 px 隱藏。
 
 ## 5. 對話主畫面與四區Workspace RWD
@@ -157,8 +156,7 @@
 - 每輪只突出一個主要下一步；卡片可展開來源，但不在對話中複製完整契約或全部矩陣。
 - Material candidate需有「確認並加入案件」與「修改」；未確認狀態使用明確pending樣式，不得顯示成supported／contradicted或規則結果。
 - 所有核心操作皆可用自由文字與鍵盤完成；suggested prompt不能是唯一入口。Enter／Shift+Enter行為需明示，IME composition期間不得誤送，送出中保留可理解狀態且避免重複turn。
-- LAN composer上方持續顯示「HTTP傳輸可能被讀取或修改；請勿輸入真實姓名、地址、電話、帳號、租約或其他個資」。PII／injection疑慮被拒時提供中立原因與安全改寫建議，不顯示內部prompt或偵測規則。
-- 一般PII warning以未預勾確認卡顯示「首次傳送已可能在HTTP網路中暴露；繼續可能保存或在Live模式送至OpenAI」，保留草稿並提供返回修改／仍要送出。Auth secret hard block只提供移除敏感內容，不提供繼續按鈕。
+- Secure LAN使用HTTPS；PII／injection疑慮被拒時提供中立原因與安全改寫建議，不顯示內部prompt或偵測規則。Auth secret hard block只提供移除敏感內容，不提供繼續按鈕。
 - Timeline對7天內raw text正常顯示；清除後只呈現保留的typed cards／events，必要位置使用中立placeholder「原始訊息已依保存政策清除」。不將typed candidate反向生成成使用者原句，也不提供raw聊天全文搜尋。
 - Server狀態／安全／確認cards與AI read-only explanation使用一致但可辨識的label；不可讓AI說明覆蓋或視覺弱化blocking Server card。AI explanation每段的「查看來源」連到validated locator，無來源時只能顯示資料不足。
 - Composer顯示2,000 code-point計數與接近上限狀態；Client不得用UTF-16 length冒充Server結果。超限保留使用者本機草稿並提示改用檔案上傳，但不得自動截斷、摘要或送出部分文字。
@@ -235,31 +233,28 @@ Action card 欄位：動作、對象、中立詢問句、所需證據、原因�
 
 實作採 shadcn/ui＋Radix Primitives。shadcn 只作可維護的元件原始碼起點，不能直接套用完整 Dashboard／預設密集版面；Radix 提供 Dialog、Tabs、Accordion、Checkbox、Select 等互動行為與 accessibility primitives。所有色彩、字級、間距、狀態與 RWD variants 仍以本文件為準。
 
-| Component                   | 用途                                                  | RWD                                                 |
-| --------------------------- | ----------------------------------------------------- | --------------------------------------------------- |
-| `AppShell`                  | Header＋conversation primary＋Workspace入口           | Mobile compact header                               |
-| `ConversationTimeline`      | Validated assistant／user blocks與狀態卡              | Desktop narrow column、Mobile single column         |
-| `ConversationComposer`      | Multi-line自由文字＋附件入口；suggestions僅輔助       | Sticky mobile composer；至少16 px input             |
-| `CandidateConfirmationCard` | Typed candidate確認／修改                             | Material change未確認不得寫case                     |
-| `EvidenceWorkspace`         | 摘要／矩陣／契約／報告四區                            | Desktop side／secondary view、Mobile full-screen    |
-| `ExecutionModeBanner`       | Live／Fixture 明示                                    | Sticky but non-blocking                             |
-| `LanDevelopmentBanner`      | HTTP／private LAN／synthetic-only 警示                | 全頁持續可見；不可關閉                              |
-| `PublicHttpShowcaseBanner`  | Public HTTP／integrity-not-guaranteed／synthetic-only | 全頁持續可見；不可關閉                              |
-| `AnalysisStageStatus`       | 準備／OpenAI／驗證／規則／完成／失敗                  | Text＋icon；不可只用 spinner                        |
-| `CostSummary`               | 固定／變動／一次性                                    | Desktop grid、Mobile stack                          |
-| `ClaimStatusBadge`          | 三態                                                  | 專屬 semantics                                      |
-| `RuleStatusBadge`           | RuleCheck 三結果                                      | outline semantics                                   |
-| `FraudSignalBadge`          | detected／insufficient                                | 不輸出風險分數                                      |
-| `EvidenceLocatorLink`       | 開啟 image／page／excerpt                             | Side panel 或 dialog                                |
-| `ActionCard`                | 可完成的簽約前行動                                    | 全寬 mobile                                         |
-| `EvidenceProgress`          | 已取得／仍缺證據                                      | checklist，不用 confidence bar                      |
-| `CloudProcessingNotice`     | OpenAI Cloud 告知                                     | Upload 前顯示                                       |
-| `DraftRulesNotice`          | 規則草案狀態                                          | Rule page／report                                   |
-| `GuestHistoryNotice`        | 說明未登入案件無歷史查詢／session 遺失風險            | 建立前完整 notice；案件內 compact persistent notice |
-| `AuthPanel`                 | 登入／註冊／忘記密碼單一流程                          | Desktop dialog／page、Mobile full-screen            |
-| `PasswordResetFlow`         | Email／SMS challenge 與新密碼                         | Generic response，不洩漏帳戶存在性                  |
-| `PolicyAcceptanceGroup`     | 分開顯示 Terms／Privacy／Cloud events                 | 不預先勾選、不綁 Cookie                             |
-| `PolicyFooter`              | 三份政策與 Cookie 設定                                | 所有 viewport 可讀                                  |
+| Component                   | 用途                                            | RWD                                              |
+| --------------------------- | ----------------------------------------------- | ------------------------------------------------ |
+| `AppShell`                  | Header＋conversation primary＋Workspace入口     | Mobile compact header                            |
+| `ConversationTimeline`      | Validated assistant／user blocks與狀態卡        | Desktop narrow column、Mobile single column      |
+| `ConversationComposer`      | Multi-line自由文字＋附件入口；suggestions僅輔助 | Sticky mobile composer；至少16 px input          |
+| `CandidateConfirmationCard` | Typed candidate確認／修改                       | Material change未確認不得寫case                  |
+| `EvidenceWorkspace`         | 摘要／矩陣／契約／報告四區                      | Desktop side／secondary view、Mobile full-screen |
+| `CloudProcessingNotice`     | OpenAI Cloud資料處理告知                        | 首次建立案件時明確確認                           |
+| `AnalysisStageStatus`       | 準備／OpenAI／驗證／規則／完成／失敗            | Text＋icon；不可只用 spinner                     |
+| `CostSummary`               | 固定／變動／一次性                              | Desktop grid、Mobile stack                       |
+| `ClaimStatusBadge`          | 三態                                            | 專屬 semantics                                   |
+| `RuleStatusBadge`           | RuleCheck 三結果                                | outline semantics                                |
+| `FraudSignalBadge`          | detected／insufficient                          | 不輸出風險分數                                   |
+| `EvidenceLocatorLink`       | 開啟 image／page／excerpt                       | Side panel 或 dialog                             |
+| `ActionCard`                | 可完成的簽約前行動                              | 全寬 mobile                                      |
+| `EvidenceProgress`          | 已取得／仍缺證據                                | checklist，不用 confidence bar                   |
+| `DraftRulesNotice`          | 規則草案狀態                                    | Rule page／report                                |
+| `GuestAccountAction`        | 提供選用登入／註冊與保存紀錄入口                | 不阻擋訪客開始                                   |
+| `AuthPanel`                 | 登入／註冊／忘記密碼單一流程                    | Desktop dialog／page、Mobile full-screen         |
+| `PasswordResetFlow`         | Email／SMS challenge 與新密碼                   | Generic response，不洩漏帳戶存在性               |
+| `PolicyAcceptanceGroup`     | 分開顯示 Terms／Privacy／Cloud events           | 不預先勾選、不綁 Cookie                          |
+| `PolicyFooter`              | 三份政策與 Cookie 設定                          | 所有 viewport 可讀                               |
 
 ## 7. Interaction states
 
@@ -342,7 +337,7 @@ Fixture mode 需要持續 banner，不可只顯示一次 toast。
 - 長中文、URL、金額與 reason code 不破版。
 - 200% zoom 後正文仍保持可讀字級，不重疊、不裁切，主要操作不被擠出 viewport。
 - Guest notice、Auth panel、Email驗證／reset、歷史清單與三份政策頁在Mobile／Desktop都不擁擠且keyboard可完成；SMS／phone控制項不存在。
-- 在實際 LAN 手機與桌面瀏覽器驗證 HTTP URL、persistent LAN banner、Host／Origin rejection與 synthetic-only upload gate；LAN profile 不出現 account routes。
+- 在實際LAN手機與桌面瀏覽器驗證HTTPS URL、憑證信任、exact Host／Origin rejection、Auth、訪客工作階段與私有上傳。
 
 ## 13. Frontend architecture implications
 

@@ -2,6 +2,47 @@
 
 本檔記錄已完成的事實與驗證，不把規劃中的工作寫成已完成。最新紀錄放最上方。
 
+## 2026-09-03 — 全文件現況稽核
+
+### 已完成
+
+- 逐份核對README與22份產品、架構、Server、UI、技術、OpenAI、安全、Auth、政策、規則、測試、資料庫、授權及交付文件，使其與目前程式及實機環境一致。
+- 現行文件統一為本機HTTP loopback、LAN HTTPS 3443、內部Next.js 3100、四份migration、14張產品資料表、訪客24小時固定Session、帳戶7天滑動Session、owner-scoped加密素材與conversation-first入口。
+- 公開閱讀文件不再使用P0／P1工程階段代號，改為「目前／後續」、「基本6條／完整10條」；README維持精簡GitHub格式。
+- 移除舊HTTP LAN profile、舊啟動／Firewall命令、舊環境檔、12／13 table、登入才能使用、LAN禁止真實資料及HTTP警告等過時說明。
+- 新增D-094並把D-002的「聊天不是主畫面」標為部分被取代；DECISIONS／DEVLOG保留歷史文字，但現行狀態與被取代關係清楚標示。
+- 隱私政策、使用條款、Cookie政策與OpenAI處理告知仍維持DRAFT；未捏造營運者、聯絡方式、處理地區、未成年人、爭議條款或法務審閱結果。
+
+### 驗證
+
+- Active docs過時詞掃描為零；本機Markdown links全部存在。
+- Prettier與545-file Security Gate通過；本次只更動文件與AGENTS現況說明，程式測試沿用上一筆128 files／1,166 tests完整通過結果。
+
+---
+
+## 2026-09-03 — 訪客入口、對話式案件頁與資料庫第四版
+
+### 已完成
+
+- 未登入使用者可從同一首頁直接取得私有訪客工作階段並建立案件，不需先進入註冊頁；登入仍是保存與跨裝置查詢歷史的選項。
+- 訪客工作階段使用獨立opaque Cookie與server-keyed HMAC digest，自建立起固定24小時且不因操作延長；案件與素材仍逐次執行guest／user owner scope。
+- 新增凍結、版本化的`004_guest_sessions` Kysely migration，資料庫constraint限制到期時間不得超過建立後24小時；Web process與request仍不得自動執行migration。
+- 私有素材頁採對話式引導語氣，依序完成建立案件、加入廣告／看屋照片／租約、執行分析、查看待確認事項與刪除案件；訪客與帳戶使用相同入口。
+- 公開README與帳戶文件已同步目前訪客／登入差異、migration狀態與政策缺口；主要使用者說明不再以工程階段代號描述功能。
+
+### 驗證
+
+- 完整Coverage為128 files／1,166 tests通過；statements 85.02%、branches 80.34%、functions 88.66%、lines 87.62%。
+- Prettier、ESLint、TypeScript與545-file Security Gate通過；Production Build成功，Playwright desktop／mobile為21 passed／3個既有mobile singleton mutation案例依設計skip。
+- HTTPS與本機資料庫皆已明確套用四份migration並通過14-table readiness。實機訪客完成建立與刪除案件；案件與素材aggregate均為0。測試建立的一筆無案件訪客session保留至固定24小時到期，未為清理測試而擴大刪除其他訪客範圍。
+
+### 尚未完成／風險
+
+- `004_guest_sessions`已由獨立migration操作套用至HTTPS與本機資料庫，兩者14-table readiness皆通過；Web啟動與request仍不會自動執行migration。
+- 三份政策仍為`DRAFT`，缺少營運者法定資訊、聯絡方式、未成年人、處理地區、爭議條款及台灣法務／隱私審閱，不得宣稱正式生效。
+
+---
+
 ## 2026-09-03 — HTTPS真實素材Demo完成
 
 ### 已完成

@@ -1,6 +1,6 @@
 # RentProof 安全與隱私規格
 
-- 狀態：P0 security baseline＋first real-data guest/account baseline
+- 狀態：目前安全基線＋LAN HTTPS私有案件基線
 - 適用範圍：瀏覽器、RentProof server、外部 Demo／runtime data、OpenAI Cloud API
 
 部署topology與後續worker isolation以[系統架構](SYSTEM_ARCHITECTURE.md)為準；listener、本機HTTP、LAN HTTPS、Firewall、Host／Origin與Production HTTPS invariants以[Server配置](SERVER_CONFIGURATION.md)為準。
@@ -18,7 +18,7 @@ RentProof 處理租屋影像與契約，安全目標依序是：
 7. 真實資料版的訪客與登入案件都採私有 owner scope；不強制登入不等於允許公開存取。
 8. 使用條款、隱私告知、OpenAI Cloud 告知與 Cookie 選擇可追溯且互不混用。
 
-P0 只使用完全虛構 Demo 資料。任何真實租約／影像的測試，都必須等「公開／真實資料 Gate」完成後另行授權。
+本機HTTP模式只供本機測試資料。`lan_secure_demo`可在使用者逐次同意雲端處理後接受私有租約／影像；它必須同時通過TLS、owner scope、PostgreSQL、加密私有儲存、檔案處理與OpenAI Live Gate，仍不等於正式公開服務。
 
 ## 2. 信任邊界
 
@@ -35,21 +35,21 @@ flowchart LR
 
 - Browser 輸入、檔名、廣告文字、圖片 OCR、PDF 內容與模型回傳都不可信。
 - OpenAI API 是受控的外部資料處理邊界，不是本機服務。
-- `RentProof-Demo/`與runtime都在repository／web public directory外；Windows P0 runtime預設`%LOCALAPPDATA%\RentProof\runtime`，拒絕Demo overlap、Documents／OneDrive、UNC／network、removable與reparse paths，ACL限目前使用者／必要system principals。
-- P0 Development runtime最後寫入後最多保留7天；Formal Demo run正常結束清除、abandoned run下次Demo前清除。Cleanup只刪validated root內有ownership marker且未active的child，先lock並重驗real path／volume／reparse；invalid quarantine bytes不等待7天。
+- `RentProof-Demo/`與runtime都在repository／web public directory外；Windows測試runtime預設`%LOCALAPPDATA%\RentProof\runtime`，拒絕Demo overlap、Documents／OneDrive、UNC／network、removable與reparse paths，ACL限目前使用者／必要system principals。
+- Development runtime最後寫入後最多保留7天；正式展示run正常結束清除、abandoned run下次展示前清除。Cleanup只刪validated root內有ownership marker且未active的child，先lock並重驗real path／volume／reparse；invalid quarantine bytes不等待7天。
 - Demo directory 永遠 read-only；runtime application 不可讀 `truth/assertions.json`，只允許 tests／eval 使用 Golden truth。
 - 未驗證 upload 先進 quarantine；parser／sanitizer 通過後才產生正式 derivative，OpenAI 只接收 derivative／必要文字。
 - Rule YAML 是人工治理的受信任設定，但仍需 schema 驗證與版本鎖定。
 
-## 3. P0 威脅與控制
+## 3. 威脅與控制
 
-| 威脅                                     | P0 控制                                                                                              | 安全失敗方式                                                             |
+| 威脅                                     | 目前控制                                                                                             | 安全失敗方式                                                             |
 | ---------------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | API key 外洩                             | server-only `OPENAI_API_KEY`、無 `NEXT_PUBLIC_`、`.env` ignore、公開前 secrets scan                  | 啟動失敗，不接受 client 提供 key                                         |
 | 任意 endpoint 外送                       | 不提供使用者可控 `base_url`，adapter 固定 OpenAI HTTPS endpoint                                      | 設定不符 allowlist 時拒絕啟動                                            |
 | Path traversal／symlink escape／惡意檔名 | 隨機 server filename、忽略原始路徑、realpath 後確認仍在 runtime root、拒絕 symlink                   | 拒絕檔案並回穩定 error code                                              |
 | 假 MIME／超大檔案                        | magic bytes、允許清單、單檔與案件上限                                                                | `UNSUPPORTED_MEDIA`／`FILE_TOO_LARGE`                                    |
-| 公開取得原始素材                         | 不放 `public/`；P0 route 驗證 case association，P1 再加 tenant authorization                         | P0 association 不符或 P1 授權 context 缺失即拒絕                         |
+| 公開取得原始素材                         | 不放`public/`；私有案件route逐次驗證guest／user owner scope                                          | Session或owner不符即拒絕，不因持有opaque ID放行                          |
 | Prompt injection                         | 文件包裝為 untrusted data、developer instruction、無工具權限、Structured Outputs                     | schema／provenance 失敗，不執行來源指示                                  |
 | 模型幻覺／過度結論                       | locator 必填、Zod、三態 truth table、規則引擎、中立模板、禁止措辭測試                                | 降為資料不足或人工確認                                                   |
 | Refusal 被當成沒問題                     | refusal／incomplete／schema invalid 各有 reason code                                                 | stage failure，不產生「未發現差異」                                      |
@@ -57,7 +57,7 @@ flowchart LR
 | Log 洩漏                                 | 只記 ID、hash、版本、usage、error code；不記 key、Authorization、完整 prompt／租約                   | 敏感欄位一律 redact／drop                                                |
 | Fallback 混淆                            | 顯示建立資訊、model／schema／ruleset 版本與「預先分析」標籤                                          | 無 provenance 的 fallback 不載入                                         |
 | 規則過期／誤用                           | effective／verified date、來源 hash、三態 applicability                                              | unknown 一律 `missing_information`                                       |
-| SSRF／廣告爬取                           | P0 不 fetch 任意 URL，只保存 metadata                                                                | URL 不觸發任何 server request                                            |
+| SSRF／廣告爬取                           | 不 fetch 任意 URL，只保存 metadata                                                                   | URL 不觸發任何 server request                                            |
 | 防詐訊號誤判／誹謗                       | 只輸出風險訊號與查證行動、locator 必填、禁止詐騙 verdict／機率／公開名單                             | 資料不足或人工查證，不對人物／帳戶貼標籤                                 |
 | Guest case 被猜中／接管                  | 高 entropy opaque session、server 只存 token hash、owner-scoped query、同一 guest 不可列出歷史       | session／owner 不符統一拒絕，不以 case ID 恢復                           |
 | 帳戶／恢復流程枚舉                       | 註冊與Email reset使用generic response、rate limit、重送冷卻                                          | 不透露email是否存在                                                      |
@@ -76,15 +76,15 @@ flowchart LR
 - 每次 request 明確 `store: false`，且不使用 Conversations、Assistants、vector store、background mode、web search、MCP 或其他工具。
 - `RENTPROOF_LLM_MODE` 明確選 `live`／`fixture`；live 失敗不自動 fallback，fixture 不讀 key 且不發網路。
 - 圖片／PDF 只傳分析所需頁面與畫面；不傳無關人臉、證件、簽名、電話、完整門牌或私人照片。
-- P0 使用 synthetic data；真實使用者不論 guest／登入，都要在首次 live analysis 前顯示「資料會送往 OpenAI Cloud」及當時版本，完成所需事件後才可送出。
+- Live analysis不論guest／登入，都要在首次外送前顯示「資料會送往OpenAI Cloud」及當時版本，完成所需事件後才可送出。
 - `store: false` 不等同 Zero Data Retention。OpenAI 官方資料控制文件說明 API 預設不以客戶資料訓練（除非 opt in），但 abuse monitoring／應用狀態仍依帳戶與功能設定處理：[OpenAI Data controls](https://developers.openai.com/api/docs/guides/your-data)。
-- 若未來使用 `/v1/files`，保存 file ID、設定到期或完成後刪除；P0 優先使用 request 內的 file／image input。
+- 若未來使用 `/v1/files`，保存 file ID、設定到期或完成後刪除；目前優先使用 request 內的 file／image input。
 - 公開部署使用獨立 OpenAI Project／key，設定支出與 rate controls；不共用個人通用 key。
 - SDK logging 只允許不含 request／response body 的層級；禁止 debug body log。
 
 ## 5. 上傳與檔案處理
 
-P0 允許：
+目前允許：
 
 - 廣告：JPEG／PNG。
 - 看屋與補拍：JPEG／PNG。
@@ -97,7 +97,7 @@ P0 允許：
 - 限制頁數、像素、單檔大小與案件總量；實際數值在實作時集中設定，不散落各 route。
 - 圖片固定每張25 MiB／50 MP、每案件原始圖片400 MiB、每request一張；Sharp derivative最長邊3200 px且不放大。Server端stream、decoder與repository均驗證，client宣告不具安全效力。
 - 契約PDF固定單份15 MiB、30頁、抽取文字300,000字元、每request一份；stream、PDF.js document與text aggregation分層限制。容量合格不代表內容安全，掃描／加密／active-content／無頁碼定位仍拒絕或要求補件。
-- 解碼圖片後再產生新檔，移除不必要 metadata；P0 synthetic assets 也遵循相同流程。
+- 解碼圖片後再產生新檔，移除不必要metadata；測試素材也遵循相同流程。
 - PDF 不執行內嵌 JavaScript、附件、表單動作或外部連結。
 - 不使用使用者檔名作 filesystem path；原始檔名只作經清理的顯示 metadata。
 - Demo／runtime root 與每個目標路徑都要 realpath 驗證；測試 symlink／junction 逃逸。
@@ -131,9 +131,9 @@ P0 允許：
 - Password reset 對帳戶存在性使用相同 UI；電話只遮蔽顯示，OTP／reset token 不出現在 URL、analytics、client log 或 error report。
 - 三份政策公開可讀；第一版沒有 analytics／marketing Cookie，必要 Cookie 與非必要選擇不得混淆。
 
-## 8. P0 Security Gate
+## 8. 本機測試與LAN HTTPS Security Gate
 
-以下全部完成，P0 才算可展示：
+以下全部完成，對應profile才可展示：
 
 - 瀏覽器 bundle 與靜態檔案不含 `OPENAI_API_KEY`。
 - Windows Development `OPENAI_API_KEY`只可存在Scaffold後的repo-root `.env.local`，必須ignore、最小NTFS ACL及source／build／artifact secret scan；repository只有blank `.env.example`。Fixture不讀key、不組裝live adapter／不發網路，Production不使用Development檔案。
@@ -141,7 +141,7 @@ P0 允許：
 - Upload magic bytes、大小、路徑與 PDF 安全檢查有測試。
 - Prompt injection fixture 不會改變 schema、規則或安全措辭。
 - Conversation user／assistant text一律是不受信任資料，只能產生schema-validated candidate；raw Markdown／HTML、工具指令、URL或文件內指示不得執行。未確認candidate不得改case，client不得提交結果狀態或stage選擇。
-- Free-text composer在LAN亦開放，但需限制bytes／characters、Unicode normalization、turn rate與concurrency；escape所有輸出，拒絕raw HTML／data URL／script。HTTP可能暴露輸入，UI持續禁止真實資料並best-effort阻擋明顯PII，但不宣稱完整偵測。
+- Free-text composer在LAN HTTPS亦開放，但需限制bytes／characters、Unicode normalization、turn rate與concurrency；escape所有輸出，拒絕raw HTML／data URL／script。私有資料仍須通過owner scope、Cloud consent與secret hard block，不宣稱能偵測所有個資。
 - Live intent extraction固定`tools: []`、最小structured context、`store: false`與Strict Structured Outputs；Conversation／document prompts分離。Server重驗intent／fields／owner／policy／revision，material candidate以opaque confirmation ID＋payload hash＋expiry綁同actor；ambiguous／injection／refusal／incomplete／schema invalid不執行command。
 - Conversation turn在transport層最多8 KiB strict UTF-8，拒絕NUL，NFC後最多2,000 Unicode code points；超限不截斷、不保存／log／audit、不呼叫模型。附件只走獨立MIME／size／hash upload boundary，拒絕turn內base64／data URL。
 - Conversation疊加Actor與source-IP token buckets（10／minute、burst 3），每case concurrency 1；invalid／injection／oversize attempt仍計IP abuse bucket。Idempotency key綁actor／case／payload hash，防重播與cross-case reuse；limiter失效時Live fail closed。
@@ -158,33 +158,31 @@ P0 允許：
 - 全部推論參數、preprocess hash 與 dependency hash 進入 StageRun／AnalysisSnapshot／cache key／fallback provenance。
 - Fallback 有來源 hash 與清楚標示。
 - Repo secrets scan 通過；Git／公開 repository 仍依使用者指示暫停。
-- `local_development`的HTTP只bind loopback；`lan_secure_demo`只bind明確private IP的HTTPS；舊`lan_development`拒絕。`public_http_showcase`停用；`production`不允許Fixture且強制HTTPS。
+- `local_development`的HTTP只bind loopback；`lan_secure_demo`對外只bind明確private IP的HTTPS 3443，內部Next.js只bind loopback 3100。`public_http_showcase`停用；`production`不允許Fixture且強制HTTPS。
 - LAN TLS、Host／Origin exact allowlist、public／wildcard bind rejection、無wildcard CORS、Windows Private firewall指定IP／port與禁止port forwarding有自動檢查或展示前checklist。
 - LAN Firewall Rule依D-066保留但預設disabled；獨立elevated腳本只切換／驗證Rule，不啟動Node。正式Demo前後與異常恢復checklist需確認enabled期間最短化，stale enabled rule必須告警或fail Gate。
-- LAN UI 持續顯示「HTTP／LAN 開發模式／不得輸入真實資料」；關閉 banner 或啟用 account／recovery routes 即 Gate 失敗。
-- LAN upload只接受外部Demo manifest`synthetic: true`＋SHA-256 allowlist；未知素材回`DEV_SYNTHETIC_ARTIFACT_NOT_ALLOWLISTED`，不送OpenAI。D-076只例外開放Conversation free text，仍需HTTP／no-real-data warning、PII best-effort與typed confirmation；文字不得直接成為artifact／evidence／payment fact。
+- LAN私有案件頁不得暴露工程模式標籤；安全狀態由Server profile、TLS、Secure Cookie、owner query與啟動Gate強制，而不是依賴提示文字。
+- LAN upload接受JPEG／PNG與文字型PDF，經stream limit、magic bytes、Sharp／PDF.js、SHA-256及owner Gate後，以AES-256-GCM加密保存於repository外；AAD綁定案件相對路徑。對話文字不得直接成為artifact／evidence／payment fact。
 - `public_http_showcase`輸出必須為static export；bundle／network scan確認無Route Handler、Server Action、OpenAI／identity／storage key、upload、form、Cookie、browser storage、service worker、source map或third-party script。頁面persistent HTTP integrity warning＋noindex。
 
-## 9. 真實資料／公開部署 Gate
+## 9. 正式公開部署前的剩餘Gate
 
-這些不屬於 synthetic P0，但在接受真實租屋資料前必須完成：
+LAN HTTPS私有案件流程已具備guest／user owner scope、自建Auth、加密素材與受控OpenAI分析；以下事項仍須在正式公開服務前完成：
 
-- User／guest `ActorContext`、per-case authorization 與 IDOR 測試；guest 沒有歷史 list／search。
-- 自建Auth的Email驗證、註冊／登入／登出與Email password reset需涵蓋enumeration response floor、code replay、rate limit、Argon2 input bound、session fixation／sliding／revocation及Browser A／B dev mailbox隔離；SMS／phone功能disabled。
-- 私有 object storage、加密、刪除與備份政策。
-- Guest 短期保存、session 失效後不可恢復告知、purge SLA，以及 guest-to-user case transfer 的原子授權。
+- Transactional Email供應商、處理地區、DPA、退信與濫用處理；SMS／phone功能維持disabled。
+- 可操作的排程purge、異地加密backup／PITR與restore驗證；現有同步刪除與資料庫設計不能取代營運工作。
 - Cloud Processing Notice、Terms acceptance、Privacy Notice acknowledgement 分開版本化；Cookie 依 purpose 記錄 granted／declined／withdrawn；三份政策移除 placeholder 並完成台灣法務／隱私審閱。
 - OpenAI Project 的實際 data controls、ZDR／MAM eligibility（若需要）與區域需求核對。
 - Rate limit、spend limit、abuse monitoring、事件記錄與 key rotation 流程。
 - 依賴鎖定、dependency audit、SAST／secret scan 與安全更新流程。
 - 安全事件處理、通報與使用者資料刪除驗證。
 
-未完成此 Gate 前，不把真實租約、看屋影像或個資送入服務。
+未完成此Gate前，`lan_secure_demo`不得被描述或部署為正式公開服務。
 
 ## 10. Guest、帳戶與政策安全契約
 
 - Production 採單一入口。`ActorContext` 只能是有效 `guest` 或 `user`；沒有 actor 的 request 不可建立、讀取或修改真實案件。
-- 本節適用`lan_secure_demo`及HTTPS Production。本機HTTP只綁loopback；舊`lan_development`不得啟動。任何guest／account actor、註冊、登入、Email recovery、歷史或7天session都必須通過HTTPS、Secure Cookie與owner-scoped authorization Gate。
+- 本節適用`lan_secure_demo`及HTTPS Production。本機HTTP只綁loopback；任何guest／account actor、註冊、登入、Email recovery、歷史或7天session都必須通過HTTPS、Secure Cookie與owner-scoped authorization Gate。
 - Guest cookie 是必要 session，不是長期帳戶；使用高 entropy opaque token，server 只存 hash，設定 `Secure`、`HttpOnly`、明確 `SameSite` 與最小 scope。
 - Guest Session固定24小時且不滑動，Cookie expiry不得超過server expiry。到期或主動刪除後立即拒絕存取、停止未完成工作，並在24小時內purge所有線上case／artifact／run／snapshot／report資料與適用第三方file objects。
 - Account session使用256-bit opaque Cookie與PostgreSQL keyed-digest record，合格主動使用後原子延長7天idle expiry並同步刷新Cookie；passive status／prefetch／polling／失敗request不延長。Logout、password reset、帳戶停用／刪除立即撤銷，過期session不能由Internal User cache復活。

@@ -1,5 +1,5 @@
 import { OpenAIAnalysisError } from "@/adapters/openai/analysis/adapter";
-import { resolveCurrentAccountActor } from "@/server/auth/current-actor";
+import { resolveCurrentCaseActor } from "@/server/auth/current-actor";
 import { validateSelfHostedAuthMutation } from "@/server/auth/request-guard";
 import { getServerEnvironment } from "@/server/env";
 import { analyzeRealCase } from "@/server/real-demo/analysis";
@@ -22,7 +22,7 @@ export async function POST(
     return errorResponse(404, "REAL_ANALYSIS_ROUTE_UNAVAILABLE");
   }
   try {
-    const actor = await resolveCurrentAccountActor(request, true);
+    const actor = await resolveCurrentCaseActor(request);
     if (!actor) return errorResponse(401, "REAL_DEMO_AUTH_REQUIRED");
     const { caseId } = await context.params;
     const snapshot = await analyzeRealCase({ actor, caseId, apiKey });

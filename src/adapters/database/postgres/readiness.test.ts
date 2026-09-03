@@ -45,7 +45,7 @@ describe("PostgreSQL Demo readiness", () => {
         ...base,
         roleName: "rentproof_demo_app",
         hasSchemaCreate: false,
-        productTableCount: 13,
+        productTableCount: 14,
         hasMigrationTable: true,
         hasMigrationLockTable: true,
       }),

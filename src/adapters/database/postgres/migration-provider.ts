@@ -2,6 +2,7 @@ import type { Migration, MigrationProvider } from "kysely/migration";
 import { initialRealDataSchemaMigration } from "./migrations/001_initial_real_data_schema.ts";
 import { selfHostedAuthMigration } from "./migrations/002_self_hosted_auth.ts";
 import { privateCaseArtifactsMigration } from "./migrations/003_private_case_artifacts.ts";
+import { guestSessionsMigration } from "./migrations/004_guest_sessions.ts";
 
 export class FrozenPostgresMigrationProvider implements MigrationProvider {
   async getMigrations(): Promise<Record<string, Migration>> {
@@ -9,6 +10,7 @@ export class FrozenPostgresMigrationProvider implements MigrationProvider {
       "001_initial_real_data_schema": initialRealDataSchemaMigration,
       "002_self_hosted_auth": selfHostedAuthMigration,
       "003_private_case_artifacts": privateCaseArtifactsMigration,
+      "004_guest_sessions": guestSessionsMigration,
     };
   }
 }

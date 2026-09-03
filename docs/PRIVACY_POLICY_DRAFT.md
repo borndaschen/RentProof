@@ -16,7 +16,7 @@
 
 ## 1. 適用範圍與服務提供者
 
-本政策預計適用於 RentProof production 網站、帳戶、租屋案件、上傳素材、分析結果與支援服務。它不適用於另有政策的第三方網站或服務。
+本政策預計適用於未來正式提供的 RentProof 網站、帳戶、租屋案件、上傳素材、分析結果與支援服務。它不適用於另有政策的第三方網站或服務。
 
 正式公告前必須填入：
 
@@ -73,11 +73,11 @@ RentProof目前不登入租屋平台、不爬取任意網址，也不從地政�
 
 正式版須依實際營運者、功能與台灣個人資料保護法完成蒐集告知，包括蒐集者、目的、資料類別、利用期間／地區／對象／方式、當事人權利與不提供資料的影響。不得只以一個概括同意取代必要告知。
 
-若使用者不提供帳戶資料，仍可使用 guest flow，但沒有跨 session／裝置的歷史查詢與 Email／SMS 密碼恢復；若不提供分析所需素材或不完成適用的 Cloud Processing 選擇，系統不會送出該次 live analysis。正式告知需逐一說明每個欄位／用途不提供的具體影響。
+若使用者不提供帳戶資料，仍可使用訪客流程，但沒有跨工作階段／裝置的歷史查詢或帳戶密碼恢復；若不提供分析所需素材或不同意適用的雲端處理告知，系統不會送出該次分析。正式告知需逐一說明每個欄位／用途不提供的具體影響。
 
 ## 5. OpenAI Cloud 與其他受託處理者
 
-RentProof 的 production 分析會把完成驗證、最小化與必要遮蔽的文字、頁面或影像衍生檔，由 server 傳送至 OpenAI Responses API。OpenAI 只用於非結構化抽取與語意候選；三態、金額、官方規則、優先序與報告由 RentProof 的確定性程式處理。
+RentProof 的雲端分析會把完成驗證、最小化與必要遮蔽的文字、頁面或影像衍生檔，由伺服器傳送至 OpenAI Responses API。OpenAI 只用於非結構化抽取與語意候選；三態、金額、官方規則、優先序與報告由 RentProof 的確定性程式處理。
 
 - API key 只存在 server／analysis worker；瀏覽器不直接連線 OpenAI。
 - 每次 request 設定 `store: false`，但本服務不把它描述成 Zero Data Retention。
@@ -153,7 +153,7 @@ Raw user／assistant conversation text不因案件長期保存而永久保留；
 
 ## 10. 資訊安全
 
-規劃中的措施包括：HTTPS、self-hosted Argon2id credential handling、server-side keyed-digest session、Email verification、owner-scoped authorization、private object storage、quarantine／sanitization、加密、最小權限、secrets management、CSRF／Origin防護、rate limits、schema／locator驗證、稽核事件與刪除測試。完整控制與release gate見[安全與隱私規格](SECURITY_PRIVACY.md)。
+目前展示環境已採用HTTPS、自建Argon2id密碼處理、伺服器端session digest、Email驗證、owner-scoped authorization、私有加密檔案儲存、quarantine／sanitization、最小權限、CSRF／Origin防護、rate limits及schema／locator驗證。正式服務仍須完成刪除排程、異地備份、供應商與事件處理驗證；完整控制與release gate見[安全與隱私規格](SECURITY_PRIVACY.md)。
 
 任何措施都不能保證零風險。發生個人資料事故時，RentProof 將依適用法令、事件處理程序與實際風險採取控制、調查與通知；正式版須填入聯絡與通報流程。
 

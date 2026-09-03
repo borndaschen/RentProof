@@ -253,7 +253,7 @@ describe("user-owned PostgreSQL 18 Demo cluster scripts", () => {
     );
   });
 
-  it("requires the 13 product tables including private artifacts", () => {
+  it("requires the 14 product tables including private artifacts and guest sessions", () => {
     const readiness = readFileSync(
       resolve(process.cwd(), "scripts", "postgres-readiness.mts"),
       "utf8",
@@ -270,7 +270,7 @@ describe("user-owned PostgreSQL 18 Demo cluster scripts", () => {
     expect(readiness).toContain('AS "productTableCount"');
     expect(
       readFileSync(resolve(process.cwd(), "src/adapters/database/postgres/readiness.ts"), "utf8"),
-    ).toContain("EXPECTED_PRODUCT_TABLE_COUNT = 13");
+    ).toContain("EXPECTED_PRODUCT_TABLE_COUNT = 14");
   });
 
   it("never prints psql output and keeps credentials out of command arguments", () => {

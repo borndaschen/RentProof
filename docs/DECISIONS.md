@@ -4,101 +4,102 @@
 
 ## 決策摘要
 
-| ID    | 日期       | 狀態                      | 決策                                                                                      |
-| ----- | ---------- | ------------------------- | ----------------------------------------------------------------------------------------- |
-| D-001 | 2026-09-01 | accepted                  | MVP 採 TypeScript 模組化單體，不做微服務或自治 Agent swarm                                |
-| D-002 | 2026-09-01 | accepted                  | 以 claim-centric evidence graph 作為產品核心，而不是聊天紀錄                              |
-| D-003 | 2026-09-01 | accepted                  | 廣告承諾只使用支持、矛盾、證據不足三態，且缺席不構成矛盾                                  |
-| D-004 | 2026-09-01 | accepted                  | LLM 負責抽取與語意候選；程式負責分類、規則與金額                                          |
-| D-005 | 2026-09-01 | accepted                  | 每個肯定結論必須有 source locator；無定位即降為資料不足                                   |
-| D-006 | 2026-09-01 | accepted                  | MVP 不抓取任意廣告網址，只保存 URL metadata 並分析截圖／貼上文字                          |
-| D-007 | 2026-09-01 | accepted                  | 報告使用 HTML 列印，不另建 PDF 產生服務                                                   |
-| D-008 | 2026-09-01 | accepted                  | 成本分成固定月費、變動公式與一次性費用，不虛構單一完整月總額                              |
-| D-009 | 2026-09-01 | accepted                  | 官方規則是人工核對、版本化的 YAML；模型不得自行發布規則                                   |
-| D-010 | 2026-09-01 | accepted                  | Demo 只用 synthetic fixture，並保留有標示的預先分析 fallback                              |
-| D-011 | 2026-09-01 | superseded by D-090       | 建立新的 GitHub 公開 repository；未選定授權前不加入 LICENSE                               |
-| D-012 | 2026-09-01 | accepted                  | Demo 素材獨立放在 RentProof 外的 `RentProof-Demo/`，以環境變數載入                        |
-| D-013 | 2026-09-01 | accepted                  | 單人 P0 使用 12 張照片與 6 條啟用規則；影片與其餘規則列 P1                                |
-| D-014 | 2026-09-01 | accepted                  | 單人 P0 先用 typed repository＋JSON state；SQLite 僅作可選本機持久層，公開版用 PostgreSQL |
-| D-015 | 2026-09-01 | accepted                  | P0 雲端 LLM 固定使用 OpenAI API、官方 TypeScript SDK 與 Responses API                     |
-| D-016 | 2026-09-01 | superseded by D-085       | P0 預設模型使用 `gpt-5.6-terra`＋reasoning `medium`                                       |
-| D-017 | 2026-09-01 | accepted                  | 安全與隱私是 P0 Gate；未完成真實資料 Gate 前只接受 synthetic data                         |
-| D-018 | 2026-09-02 | accepted                  | 新增租屋詐騙風險訊號，但不作詐騙判決、機率或黑名單                                        |
-| D-019 | 2026-09-02 | accepted                  | P0 採本機 Node／Next.js 模組化單體、顯式 Stage DAG 與 ports／adapters                     |
-| D-020 | 2026-09-02 | accepted                  | UI 採 mobile-first RWD、極簡主義與可讀性優先的寬鬆排版                                    |
-| D-021 | 2026-09-02 | accepted                  | 真實資料版採單一入口；訪客可使用，登入／註冊只用於保存與查詢歷史                          |
-| D-022 | 2026-09-02 | superseded by D-047/D-050 | 帳戶使用 managed identity，忘記密碼支援已驗證 Email 或已綁定手機 SMS                      |
-| D-023 | 2026-09-02 | accepted                  | 隱私政策、使用條款與 Cookie 政策採版本化草案；第一版只使用必要 Cookie                     |
-| D-024 | 2026-09-02 | superseded by D-051/D-089 | 登入帳戶 session 採合格活動後延長 7 天的 sliding idle expiry                              |
-| D-025 | 2026-09-02 | superseded by D-093       | 開發階段允許 synthetic-only HTTP LAN profile；Production HTTPS 不變                       |
-| D-026 | 2026-09-02 | accepted                  | JavaScript／TypeScript 套件管理器使用 pnpm                                                |
-| D-027 | 2026-09-02 | accepted                  | Application runtime 使用 Node.js 24 LTS                                                   |
-| D-028 | 2026-09-02 | accepted                  | Web framework 使用 Next.js 16 Active LTS＋App Router                                      |
-| D-029 | 2026-09-02 | accepted                  | UI 元件使用 shadcn/ui＋Radix Primitives                                                   |
-| D-030 | 2026-09-02 | accepted                  | 程式品質使用 ESLint Flat Config，格式化使用 Prettier                                      |
-| D-031 | 2026-09-02 | accepted                  | P0文字型PDF解析使用Mozilla PDF.js／`pdfjs-dist`                                           |
-| D-032 | 2026-09-02 | accepted                  | P0 JPEG／PNG處理使用Sharp                                                                 |
-| D-033 | 2026-09-02 | accepted                  | 圖片採寬鬆限制：25 MiB／50 MP／案件400 MiB／Derivative 3200 px                            |
-| D-034 | 2026-09-02 | accepted                  | 契約PDF採平衡限制：15 MiB／30頁／300,000字元                                              |
-| D-035 | 2026-09-02 | accepted                  | TypeScript採增強嚴格模式                                                                  |
-| D-036 | 2026-09-02 | accepted                  | TypeScript compiler使用6.0穩定線                                                          |
-| D-037 | 2026-09-02 | accepted                  | OpenAI採寬鬆案件上限：16 attempts／並行2／500K input／50K output＋reasoning               |
-| D-038 | 2026-09-02 | accepted                  | OpenAI Responses明確使用`service_tier: default`                                           |
-| D-039 | 2026-09-02 | accepted                  | OpenAI Development Project每月Hard Spend Limit為US$100                                    |
-| D-040 | 2026-09-02 | accepted                  | OpenAI Development Project Rate Limit採30 RPM／500K TPM／40 IPM／100 RPD                  |
-| D-041 | 2026-09-02 | accepted                  | 前端採Vitest／Testing Library／axe元件測試＋Playwright／axe瀏覽器測試                     |
-| D-042 | 2026-09-02 | accepted                  | Code Coverage採依模組分級門檻                                                             |
-| D-043 | 2026-09-02 | accepted                  | Vitest Coverage Provider使用V8                                                            |
-| D-044 | 2026-09-02 | superseded by D-090       | 公開Repository維持沒有開源License                                                         |
-| D-045 | 2026-09-02 | superseded by D-046       | 公開預覽使用無HTTPS的`public_http_showcase`靜態Synthetic Demo                             |
-| D-046 | 2026-09-02 | accepted                  | P0暫時只在本機／私人LAN展示，不部署公開預覽                                               |
-| D-047 | 2026-09-02 | superseded by D-089       | 第一個真實資料版本的Identity Provider使用Clerk                                            |
-| D-048 | 2026-09-02 | superseded by D-089       | Clerk重設密碼後立即撤銷Reset Session並要求重新登入                                        |
-| D-049 | 2026-09-02 | superseded by D-089       | Clerk在Development與初期Production都使用Hobby方案                                         |
-| D-050 | 2026-09-02 | superseded by D-089       | Clerk Hobby初期只提供Email密碼重設，SMS Recovery延後                                      |
-| D-051 | 2026-09-02 | superseded by D-089       | 帳戶Session完全使用Clerk Hobby固定7天Lifetime，不建立RentProof Session DB                 |
-| D-052 | 2026-09-02 | accepted                  | 真實資料版PostgreSQL adapter使用Kysely＋node-postgres                                     |
-| D-053 | 2026-09-02 | accepted                  | PostgreSQL schema migration使用Kysely Migrator                                            |
-| D-054 | 2026-09-02 | accepted                  | Production migration採Forward-only＋Expand／Contract                                      |
-| D-055 | 2026-09-02 | accepted                  | Guest Session固定24小時，到期後24小時內清除線上案件資料                                   |
-| D-056 | 2026-09-02 | superseded by D-057       | 登入帳戶案件自最後有效異動保存24個月，到期前30天通知                                      |
-| D-057 | 2026-09-02 | accepted                  | 登入帳戶案件保存至使用者刪除案件或帳戶                                                    |
-| D-058 | 2026-09-02 | accepted                  | 帳戶案件刪除後立即停止存取並於7天內完成線上清除                                           |
-| D-059 | 2026-09-02 | accepted                  | 加密備份最多保存14天，刪除Tombstone保存21天並於還原前重播                                 |
-| D-060 | 2026-09-02 | accepted                  | 最小化Security／Deletion Audit Events保存180天                                            |
-| D-061 | 2026-09-02 | accepted                  | Production App與PostgreSQL部署在同一台Server，DB只聽本機介面                              |
-| D-062 | 2026-09-02 | accepted                  | Development／Demo使用目前Windows桌面電腦；Production OS暫緩決定                           |
-| D-063 | 2026-09-02 | accepted                  | P0 Development／Demo以原生Node.js＋pnpm直接啟動Next.js                                    |
-| D-064 | 2026-09-02 | superseded by D-093       | 日常開發使用Next Dev Server；正式Demo使用Production Build＋lan_development安全profile     |
-| D-065 | 2026-09-02 | superseded by D-093       | LAN Demo Firewall允許整個Windows Private Network連入指定RentProof IP／Port                |
-| D-066 | 2026-09-02 | superseded by D-093       | LAN Demo Firewall Rule保留但預設停用，只在Demo前後獨立切換                                |
-| D-067 | 2026-09-02 | accepted                  | Windows P0 Runtime預設使用`%LOCALAPPDATA%\RentProof\runtime`                              |
-| D-068 | 2026-09-02 | accepted                  | Development Runtime保留7天；Formal Demo Run結束即清除                                     |
-| D-069 | 2026-09-02 | accepted                  | 外部Demo資料夾預設使用`%USERPROFILE%\RentProof-Demo`                                      |
-| D-070 | 2026-09-02 | accepted                  | Demo使用不可變版本資料夾、Manifest檔案Hash與分離Truth／Fallback                           |
-| D-071 | 2026-09-02 | accepted                  | Demo Manifest使用Strict JSON＋Zod／JSON Schema與Raw-byte SHA-256 Seal                     |
-| D-072 | 2026-09-02 | accepted                  | Golden Version必須由`RENTPROOF_DEMO_CASE_VERSION`顯式指定                                 |
-| D-073 | 2026-09-02 | accepted                  | Windows Development OpenAI Key保存於repo-root `.env.local`且Server-only                   |
-| D-074 | 2026-09-02 | accepted                  | RentProof採對話為主、四區證據工作區為輔的操作架構                                         |
-| D-075 | 2026-09-02 | accepted                  | Conversation以自由文字為主要輸入，Material Candidate仍須確認                              |
-| D-076 | 2026-09-02 | accepted                  | LAN全面開放Free Text，以無工具Structured Candidate＋Server Policy防Prompt Injection       |
-| D-077 | 2026-09-02 | accepted                  | Conversation單則輸入上限2,000 Unicode Code Points且8 KiB UTF-8                            |
-| D-078 | 2026-09-02 | accepted                  | Conversation每Actor每分鐘10則、Burst 3、每Case同時1則                                     |
-| D-079 | 2026-09-02 | accepted                  | Assistant單次敘述最多600 Code Points且最多3張Cards                                        |
-| D-080 | 2026-09-02 | accepted                  | Material Candidate Confirmation有效10分鐘、單次且Revision-bound                           |
-| D-081 | 2026-09-02 | accepted                  | Model Context只含目前Turn、Server Structured State與Validated Focus Refs                  |
-| D-082 | 2026-09-02 | accepted                  | LAN疑似一般PII警告後可送出；Auth Secrets維持Hard Block                                    |
-| D-083 | 2026-09-02 | accepted                  | Raw Conversation Text保存7天後清除，Typed Case Events保留                                 |
-| D-084 | 2026-09-02 | accepted                  | Assistant採Server Safety Templates＋LLM Read-only Explanation的Hybrid模式                 |
-| D-085 | 2026-09-02 | accepted                  | Conversation使用Luna／low；Evidence Extraction使用Terra／medium                           |
-| D-086 | 2026-09-02 | superseded by D-087       | Conversation每Case／24h使用100 Calls／250K Input／50K Output＋Reasoning Budget            |
-| D-087 | 2026-09-02 | accepted                  | Conversation每Case／24h使用200 Calls／500K Input／100K Output＋Reasoning Budget           |
-| D-089 | 2026-09-03 | accepted                  | 捨棄Clerk，改採PostgreSQL自建Email／密碼Auth與合格活動後延長的7天Sliding Session          |
-| D-090 | 2026-09-03 | accepted                  | RentProof repository改採Apache License 2.0並附NOTICE                                      |
-| D-091 | 2026-09-03 | accepted                  | 「凶宅」需求只實作為專有部分非自然死亡揭露核對，不輸出物件判決                            |
-| D-092 | 2026-09-03 | accepted                  | P1啟用RP-001／002／005／007，P0 profile與Golden結果維持不變                               |
-| D-093 | 2026-09-03 | accepted                  | 退役HTTP LAN；本機HTTP只限loopback，LAN改用HTTPS secure demo                              |
-| D-088 | 2026-09-02 | accepted                  | Development Luna Project限制30 RPM／500K TPM／300 RPD（若支援）                           |
+| ID    | 日期       | 狀態                       | 決策                                                                                      |
+| ----- | ---------- | -------------------------- | ----------------------------------------------------------------------------------------- |
+| D-001 | 2026-09-01 | accepted                   | MVP 採 TypeScript 模組化單體，不做微服務或自治 Agent swarm                                |
+| D-002 | 2026-09-01 | partially superseded D-094 | Evidence graph仍是domain truth；「聊天不是主畫面」已改為對話式projection                  |
+| D-003 | 2026-09-01 | accepted                   | 廣告承諾只使用支持、矛盾、證據不足三態，且缺席不構成矛盾                                  |
+| D-004 | 2026-09-01 | accepted                   | LLM 負責抽取與語意候選；程式負責分類、規則與金額                                          |
+| D-005 | 2026-09-01 | accepted                   | 每個肯定結論必須有 source locator；無定位即降為資料不足                                   |
+| D-006 | 2026-09-01 | accepted                   | MVP 不抓取任意廣告網址，只保存 URL metadata 並分析截圖／貼上文字                          |
+| D-007 | 2026-09-01 | accepted                   | 報告使用 HTML 列印，不另建 PDF 產生服務                                                   |
+| D-008 | 2026-09-01 | accepted                   | 成本分成固定月費、變動公式與一次性費用，不虛構單一完整月總額                              |
+| D-009 | 2026-09-01 | accepted                   | 官方規則是人工核對、版本化的 YAML；模型不得自行發布規則                                   |
+| D-010 | 2026-09-01 | accepted                   | Demo 只用 synthetic fixture，並保留有標示的預先分析 fallback                              |
+| D-011 | 2026-09-01 | superseded by D-090        | 建立新的 GitHub 公開 repository；未選定授權前不加入 LICENSE                               |
+| D-012 | 2026-09-01 | accepted                   | Demo 素材獨立放在 RentProof 外的 `RentProof-Demo/`，以環境變數載入                        |
+| D-013 | 2026-09-01 | accepted                   | 單人 P0 使用 12 張照片與 6 條啟用規則；影片與其餘規則列 P1                                |
+| D-014 | 2026-09-01 | accepted                   | 單人 P0 先用 typed repository＋JSON state；SQLite 僅作可選本機持久層，公開版用 PostgreSQL |
+| D-015 | 2026-09-01 | accepted                   | P0 雲端 LLM 固定使用 OpenAI API、官方 TypeScript SDK 與 Responses API                     |
+| D-016 | 2026-09-01 | superseded by D-085        | P0 預設模型使用 `gpt-5.6-terra`＋reasoning `medium`                                       |
+| D-017 | 2026-09-01 | accepted                   | 安全與隱私是 P0 Gate；未完成真實資料 Gate 前只接受 synthetic data                         |
+| D-018 | 2026-09-02 | accepted                   | 新增租屋詐騙風險訊號，但不作詐騙判決、機率或黑名單                                        |
+| D-019 | 2026-09-02 | accepted                   | P0 採本機 Node／Next.js 模組化單體、顯式 Stage DAG 與 ports／adapters                     |
+| D-020 | 2026-09-02 | accepted                   | UI 採 mobile-first RWD、極簡主義與可讀性優先的寬鬆排版                                    |
+| D-021 | 2026-09-02 | accepted                   | 真實資料版採單一入口；訪客可使用，登入／註冊只用於保存與查詢歷史                          |
+| D-022 | 2026-09-02 | superseded by D-047/D-050  | 帳戶使用 managed identity，忘記密碼支援已驗證 Email 或已綁定手機 SMS                      |
+| D-023 | 2026-09-02 | accepted                   | 隱私政策、使用條款與 Cookie 政策採版本化草案；第一版只使用必要 Cookie                     |
+| D-024 | 2026-09-02 | superseded by D-051/D-089  | 登入帳戶 session 採合格活動後延長 7 天的 sliding idle expiry                              |
+| D-025 | 2026-09-02 | superseded by D-093        | 開發階段允許 synthetic-only HTTP LAN profile；Production HTTPS 不變                       |
+| D-026 | 2026-09-02 | accepted                   | JavaScript／TypeScript 套件管理器使用 pnpm                                                |
+| D-027 | 2026-09-02 | accepted                   | Application runtime 使用 Node.js 24 LTS                                                   |
+| D-028 | 2026-09-02 | accepted                   | Web framework 使用 Next.js 16 Active LTS＋App Router                                      |
+| D-029 | 2026-09-02 | accepted                   | UI 元件使用 shadcn/ui＋Radix Primitives                                                   |
+| D-030 | 2026-09-02 | accepted                   | 程式品質使用 ESLint Flat Config，格式化使用 Prettier                                      |
+| D-031 | 2026-09-02 | accepted                   | P0文字型PDF解析使用Mozilla PDF.js／`pdfjs-dist`                                           |
+| D-032 | 2026-09-02 | accepted                   | P0 JPEG／PNG處理使用Sharp                                                                 |
+| D-033 | 2026-09-02 | accepted                   | 圖片採寬鬆限制：25 MiB／50 MP／案件400 MiB／Derivative 3200 px                            |
+| D-034 | 2026-09-02 | accepted                   | 契約PDF採平衡限制：15 MiB／30頁／300,000字元                                              |
+| D-035 | 2026-09-02 | accepted                   | TypeScript採增強嚴格模式                                                                  |
+| D-036 | 2026-09-02 | accepted                   | TypeScript compiler使用6.0穩定線                                                          |
+| D-037 | 2026-09-02 | accepted                   | OpenAI採寬鬆案件上限：16 attempts／並行2／500K input／50K output＋reasoning               |
+| D-038 | 2026-09-02 | accepted                   | OpenAI Responses明確使用`service_tier: default`                                           |
+| D-039 | 2026-09-02 | accepted                   | OpenAI Development Project每月Hard Spend Limit為US$100                                    |
+| D-040 | 2026-09-02 | accepted                   | OpenAI Development Project Rate Limit採30 RPM／500K TPM／40 IPM／100 RPD                  |
+| D-041 | 2026-09-02 | accepted                   | 前端採Vitest／Testing Library／axe元件測試＋Playwright／axe瀏覽器測試                     |
+| D-042 | 2026-09-02 | accepted                   | Code Coverage採依模組分級門檻                                                             |
+| D-043 | 2026-09-02 | accepted                   | Vitest Coverage Provider使用V8                                                            |
+| D-044 | 2026-09-02 | superseded by D-090        | 公開Repository維持沒有開源License                                                         |
+| D-045 | 2026-09-02 | superseded by D-046        | 公開預覽使用無HTTPS的`public_http_showcase`靜態Synthetic Demo                             |
+| D-046 | 2026-09-02 | accepted                   | P0暫時只在本機／私人LAN展示，不部署公開預覽                                               |
+| D-047 | 2026-09-02 | superseded by D-089        | 第一個真實資料版本的Identity Provider使用Clerk                                            |
+| D-048 | 2026-09-02 | superseded by D-089        | Clerk重設密碼後立即撤銷Reset Session並要求重新登入                                        |
+| D-049 | 2026-09-02 | superseded by D-089        | Clerk在Development與初期Production都使用Hobby方案                                         |
+| D-050 | 2026-09-02 | superseded by D-089        | Clerk Hobby初期只提供Email密碼重設，SMS Recovery延後                                      |
+| D-051 | 2026-09-02 | superseded by D-089        | 帳戶Session完全使用Clerk Hobby固定7天Lifetime，不建立RentProof Session DB                 |
+| D-052 | 2026-09-02 | accepted                   | 真實資料版PostgreSQL adapter使用Kysely＋node-postgres                                     |
+| D-053 | 2026-09-02 | accepted                   | PostgreSQL schema migration使用Kysely Migrator                                            |
+| D-054 | 2026-09-02 | accepted                   | Production migration採Forward-only＋Expand／Contract                                      |
+| D-055 | 2026-09-02 | accepted                   | Guest Session固定24小時，到期後24小時內清除線上案件資料                                   |
+| D-056 | 2026-09-02 | superseded by D-057        | 登入帳戶案件自最後有效異動保存24個月，到期前30天通知                                      |
+| D-057 | 2026-09-02 | accepted                   | 登入帳戶案件保存至使用者刪除案件或帳戶                                                    |
+| D-058 | 2026-09-02 | accepted                   | 帳戶案件刪除後立即停止存取並於7天內完成線上清除                                           |
+| D-059 | 2026-09-02 | accepted                   | 加密備份最多保存14天，刪除Tombstone保存21天並於還原前重播                                 |
+| D-060 | 2026-09-02 | accepted                   | 最小化Security／Deletion Audit Events保存180天                                            |
+| D-061 | 2026-09-02 | accepted                   | Production App與PostgreSQL部署在同一台Server，DB只聽本機介面                              |
+| D-062 | 2026-09-02 | accepted                   | Development／Demo使用目前Windows桌面電腦；Production OS暫緩決定                           |
+| D-063 | 2026-09-02 | accepted                   | P0 Development／Demo以原生Node.js＋pnpm直接啟動Next.js                                    |
+| D-064 | 2026-09-02 | superseded by D-093        | 日常開發使用Next Dev Server；正式Demo使用Production Build＋lan_development安全profile     |
+| D-065 | 2026-09-02 | superseded by D-093        | LAN Demo Firewall允許整個Windows Private Network連入指定RentProof IP／Port                |
+| D-066 | 2026-09-02 | superseded by D-093        | LAN Demo Firewall Rule保留但預設停用，只在Demo前後獨立切換                                |
+| D-067 | 2026-09-02 | accepted                   | Windows P0 Runtime預設使用`%LOCALAPPDATA%\RentProof\runtime`                              |
+| D-068 | 2026-09-02 | accepted                   | Development Runtime保留7天；Formal Demo Run結束即清除                                     |
+| D-069 | 2026-09-02 | accepted                   | 外部Demo資料夾預設使用`%USERPROFILE%\RentProof-Demo`                                      |
+| D-070 | 2026-09-02 | accepted                   | Demo使用不可變版本資料夾、Manifest檔案Hash與分離Truth／Fallback                           |
+| D-071 | 2026-09-02 | accepted                   | Demo Manifest使用Strict JSON＋Zod／JSON Schema與Raw-byte SHA-256 Seal                     |
+| D-072 | 2026-09-02 | accepted                   | Golden Version必須由`RENTPROOF_DEMO_CASE_VERSION`顯式指定                                 |
+| D-073 | 2026-09-02 | accepted                   | Windows Development OpenAI Key保存於repo-root `.env.local`且Server-only                   |
+| D-074 | 2026-09-02 | accepted                   | RentProof採對話為主、四區證據工作區為輔的操作架構                                         |
+| D-075 | 2026-09-02 | accepted                   | Conversation以自由文字為主要輸入，Material Candidate仍須確認                              |
+| D-076 | 2026-09-02 | accepted                   | LAN全面開放Free Text，以無工具Structured Candidate＋Server Policy防Prompt Injection       |
+| D-077 | 2026-09-02 | accepted                   | Conversation單則輸入上限2,000 Unicode Code Points且8 KiB UTF-8                            |
+| D-078 | 2026-09-02 | accepted                   | Conversation每Actor每分鐘10則、Burst 3、每Case同時1則                                     |
+| D-079 | 2026-09-02 | accepted                   | Assistant單次敘述最多600 Code Points且最多3張Cards                                        |
+| D-080 | 2026-09-02 | accepted                   | Material Candidate Confirmation有效10分鐘、單次且Revision-bound                           |
+| D-081 | 2026-09-02 | accepted                   | Model Context只含目前Turn、Server Structured State與Validated Focus Refs                  |
+| D-082 | 2026-09-02 | accepted                   | LAN疑似一般PII警告後可送出；Auth Secrets維持Hard Block                                    |
+| D-083 | 2026-09-02 | accepted                   | Raw Conversation Text保存7天後清除，Typed Case Events保留                                 |
+| D-084 | 2026-09-02 | accepted                   | Assistant採Server Safety Templates＋LLM Read-only Explanation的Hybrid模式                 |
+| D-085 | 2026-09-02 | accepted                   | Conversation使用Luna／low；Evidence Extraction使用Terra／medium                           |
+| D-086 | 2026-09-02 | superseded by D-087        | Conversation每Case／24h使用100 Calls／250K Input／50K Output＋Reasoning Budget            |
+| D-087 | 2026-09-02 | accepted                   | Conversation每Case／24h使用200 Calls／500K Input／100K Output＋Reasoning Budget           |
+| D-089 | 2026-09-03 | accepted                   | 捨棄Clerk，改採PostgreSQL自建Email／密碼Auth與合格活動後延長的7天Sliding Session          |
+| D-090 | 2026-09-03 | accepted                   | RentProof repository改採Apache License 2.0並附NOTICE                                      |
+| D-091 | 2026-09-03 | accepted                   | 「凶宅」需求只實作為專有部分非自然死亡揭露核對，不輸出物件判決                            |
+| D-092 | 2026-09-03 | accepted                   | P1啟用RP-001／002／005／007，P0 profile與Golden結果維持不變                               |
+| D-093 | 2026-09-03 | accepted                   | 退役HTTP LAN；本機HTTP只限loopback，LAN改用HTTPS secure demo                              |
+| D-094 | 2026-09-03 | accepted                   | 未登入可直接使用；訪客案件綁單一24小時Session並採對話式主流程                             |
+| D-088 | 2026-09-02 | accepted                   | Development Luna Project限制30 RPM／500K TPM／300 RPD（若支援）                           |
 
 ## 詳細理由與影響
 
@@ -107,6 +108,12 @@
 **理由：** 使用者需要從LAN裝置操作私有租屋素材與帳戶流程。HTTP無法保護租約、照片、密碼及Session在網路傳輸時的機密性與完整性，因此不再保留HTTP LAN例外。
 
 **影響：** `local_development`是唯一HTTP profile，固定綁定`127.0.0.1`。舊`lan_development`、`dev:lan`、`start:lan`、`.env.lan.local`與`demo:check -- --profile=lan`退役並須fail closed。LAN只使用`lan_secure_demo`：明確RFC1918 IP、HTTPS、受信任憑證、exact Host／Origin、Private-profile Firewall、Secure Cookie、self-hosted Auth、loopback PostgreSQL、private storage與owner-scoped authorization。Fixture／Live仍由startup-only設定決定；Live另要求Server-only key與已確認的OpenAI Project限制。D-025、D-064、D-065、D-066中關於HTTP LAN的現行效力由本決策取代；歷史紀錄保留。
+
+### D-094：訪客免登入與對話式私有案件流程
+
+**理由：** 登入只應用於保存與跨裝置查詢，不應阻擋租屋者先整理資料；同時必須避免可猜案件ID或共用guest identity造成跨工作階段存取。
+
+**影響：** HTTPS首頁會先建立32-byte opaque訪客Cookie，PostgreSQL只保存server-keyed HMAC digest；訪客Session自建立起固定24小時且不滑動。訪客案件的`owner_subject_id`綁定單一`guestSessionId`，不同瀏覽器或同identity的另一Session不能繼承權限；帳戶案件仍綁內部`userId`並使用7天滑動Session。訪客與帳戶共用相同real-case routes及對話式主流程，依序建立案件、加入廣告／看屋照片／租約、分析與查看行動。訪客不可列出歷史；訪客刪除與到期purge期限為24小時，帳戶案件刪除purge期限為7日。Guest-to-user轉移尚未實作，不得以登入後自動保存暗示已完成轉移。
 
 ### D-001：模組化單體與固定管線
 
@@ -118,7 +125,7 @@
 
 **理由：** 使用者要回答的是「某項承諾有哪些證據」，不是延續一段對話。Claim、artifact、locator、clause、rule 與 finding 的關係需要可查詢、可重跑。
 
-**影響：** 聊天式 UI 不是 MVP 主畫面；任何生成說明都只是 graph 的 view，不是 source of truth。
+**影響：** Evidence graph仍是source of truth。原先「聊天式UI不是主畫面」已由D-094取代；現行對話是案件projection，任何生成說明仍不能取代graph或直接修改domain state。
 
 ### D-003：保守三態
 

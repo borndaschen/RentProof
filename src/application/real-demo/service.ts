@@ -25,10 +25,7 @@ export class RealDemoService {
     private readonly now: () => Date = () => new Date(),
   ) {}
 
-  async createCase(
-    actor: (ActorContext & { kind: "user" }) | null,
-    input: unknown,
-  ): Promise<{ caseId: string }> {
+  async createCase(actor: ActorContext | null, input: unknown): Promise<{ caseId: string }> {
     if (!actor) throw new RealDemoAccessError("REAL_DEMO_AUTH_REQUIRED");
     const parsed = RealCaseDisplayNameSchema.safeParse(
       typeof input === "object" && input !== null ? Reflect.get(input, "displayName") : undefined,
@@ -52,7 +49,7 @@ export class RealDemoService {
   }
 
   async saveArtifact(input: {
-    actor: (ActorContext & { kind: "user" }) | null;
+    actor: ActorContext | null;
     caseId: unknown;
     kind: RealArtifactKind;
     mime: RealArtifactMime;
@@ -133,10 +130,7 @@ export class RealDemoService {
     }
   }
 
-  async deleteCase(
-    actor: (ActorContext & { kind: "user" }) | null,
-    caseId: unknown,
-  ): Promise<void> {
+  async deleteCase(actor: ActorContext | null, caseId: unknown): Promise<void> {
     if (!actor) throw new RealDemoAccessError("REAL_DEMO_AUTH_REQUIRED");
     const parsed = OpaqueIdSchema.safeParse(caseId);
     if (!parsed.success) throw new RealDemoAccessError("REAL_DEMO_CASE_NOT_FOUND_OR_FORBIDDEN");
@@ -159,7 +153,7 @@ export class RealDemoService {
   }
 
   async loadAnalysisPayloads(
-    actor: (ActorContext & { kind: "user" }) | null,
+    actor: ActorContext | null,
     caseId: unknown,
   ): Promise<readonly RealArtifactAnalysisPayload[]> {
     if (!actor) throw new RealDemoAccessError("REAL_DEMO_AUTH_REQUIRED");
@@ -210,7 +204,7 @@ export class RealDemoService {
   }
 
   async commitAnalysis(
-    actor: (ActorContext & { kind: "user" }) | null,
+    actor: ActorContext | null,
     caseId: unknown,
     snapshot: unknown,
   ): Promise<void> {

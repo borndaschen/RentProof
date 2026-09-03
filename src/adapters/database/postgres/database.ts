@@ -63,6 +63,15 @@ export interface GuestIdentitiesTable {
   purge_state: "active" | "pending" | "purged";
 }
 
+export interface GuestSessionsTable {
+  id: string;
+  guest_id: string;
+  token_digest: string;
+  created_at: TimestampColumn;
+  expires_at: TimestampColumn;
+  revoked_at: TimestampColumn | null;
+}
+
 export interface RentalCasesTable {
   id: string;
   owner_type: "user" | "guest";
@@ -168,6 +177,7 @@ export interface RentProofDatabase {
   auth_password_reset_challenges: AuthPasswordResetChallengesTable;
   auth_email_verification_challenges: AuthEmailVerificationChallengesTable;
   guest_identities: GuestIdentitiesTable;
+  guest_sessions: GuestSessionsTable;
   rental_cases: RentalCasesTable;
   policy_documents: PolicyDocumentsTable;
   policy_events: PolicyEventsTable;

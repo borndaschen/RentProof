@@ -1,6 +1,6 @@
 # 官方規則與資料來源
 
-- 狀態：P0 evaluator與regression已實作；規則內容仍為DRAFT
+- 狀態：10條檢查規則與回歸測試已實作；規則內容仍為DRAFT
 - 查核日期：2026-09-01（Asia/Taipei）
 - 規則資料版本：`rentproof-tw-rental-rules/1.0.0-draft`
 
@@ -35,11 +35,11 @@
 
 電費新制於 2024-07-15 生效。內政部說明其原則上適用該日起新簽契約；舊約是否採用新規定需要額外的簽約／換約資訊。因此規則資料統一使用預計簽約日 `intended_signed_at`，缺少日期時不得輸出肯定結果。
 
-## 3. MVP 規則目錄
+## 3. 規則目錄
 
 實際 machine-readable 草案位於 [`rules/official-rules.v1.yaml`](../rules/official-rules.v1.yaml)。下表的「檢查」是產品邏輯摘要，不取代官方原文。
 
-YAML 只保存來源 metadata、啟用 profile、`evaluator_id`、文件化判斷條件與中立模板；實際 predicate 是 allowlisted TypeScript evaluator，禁止對 YAML 自由文字使用 `eval`。P0／P1 active IDs 分別由 `profiles.p0.active_rule_ids`與`profiles.p1.active_rule_ids`控制；runtime必須顯式選擇profile，不得因程式新增evaluator而靜默擴張P0輸出。
+YAML只保存來源metadata、啟用設定、`evaluator_id`、文件化判斷條件與中立模板；實際判斷由allowlisted TypeScript evaluator執行，禁止對YAML自由文字使用`eval`。伺服器必須明確選擇目前展示的規則集合，不得因新增evaluator而靜默改變既有報告。
 
 | ID     | 檢查項目             | 確定性判斷                                                                 | 中立提示                                             |
 | ------ | -------------------- | -------------------------------------------------------------------------- | ---------------------------------------------------- |
@@ -54,9 +54,9 @@ YAML 只保存來源 metadata、啟用 profile、`evaluator_id`、文件化判�
 | RP-009 | 修繕責任與聯絡方式   | 檢查由承租人負責的項目是否逐項約明確認，以及是否有修繕聯絡方式             | 影像只觸發補拍與修繕紀錄要求，不判原因／責任         |
 | RP-010 | 租金補貼限制         | 偵測禁止、以申請為條件加租或解約等語意，標為疑似差異                       | 請人工確認是否修改限制文字，並向地政／消保單位確認   |
 
-單人 P0 維持啟用 `RP-003`、`RP-004`、`RP-006`、`RP-008`、`RP-009`、`RP-010`。P1 profile另啟用`RP-001`契約審閱期、`RP-002`廣告整體排除、`RP-005`押金上限與返還及`RP-007`非按度／公共用電；新增P1 evaluator不改變P0 Golden預期結果。這是開發profile切線，不代表任一規則是法律判決。
+目前10條規則都有確定性evaluator。展示環境可選擇基本6條，或包含契約審閱期、廣告整體排除、押金上限與返還、非按度／公共用電在內的完整10條。這只是展示設定，不代表任一規則是法律判決。
 
-6 個 primary source snapshots 與 3 個 supporting landing-page snapshots 已於 2026-09-01 凍結並記錄 SHA-256。契約範本、電費修正與租金補貼修正以官方原文 PDF 為 primary，HTML 說明頁保留作 supporting provenance。P0與P1共10條規則的allowlisted TypeScript evaluators、stable reason codes、active-profile／缺件／日期／定位regression已實作；YAML自由文字不會被執行。RP-001以明載日數優先，否則只用完整交付日與預定簽約日計算日曆日；可定位的放棄審閱語意優先標疑似差異。RP-002只有可定位的整體排除廣告語意可標疑似差異，文件沉默只有在完整契約中才可作`not_present`。RP-005以TWD最小單位字串及`BigInt`核對兩個月押金上限，且返還／抵充約定未取得時維持資料不足。RP-007亦使用精確最小單位比較；缺少同一標的同一期帳單、用電度數、租賃範圍，或額外公共用電的帳單分攤資料時一律為資料不足，不以浮點數或推測補值。規則庫仍維持draft，因官方來源需在每次公開Demo前重查，且內容尚未經台灣法務審閱；UI必須顯示「規則草案」，不得包裝成正式完整審查或法律意見。
+6個primary source snapshots與3個supporting landing-page snapshots已於2026-09-01凍結並記錄SHA-256。契約範本、電費修正與租金補貼修正以官方原文PDF為primary，HTML說明頁保留作supporting provenance。10條規則的allowlisted TypeScript evaluators、stable reason codes及缺件／日期／定位regression均已實作；YAML自由文字不會被執行。RP-001以明載日數優先，否則只用完整交付日與預定簽約日計算日曆日；可定位的放棄審閱語意優先標疑似差異。RP-002只有可定位的整體排除廣告語意可標疑似差異。RP-005以TWD最小單位字串及`BigInt`核對兩個月押金上限，返還／抵充約定未取得時維持資料不足。RP-007同樣使用精確最小單位比較；缺少同一標的同一期帳單、用電度數、租賃範圍或公共用電分攤資料時一律為資料不足。規則庫仍維持draft，因官方來源需在每次公開展示前重查，且內容尚未經台灣法務審閱；介面必須顯示「規則草案」，不得包裝成正式完整審查或法律意見。
 
 補充產品規則：廣告寫有洗衣機、契約附件未列，仍是 `insufficient_evidence`；只有附件明載沒有或不提供洗衣機，才是廣告／契約 `contradicted`。這是證據分類，不是法律規則結果。
 
@@ -97,7 +97,7 @@ RentProof 只能呈現價格脈絡，例如：
 
 > 同行政區／同類型的官方租金補貼有效租約參考分布為 P25、P50、P75；本物件刊登租金位於該分布的＿＿位置。此資料僅供價格脈絡與議價參考，不代表租金合理性判定。
 
-MVP 若沒有穩定 API，就將官方下載檔轉成帶 `source_date` 的本地 fixture；不得在 prompt 中用記憶補值。
+若沒有穩定API，就將官方下載檔轉成帶`source_date`的受控本地資料；不得在prompt中用記憶補值。
 
 ## 6. 共通輸出措辭
 
@@ -111,6 +111,6 @@ MVP 若沒有穩定 API，就將官方下載檔轉成帶 `source_date` 的本地
 
 1. 只從政府官方頁面取得更新，記錄 URL、公告／生效日期與查核日期。
 2. 人工比較新舊文字；不得把整份官方文件交給模型後自動發布規則。
-3. bump 規則版本，更新 YAML、本文與 golden tests；保存本次官方來源快照並記錄 SHA-256。
-4. 用舊版與新版 fixture 做 regression，確認措辭仍不越過安全邊界。
-5. 至少在每次公開 demo 前重查；正式服務應定期並於來源異動時檢查，來源版本未知時顯示「規則待更新」。
+3. bump規則版本，更新YAML、本文與回歸測試；保存本次官方來源快照並記錄SHA-256。
+4. 用舊版與新版測試資料做regression，確認措辭仍不越過安全邊界。
+5. 至少在每次公開展示前重查；正式服務應定期並於來源異動時檢查，來源版本未知時顯示「規則待更新」。

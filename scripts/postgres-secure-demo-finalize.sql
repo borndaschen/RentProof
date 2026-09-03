@@ -17,5 +17,6 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
   rentproof.auth_sessions,
   rentproof.auth_password_reset_challenges,
   rentproof.auth_email_verification_challenges,
-  rentproof.case_artifacts
+  rentproof.case_artifacts,
+  rentproof.guest_sessions
 TO rentproof_secure_demo_app;

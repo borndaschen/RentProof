@@ -1,10 +1,10 @@
 # RentProof 系統架構
 
-- 狀態：P0 architecture baseline
+- 狀態：目前實作架構基線
 - 版本：0.4
 - 日期：2026-09-03
 - 架構型態：Next.js／TypeScript 模組化單體
-- P0 執行環境：本機 Node.js process、synthetic-only
+- 執行環境：本機Node.js測試模式，或LAN HTTPS＋loopback PostgreSQL私有案件模式
 
 本文件是系統邊界、模組、依賴方向、分析流程、儲存、API、部署與失敗模式的架構來源。Server profile／listener／本機HTTP／LAN HTTPS／Production HTTPS的canonical contract見[Server配置](SERVER_CONFIGURATION.md)；詳細domain schema／演算法見[技術設計](TECHNICAL_DESIGN.md)，前端與RWD見[UI設計](UI_DESIGN.md)，OpenAI呼叫契約見[OpenAI整合](OPENAI_INTEGRATION.md)，安全Gate見[安全與隱私規格](SECURITY_PRIVACY.md)，guest／account contract見[選用帳戶、登入與歷史租約架構](AUTH_AND_HISTORY.md)。
 
@@ -13,26 +13,26 @@
 1. 每個結果都能回到廣告、照片、契約頁碼、互動原文或官方來源。
 2. OpenAI 只處理非結構化抽取；分類、金額、規則、風險訊號與報告由本機程式決定。
 3. 每個分析 stage 可重跑、快取、失敗、局部失效，不必重跑整案。
-4. P0 保持單人可實作，不導入 ORM、queue、微服務或自治 Agent swarm。
+4. 保持單人可維護，不導入queue、微服務或自治Agent swarm。
 5. Demo truth、fallback、runtime data 與 repository 清楚分離。
 6. 未知與錯誤安全失敗，不能被顯示為「沒有問題」。
-7. P1 可替換儲存與執行器，而不改 domain contract。
+7. 後續可替換儲存與執行器，而不改domain contract。
 8. 真實資料版維持單一入口；guest 與 user 共用 evidence pipeline，但 authorization、history 與 retention 不同。
 
-## 2. P0 約束與非目標
+## 2. 目前的約束與非目標
 
-- 一個 synthetic Golden case。
-- 12 張看屋照片、清楚文字 PDF、廣告、補拍與 synthetic interaction。
-- 6 個 P0 official-rule evaluators 與 `FRS-001`。
+- 本機測試流程保留一個sealed測試案件；LAN HTTPS另提供owner-scoped私有案件。
+- 最多12張看屋照片、清楚文字PDF、廣告與補拍；影片與掃描OCR尚未支援。
+- 規則profile可啟用6或10個official-rule evaluators；防詐目前實作`FRS-001`。
 - 一個 Node process；不支援多 instance／水平擴展。
-- 本機 filesystem＋JSON state；不使用 SQLite／PostgreSQL／object storage。
+- 本機測試使用filesystem＋JSON state；`lan_secure_demo`使用loopback PostgreSQL與AES-256-GCM私有檔案儲存。
 - 不使用 OpenAI Conversations、Assistants、File Search、Web Search、background mode、MCP 或 tools。
-- 不接受真實租約、真實影像、身分文件或銀行資料。
+- 不接受身分文件、密碼、OTP、完整銀行帳號、QR code或其他認證祕密。
 - 不公開部署；本機HTTP只綁定loopback，私人區域網路測試只使用`lan_secure_demo` HTTPS。
 
 ## 3. 核心架構決策
 
-| 項目          | P0 決策                                                     | 理由                                                             |
+| 項目          | 目前決策                                                    | 理由                                                             |
 | ------------- | ----------------------------------------------------------- | ---------------------------------------------------------------- |
 | 架構          | 模組化單體                                                  | 單一 schema／transaction 邊界，降低協調成本                      |
 | Runtime       | Next.js Node runtime                                        | 需要 server-only SDK、PDF 與 filesystem；不使用 Edge             |
@@ -40,8 +40,8 @@
 | API           | Next.js Route Handlers＋Zod                                 | request／response contract 可測且 server-only                    |
 | Domain        | 純 TypeScript functions／schemas                            | 可在無 OpenAI、無 filesystem 下單測                              |
 | Orchestration | 顯式 Stage DAG                                              | 可追蹤、快取、局部重跑；不採自治 Agent                           |
-| State         | `CaseStateRepository`＋JSON adapter                         | P0 簡單；P1 可換 database adapter                                |
-| Artifacts     | 私有 filesystem adapter                                     | 不進 `public/`，以 opaque storage key 存取                       |
+| State         | typed repository ports＋JSON／PostgreSQL adapters           | 依profile組裝，Domain不直接依賴儲存技術                          |
+| Artifacts     | 私有filesystem＋AES-256-GCM adapter                         | 不進`public/`，以owner-scoped opaque key存取                     |
 | LLM           | OpenAI Responses：Luna conversation／Terra evidence         | 高頻文字與高風險跨模態分流；Structured Outputs、server-only      |
 | Rules         | allowlisted TypeScript evaluators                           | 不執行 YAML 自由文字                                             |
 | Report        | reason-code templates                                       | 不讓 LLM生成法律／責任結論                                       |
@@ -70,9 +70,9 @@ flowchart LR
   APP -->|action guidance only| VERIFY
 ```
 
-`VERIFY` 不是 API integration。P0 只顯示官方查證建議，不自動報案、撥號或查詢警政／銀行資料。
+`VERIFY` 不是 API integration。目前只顯示官方查證建議，不自動報案、撥號或查詢警政／銀行資料。
 
-## 5. P0 Deployment
+## 5. 目前Deployment
 
 ### 5.1 Deployment profiles
 
@@ -129,9 +129,9 @@ flowchart TB
 
 目前不部署到serverless／Edge：local JSON、external Demo directory、private runtime directory與單process lock都依賴長生命週期Node process。`lan_secure_demo`是內部HTTPS展示，不是public deployment或production substitute。
 
-Windows P0 runtime未覆寫時解析為`%LOCALAPPDATA%\RentProof\runtime`，並分離`quarantine`／`artifacts`／`state`／`cache`。Resolver拒絕repository、Demo、public、Documents／OneDrive、UNC／network、removable及reparse paths；不得fallback到`%TEMP%`或cwd。
+Windows測試runtime未覆寫時解析為`%LOCALAPPDATA%\RentProof\runtime`，並分離`quarantine`／`artifacts`／`state`／`cache`。Resolver拒絕repository、Demo、public、Documents／OneDrive、UNC／network、removable及reparse paths；不得fallback到`%TEMP%`或cwd。
 
-Windows P0 Demo root未覆寫時解析為`%USERPROFILE%\RentProof-Demo`。目錄由使用者／素材流程預先準備，App read-only且不得建立、寫入、初始化Git或從repository複製；不存在時明確`DEMO_DIR_MISSING`。
+Windows測試素材root未覆寫時解析為`%USERPROFILE%\RentProof-Demo`。目錄由使用者／素材流程預先準備，App read-only且不得建立、寫入、初始化Git或從repository複製；不存在時明確`DEMO_DIR_MISSING`。
 
 Demo root使用immutable `cases/golden-vN/`版本。每版manifest列出所有素材、truth與fallback的relative path／kind／MIME／bytes／SHA-256／provenance，另以sidecar封存manifest hash；App只載入顯式版本並拒絕missing／extra／mismatch，不解析`latest` alias。Truth與fallback保持不同trust domain。
 
@@ -277,7 +277,7 @@ interface RuleRegistry {
 
 ### 9.2 Production identity／policy ports
 
-Golden P0不依賴下列ports；其中self-hosted account Auth與owner-scoped history已由Demo-safe、feature-gated切片實作並在loopback synthetic環境驗證，guest lifecycle與完整Production policy／storage／purge仍由first real-data release透過同一composition root注入：
+本機測試案件不依賴下列ports；`lan_secure_demo`已透過同一composition root接入self-hosted account Auth、owner-scoped history、訪客工作階段、PostgreSQL與加密私有素材儲存。正式環境的Email delivery、排程purge、異地備份與政策治理仍須另外完成：
 
 ```ts
 type ActorContext =
@@ -313,9 +313,10 @@ D-089後Auth adapter改為RentProof self-hosted：只有infrastructure password 
 - Guest-to-user transfer 同時驗證兩個 sessions，採 transaction 原子換 owner，成功後撤銷舊 guest access。
 - Email驗證／recovery由self-hosted Auth application service協調受控Email delivery adapter；密碼、verification／reset code與session token不進domain case state、OpenAI payload或logs。SMS／phone route不在初期範圍。
 - Account session由RentProof以256-bit opaque HttpOnly Cookie＋PostgreSQL keyed digest管理。合格主動使用以原子update延長7天idle expiry並刷新Cookie；passive session status、prefetch、polling、靜態資源與失敗request不延長。Guest仍採獨立固定24小時policy。
+- `004_guest_sessions`以獨立資料表保存guest session keyed digest，資料庫constraint限制expiry不得超過建立後24小時；App readiness目前要求001至004四版migration及14張產品資料表。
 - `PolicyRegistry` 分開記錄 Terms acceptance、Privacy acknowledgement、Cloud Processing consent；Cookie 依 purpose key 另記 granted／declined／withdrawn preference。
 
-### 9.3 P0 adapter mapping
+### 9.3 目前adapter mapping
 
 | Port                  | Live mode                                   | Fixture mode                                     |
 | --------------------- | ------------------------------------------- | ------------------------------------------------ |
@@ -364,7 +365,7 @@ Claims、observations、clauses、findings、rule checks、fraud signals 與 rep
 
 分析開始時鎖定 `baseCaseRevision`。所有必要 stage 結果驗證完成後，才原子建立 `AnalysisSnapshot` 並切換 `activeSnapshotId`；執行期間若 case revision 改變，results 可留在 case-scoped cache，但 snapshot commit 必須回 `CASE_REVISION_CHANGED`，不能組成混合世代報告。
 
-JSON adapter 以 `revision` 做 optimistic check，以 temp file＋atomic rename 寫入。P0 每個 case 使用 in-process mutex，避免同一 case 同時分析／補件造成 lost update。Process restart 時殘留 `running` run 轉成 `abandoned`／`interrupted`，不得視為成功。
+JSON adapter 以 `revision` 做 optimistic check，以 temp file＋atomic rename 寫入。目前每個 case 使用 in-process mutex，避免同一 case 同時分析／補件造成 lost update。Process restart 時殘留 `running` run 轉成 `abandoned`／`interrupted`，不得視為成功。
 
 ### 10.2 Runtime layout
 
@@ -387,11 +388,11 @@ received → quarantined → validated → normalized → available → deleted
                      ↘ rejected
 ```
 
-- P0 外部 synthetic 原檔唯讀；runtime 只保存驗證／重編碼後 derivative。
+- 目前外部 synthetic 原檔唯讀；runtime 只保存驗證／重編碼後 derivative。
 - `ArtifactLineage` 記錄 source artifact hash、derivative hash、preprocess／redaction version、頁碼／crop 與 bytes。
 - OpenAI 只收到 derivative、必要頁面、必要 crop 或帶頁碼的最小文字。
 - 未驗證 PDF 不 inline 顯示；preview 使用 rasterized／sanitized derivative。
-- P1 原始 evidence 與 derivative 分開保存，各自受 private authorization／retention 管理。
+- 後續原始 evidence 與 derivative 分開保存，各自受 private authorization／retention 管理。
 
 ### 10.3 Demo layout
 
@@ -481,8 +482,8 @@ flowchart LR
 
 - Evidence extraction 使用固定 observation taxonomy，避免廣告變更迫使 12 張照片重新送 OpenAI。
 - 照片排序與 batch plan 固定，其 hash 納入 stage key。
-- P0依DAG執行，provider concurrency hard cap為2；只有彼此無dependency且case budget已原子reserve的cloud stages可並行，不能因圖上可平行無界增加。
-- P0 follow-up 只允許牆面變色 target-scoped 子圖；不回到全域 Evidence／Comparison。
+- 目前依DAG執行，provider concurrency hard cap為2；只有彼此無dependency且case budget已原子reserve的cloud stages可並行，不能因圖上可平行無界增加。
+- 目前follow-up 只允許牆面變色 target-scoped 子圖；不回到全域 Evidence／Comparison。
 
 ## 12. Stage State Machine
 
@@ -559,7 +560,7 @@ stageRunKey     = H(caseId + executionMode + stageScope + directInputHash + depe
 | Prompt／schema／model config    | only matching cloud stages＋downstream                                   | unrelated stages                                            |
 | 牆面補拍                        | related observation follow-up、report                                    | unrelated claims／rules／fraud signal                       |
 
-Follow-up 以 dependency refs 決定局部失效；P0 不做泛用事件溯源。Finding 使用穩定 logical key（例如 `findingType + subjectKey`），補件不應改變無關 finding ID／stage run。
+Follow-up 以 dependency refs 決定局部失效；目前不做泛用事件溯源。Finding 使用穩定 logical key（例如 `findingType + subjectKey`），補件不應改變無關 finding ID／stage run。
 
 ## 14. Main Analysis Sequence
 
@@ -596,7 +597,7 @@ sequenceDiagram
   API-->>UI: 200 + run/snapshot status
 ```
 
-P0 foreground runner 在 request 內執行，不回 `202 Accepted` 暗示 durable background work。相同 key 已在執行時回既有 run；GET run status 供斷線恢復／另一 request 查詢。P1 queue／worker 才採真正非同步 `202`。
+目前foreground runner 在 request 內執行，不回 `202 Accepted` 暗示 durable background work。相同 key 已在執行時回既有 run；GET run status 供斷線恢復／另一 request 查詢。後續queue／worker 才採真正非同步 `202`。
 
 ## 15. Follow-up Sequence
 
@@ -630,28 +631,28 @@ sequenceDiagram
 - Mutating request 帶 `clientRequestId`；server 另產 `stageRunId`。
 - Create／analysis mutation 接受 `Idempotency-Key`；profile／timeline mutation 使用 expected revision／`If-Match`，衝突回 409。
 
-### 16.2 P0 routes
+### 16.2 目前routes
 
-| Method  | Route                                               | Use case                                                                        |
-| ------- | --------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `POST`  | `/api/cases`                                        | CreateCase                                                                      |
-| `PATCH` | `/api/cases/:caseId/profile`                        | UpdateCaseProfile with expected revision                                        |
-| `POST`  | `/api/cases/:caseId/artifacts`                      | AddArtifact                                                                     |
-| `POST`  | `/api/cases/:caseId/interactions`                   | AddSyntheticInteraction                                                         |
-| `PUT`   | `/api/cases/:caseId/fraud-timeline`                 | Set manual payment／viewing timeline; unknown is explicit                       |
-| `POST`  | `/api/cases/:caseId/analysis-runs`                  | Run foreground full／allowlisted target analysis                                |
-| `GET`   | `/api/cases/:caseId/analysis-runs/:runId`           | Get run-specific status                                                         |
-| `GET`   | `/api/cases/:caseId/summary`                        | GetSummaryView                                                                  |
-| `GET`   | `/api/cases/:caseId/matrix`                         | GetEvidenceMatrixView                                                           |
-| `GET`   | `/api/cases/:caseId/contract-review`                | GetContractReviewView                                                           |
-| `GET`   | `/api/cases/:caseId/fraud-signals`                  | GetFraudSignalView                                                              |
-| `GET`   | `/api/cases/:caseId/report`                         | GetReportView                                                                   |
-| `POST`  | `/api/cases/:caseId/findings/:findingId/follow-ups` | Add case-scoped follow-up                                                       |
-| `GET`   | `/api/cases/:caseId/artifacts/:artifactId/content`  | P0 驗證 case association 後串流 sanitized preview；P1 再加 tenant authorization |
+| Method  | Route                                               | Use case                                                       |
+| ------- | --------------------------------------------------- | -------------------------------------------------------------- |
+| `POST`  | `/api/cases`                                        | CreateCase                                                     |
+| `PATCH` | `/api/cases/:caseId/profile`                        | UpdateCaseProfile with expected revision                       |
+| `POST`  | `/api/cases/:caseId/artifacts`                      | AddArtifact                                                    |
+| `POST`  | `/api/cases/:caseId/interactions`                   | AddSyntheticInteraction                                        |
+| `PUT`   | `/api/cases/:caseId/fraud-timeline`                 | Set manual payment／viewing timeline; unknown is explicit      |
+| `POST`  | `/api/cases/:caseId/analysis-runs`                  | Run foreground full／allowlisted target analysis               |
+| `GET`   | `/api/cases/:caseId/analysis-runs/:runId`           | Get run-specific status                                        |
+| `GET`   | `/api/cases/:caseId/summary`                        | GetSummaryView                                                 |
+| `GET`   | `/api/cases/:caseId/matrix`                         | GetEvidenceMatrixView                                          |
+| `GET`   | `/api/cases/:caseId/contract-review`                | GetContractReviewView                                          |
+| `GET`   | `/api/cases/:caseId/fraud-signals`                  | GetFraudSignalView                                             |
+| `GET`   | `/api/cases/:caseId/report`                         | GetReportView                                                  |
+| `POST`  | `/api/cases/:caseId/findings/:findingId/follow-ups` | Add case-scoped follow-up                                      |
+| `GET`   | `/api/cases/:caseId/artifacts/:artifactId/content`  | 私有案件先驗證guest／user owner scope，再串流sanitized preview |
 
-`DELETE /cases`、authentication 與多案件授權屬真實資料／P1 Gate；在 API 文件中不得假裝 P0 已完成。
+`/api/real-cases`建立、上傳、分析與刪除均經guest／user owner scope；登入帳戶才可查詢跨工作階段歷史。Production營運Gate尚未完成，不得把LAN HTTPS展示描述為正式上線。
 
-Production 保留相同 case routes，但每個 request 都必須帶 server-resolved guest／user `ActorContext`。另增加單一 `/auth` flow、Email／SMS password reset、authenticated history list、policy events 與 guest-to-user transfer；guest 存取 `/api/cases` list 回 `AUTH_REQUIRED_FOR_HISTORY`，不能回其他使用者資料或用 case ID 作恢復。
+私有案件routes的每個request都必須帶server-resolved guest／user `ActorContext`。`lan_secure_demo`已提供單一入口、`/auth`、Email password reset、authenticated history與guest session；guest存取歷史清單時不得回其他使用者資料，也不能用case ID作恢復。SMS／phone route目前不存在。
 
 Conversation result與四區workspace view response必須帶相同`snapshotId`；UI在follow-up新snapshot完成前不混讀stage heads。
 
@@ -697,7 +698,7 @@ UI 依 `code` 顯示中立狀態；provider refusal／incomplete／schema error 
 ### 17.2 Gateway rules
 
 - Official TypeScript SDK／Responses API／Structured Outputs。
-- P0 route allowlist：Conversation=`gpt-5.6-luna`／low；Evidence=`gpt-5.6-terra`／medium；不得自動cross-route fallback。
+- 目前route allowlist：Conversation=`gpt-5.6-luna`／low；Evidence=`gpt-5.6-terra`／medium；不得自動cross-route fallback。
 - Service tier allowlist：只允許明確`default`；requested／resolved tier進provenance與cache config hash。
 - Evidence每case維持16 Terra attempts／concurrency 2／500K／50K與US$2 alert。Conversation每case用non-sliding 24h Luna window：200 attempts／concurrency 1／500K input／100K output＋reasoning、US$0.50 alert。兩者分離且reserve／usage reconciliation進transaction；Conversation超限保留Server-only UI，不切Terra。
 - `store: false` hard-coded；foreground、stateless requests。
@@ -715,7 +716,7 @@ OpenAI 官方 Responses API 支援 text、image、file inputs 與 JSON output；
 flowchart LR
   YAML[official-rules.v1.yaml] --> VALIDATE[Registry Zod validation]
   SNAP[Source manifest + SHA-256] --> VALIDATE
-  VALIDATE --> PROFILE[P0 active rule IDs]
+  VALIDATE --> PROFILE[目前active rule IDs]
   PROFILE --> MAP[evaluator_id allowlist]
   MAP --> EVAL[Pure TypeScript evaluator]
   FACTS[Known / not_present / unknown facts] --> EVAL
@@ -725,11 +726,11 @@ flowchart LR
 - YAML predicate text 是 documentation only，永不 `eval`。
 - Registry 驗證唯一 rule ID、source refs、active profile、hash、effective date 與 evaluator mapping。
 - Result precedence：有可定位疑似差異；否則資料完整才可 no-difference；其餘 missing-information。
-- 6條P0 allowlisted evaluator與regression tests已完成；Ruleset仍維持draft是因規則內容尚未完成正式法律／治理審查，而不是缺少evaluator或測試。
+- 6條目前allowlisted evaluator與regression tests已完成；Ruleset仍維持draft是因規則內容尚未完成正式法律／治理審查，而不是缺少evaluator或測試。
 
 ## 19. Fraud Signal Architecture
 
-P0 只實作 `FRS-001`：首次實地看屋前要求付款。
+目前只實作 `FRS-001`：首次實地看屋前要求付款。
 
 ```mermaid
 flowchart LR
@@ -745,7 +746,7 @@ flowchart LR
 - `paymentRequestedAt`／`firstInPersonViewingAt` 由 synthetic timeline／使用者確認。
 - 任一時間 unknown → `insufficient_information`。
 - Risk signal 不進 Claim matrix／OfficialRule engine，不合成分數。
-- P1 `FRS-002` 至 `FRS-010` 仍使用獨立 guidance registry，不混入契約法規。
+- 後續`FRS-002` 至 `FRS-010` 仍使用獨立 guidance registry，不混入契約法規。
 
 ## 20. Report Architecture
 
@@ -768,7 +769,7 @@ type ActionCard = {
 
 Priority 是 reason-code mapping：`stop_and_verify` 最前，其次明確矛盾、官方規則疑似差異、證據不足。LLM 不參與排序或報告文案。
 
-每個 `ReportSnapshot` 綁定單一 `analysisSnapshotId`、case revision、artifact lineage、ruleset／source hashes、model／prompt／schema versions 與 report hash。補件後建立新 report version，不覆蓋舊報告；P0 不做分享連結。
+每個 `ReportSnapshot` 綁定單一 `analysisSnapshotId`、case revision、artifact lineage、ruleset／source hashes、model／prompt／schema versions 與 report hash。補件後建立新 report version，不覆蓋舊報告；目前不做分享連結。
 
 ## 21. Security Architecture
 
@@ -781,14 +782,14 @@ Priority 是 reason-code mapping：`stop_and_verify` 最前，其次明確矛盾
 5. Runtime／Demo filesystem：realpath root check，拒絕 symlink／junction escape。
 6. Rule snapshots：read-only、manifest hash、registry validation。
 
-### 21.2 P0 controls
+### 21.2 現行安全控制
 
 - `local_development`的HTTP綁loopback；`lan_secure_demo`的HTTPS只綁明確private LAN IP。
 - 驗證 Host／Origin；mutation route 使用 CSRF 防護，即使在 local profile 也不信任瀏覽器來源。
 - LAN profile使用exact Host／Origin allowlist、不回wildcard CORS、拒絕public／wildcard bind；OS firewall限Windows Private profile及RentProof指定LAN IP／port，但D-065允許該Private網路中所有可達來源。
-- LAN profile 不啟用 account／recovery／history routes，不建立 production guest／account session cookie；需要本機 case association 時只可使用 session-only、synthetic dev context。
-- LAN Live mode 需顯式 opt-in、server-only key、request／cost cap；Fixture 為預設。無論模式都禁止真實資料。
-- LAN artifact必須通過Demo manifest synthetic＋hash allowlist。D-076僅對Conversation text開放arbitrary input；文字仍是不受信任candidate source，不能繞過confirmation、owner／revision、typed evaluator或成為未驗證evidence。
+- `lan_secure_demo`提供訪客工作階段及自建Email／密碼帳戶；訪客不必登入即可建立owner-scoped案件，但不能列出歷史，帳戶才提供跨工作階段歷史與Email recovery。
+- LAN Live mode需顯式opt-in、server-only key、已確認Project額度、request／case budget與concurrency cap；provider失敗不得切換成預先分析結果。
+- LAN artifact必須通過MIME／magic bytes／bytes／parser或Sharp sanitizer、SHA-256、owner scope與AES-256-GCM私有儲存Gate。對話文字仍是不受信任candidate source，不能繞過confirmation、owner／revision、typed evaluator或成為未驗證evidence。
 - Response security headers：CSP（含 `connect-src 'self'`）、`nosniff`、frame protection、Referrer Policy、敏感內容 `Cache-Control: private, no-store`。
 - Magic bytes、allowlisted MIME、bytes／pixels／pages limits、image re-encode／EXIF strip。
 - PDF 不執行 JavaScript、attachments、form actions 或 external links。
@@ -799,12 +800,10 @@ Priority 是 reason-code mapping：`stop_and_verify` 最前，其次明確矛盾
 - Browser 不保存素材、findings、報告於 localStorage／IndexedDB；官方 registry URL 之外的使用者 URL 都是 inert text。
 - LAN HTTPS使用Secure／HttpOnly Cookie並保留CSP／CSRF／Host／Origin／no-store。只有停用的static HTTP showcase不含mutation／Cookie並使用`connect-src 'none'`；其HTTP例外不得流入其他profiles。
 
-### 21.3 Before public/real data
+### 21.3 正式公開服務前仍需完成
 
-- Guest／user actor sessions、per-case authorization、IDOR tests與 guest history denial。
-- 單一入口的選用註冊／登入，以及 Email／SMS password reset、enumeration、OTP replay、session revocation tests。
-- PostgreSQL＋private object storage、encryption、retention、deletion、backup policy。
-- Guest 短期 retention／purge 與 session 遺失不可恢復告知。
+- Transactional Email供應商、寄送地區、DPA、退信與濫用處理；SMS／phone仍不在目前範圍。
+- 排程式guest／案件purge、異地加密backup／PITR、restore前tombstone replay與營運告警。
 - Versioned Terms、Privacy Notice、Cloud Processing Notice、Cookie preferences；三份公開政策完成法務／隱私審閱。
 - OpenAI Project data controls、spend/rate limits、key rotation。
 - SAST、dependency／secret scan、incident handling。
@@ -838,7 +837,7 @@ Priority 是 reason-code mapping：`stop_and_verify` 最前，其次明確矛盾
 
 禁止欄位：API key、Authorization、原始 prompt／response、完整租約、聊天、電話、帳號、OTP、private path、原始 content SHA。Raw hashes 只保留在受保護 case state。
 
-P0 可輸出 JSON structured logs 至 console；正式服務使用可控 log sink 與 access policy。Metrics 至少涵蓋 schema／locator failure、file rejection、provider error、stale／abandoned run、刪除失敗與成本異常；P1 operational log 與 audit log 分離。
+目前可輸出 JSON structured logs 至 console；正式服務使用可控 log sink 與 access policy。Metrics 至少涵蓋 schema／locator failure、file rejection、provider error、stale／abandoned run、刪除失敗與成本異常；後續operational log 與 audit log 分離。
 
 ## 23. Failure Modes
 
@@ -858,7 +857,7 @@ P0 可輸出 JSON structured logs 至 console；正式服務使用可控 log sin
 | Process crash during stage     | `abandoned`／`interrupted`  | 不更新 StageHead／active snapshot；需明確 retry |
 | Case changed during pipeline   | `CASE_REVISION_CHANGED`     | 保存可重用 stage cache，但拒絕混合世代 snapshot |
 
-## 24. P1 Public Architecture
+## 24. 後續Public Architecture
 
 First real-data Production把App與PostgreSQL部署在同一台Server，但維持邏輯與權限邊界。下圖的APP／DB是不同process／service，不代表不同主機；DB只接受loopback／local socket。Private artifact／backup storage必須在不同故障域，不能只放同機磁碟。此拓撲不提供HA，Host故障會同時中斷App與DB。
 
@@ -893,7 +892,7 @@ flowchart LR
   WORKER --> OPENAI
 ```
 
-P1 遷移界面：
+後續遷移界面：
 
 - JSON repository → PostgreSQL repository。
 - Filesystem artifact store → private object storage adapter。

@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { sql, type Kysely } from "kysely";
 import type { RealDemoRepositoryPort } from "@/application/real-demo";
 import { RealDemoAccessError } from "@/application/real-demo";
+import type { ActorContext } from "@/application/repositories";
 import type { RentProofDatabase } from "./database";
 
 const CASE_IMAGE_BYTES_LIMIT = 400 * 1024 * 1024;
@@ -44,8 +45,8 @@ export class PostgresRealDemoRepository implements RealDemoRepositoryPort {
         .insertInto("rental_cases")
         .values({
           id: caseId,
-          owner_type: "user",
-          owner_subject_id: input.actor.userId,
+          owner_type: input.actor.kind,
+          owner_subject_id: actorSubject(input.actor),
           display_name: input.displayName,
           status: "draft",
           revision: 0,
@@ -65,8 +66,8 @@ export class PostgresRealDemoRepository implements RealDemoRepositoryPort {
         .insertInto("policy_events")
         .values({
           id: `policy_event_${randomBytes(24).toString("hex")}`,
-          actor_type: "user",
-          actor_subject_id: input.actor.userId,
+          actor_type: input.actor.kind,
+          actor_subject_id: actorSubject(input.actor),
           policy_document_id: policyId,
           event_type: "consented",
           occurred_at: input.now,
@@ -88,8 +89,8 @@ export class PostgresRealDemoRepository implements RealDemoRepositoryPort {
           .selectFrom("rental_cases")
           .select("id")
           .where("id", "=", input.reservation.caseId)
-          .where("owner_type", "=", "user")
-          .where("owner_subject_id", "=", input.actor.userId)
+          .where("owner_type", "=", input.actor.kind)
+          .where("owner_subject_id", "=", actorSubject(input.actor))
           .where("deleted_at", "is", null)
           .where("status", "!=", "deletion_pending")
           .forUpdate()
@@ -101,8 +102,8 @@ export class PostgresRealDemoRepository implements RealDemoRepositoryPort {
             .selectFrom("case_artifacts")
             .select(sql<string>`COALESCE(SUM(original_bytes), 0)`.as("total"))
             .where("case_id", "=", input.reservation.caseId)
-            .where("owner_type", "=", "user")
-            .where("owner_subject_id", "=", input.actor.userId)
+            .where("owner_type", "=", input.actor.kind)
+            .where("owner_subject_id", "=", actorSubject(input.actor))
             .where("deleted_at", "is", null)
             .where("mime", "!=", "application/pdf")
             .executeTakeFirstOrThrow();
@@ -119,8 +120,8 @@ export class PostgresRealDemoRepository implements RealDemoRepositoryPort {
           .values({
             id: input.reservation.artifactId,
             case_id: input.reservation.caseId,
-            owner_type: "user",
-            owner_subject_id: input.actor.userId,
+            owner_type: input.actor.kind,
+            owner_subject_id: actorSubject(input.actor),
             artifact_kind: input.reservation.kind,
             state: "quarantined",
             mime: input.reservation.mime,
@@ -161,8 +162,8 @@ export class PostgresRealDemoRepository implements RealDemoRepositoryPort {
         })
         .where("id", "=", input.reservation.artifactId)
         .where("case_id", "=", input.reservation.caseId)
-        .where("owner_type", "=", "user")
-        .where("owner_subject_id", "=", input.actor.userId)
+        .where("owner_type", "=", input.actor.kind)
+        .where("owner_subject_id", "=", actorSubject(input.actor))
         .where("state", "=", "quarantined")
         .where("deleted_at", "is", null)
         .returning("id")
@@ -175,8 +176,8 @@ export class PostgresRealDemoRepository implements RealDemoRepositoryPort {
           updated_at: input.now,
         }))
         .where("id", "=", input.reservation.caseId)
-        .where("owner_type", "=", "user")
-        .where("owner_subject_id", "=", input.actor.userId)
+        .where("owner_type", "=", input.actor.kind)
+        .where("owner_subject_id", "=", actorSubject(input.actor))
         .where("deleted_at", "is", null)
         .executeTakeFirstOrThrow();
     });
@@ -188,8 +189,8 @@ export class PostgresRealDemoRepository implements RealDemoRepositoryPort {
       .set({ state: "deletion_pending", deleted_at: input.now, updated_at: input.now })
       .where("id", "=", input.reservation.artifactId)
       .where("case_id", "=", input.reservation.caseId)
-      .where("owner_type", "=", "user")
-      .where("owner_subject_id", "=", input.actor.userId)
+      .where("owner_type", "=", input.actor.kind)
+      .where("owner_subject_id", "=", actorSubject(input.actor))
       .where("state", "=", "quarantined")
       .execute();
   }
@@ -205,8 +206,8 @@ export class PostgresRealDemoRepository implements RealDemoRepositoryPort {
           revision: expression("revision", "+", 1),
         }))
         .where("id", "=", input.caseId)
-        .where("owner_type", "=", "user")
-        .where("owner_subject_id", "=", input.actor.userId)
+        .where("owner_type", "=", input.actor.kind)
+        .where("owner_subject_id", "=", actorSubject(input.actor))
         .where("deleted_at", "is", null)
         .returning("id")
         .executeTakeFirst();
@@ -215,8 +216,8 @@ export class PostgresRealDemoRepository implements RealDemoRepositoryPort {
           .selectFrom("rental_cases")
           .select("id")
           .where("id", "=", input.caseId)
-          .where("owner_type", "=", "user")
-          .where("owner_subject_id", "=", input.actor.userId)
+          .where("owner_type", "=", input.actor.kind)
+          .where("owner_subject_id", "=", actorSubject(input.actor))
           .where("status", "=", "deletion_pending")
           .where("deleted_at", "is not", null)
           .forUpdate()
@@ -227,8 +228,8 @@ export class PostgresRealDemoRepository implements RealDemoRepositoryPort {
         .updateTable("case_artifacts")
         .set({ state: "deletion_pending", deleted_at: input.now, updated_at: input.now })
         .where("case_id", "=", input.caseId)
-        .where("owner_type", "=", "user")
-        .where("owner_subject_id", "=", input.actor.userId)
+        .where("owner_type", "=", input.actor.kind)
+        .where("owner_subject_id", "=", actorSubject(input.actor))
         .where("deleted_at", "is", null)
         .execute();
       await transaction
@@ -237,11 +238,13 @@ export class PostgresRealDemoRepository implements RealDemoRepositoryPort {
           id: `delete_${randomBytes(24).toString("base64url")}`,
           target_type: "case",
           target_id: input.caseId,
-          requested_by_type: "user",
-          requested_by_subject_id: input.actor.userId,
+          requested_by_type: input.actor.kind,
+          requested_by_subject_id: actorSubject(input.actor),
           status: "processing",
           requested_at: input.now,
-          purge_deadline: new Date(input.now.getTime() + 7 * 24 * 60 * 60 * 1000),
+          purge_deadline: new Date(
+            input.now.getTime() + (input.actor.kind === "guest" ? 1 : 7) * 24 * 60 * 60 * 1000,
+          ),
           attempt_count: 0,
           completed_at: null,
           correlation_id: `corr_${randomBytes(24).toString("base64url")}`,
@@ -259,15 +262,15 @@ export class PostgresRealDemoRepository implements RealDemoRepositoryPort {
       await transaction
         .deleteFrom("case_artifacts")
         .where("case_id", "=", input.caseId)
-        .where("owner_type", "=", "user")
-        .where("owner_subject_id", "=", input.actor.userId)
+        .where("owner_type", "=", input.actor.kind)
+        .where("owner_subject_id", "=", actorSubject(input.actor))
         .where("state", "=", "deletion_pending")
         .execute();
       const deletedCase = await transaction
         .deleteFrom("rental_cases")
         .where("id", "=", input.caseId)
-        .where("owner_type", "=", "user")
-        .where("owner_subject_id", "=", input.actor.userId)
+        .where("owner_type", "=", input.actor.kind)
+        .where("owner_subject_id", "=", actorSubject(input.actor))
         .where("status", "=", "deletion_pending")
         .where("deleted_at", "is not", null)
         .returning("id")
@@ -280,8 +283,8 @@ export class PostgresRealDemoRepository implements RealDemoRepositoryPort {
         .set({ status: "completed", completed_at: input.now, updated_at: input.now })
         .where("target_type", "=", "case")
         .where("target_id", "=", input.caseId)
-        .where("requested_by_type", "=", "user")
-        .where("requested_by_subject_id", "=", input.actor.userId)
+        .where("requested_by_type", "=", input.actor.kind)
+        .where("requested_by_subject_id", "=", actorSubject(input.actor))
         .where("status", "=", "processing")
         .returning("id")
         .executeTakeFirst();
@@ -306,12 +309,12 @@ export class PostgresRealDemoRepository implements RealDemoRepositoryPort {
         "case_artifacts.extracted_text_relative_path",
       ])
       .where("case_artifacts.case_id", "=", input.caseId)
-      .where("case_artifacts.owner_type", "=", "user")
-      .where("case_artifacts.owner_subject_id", "=", input.actor.userId)
+      .where("case_artifacts.owner_type", "=", input.actor.kind)
+      .where("case_artifacts.owner_subject_id", "=", actorSubject(input.actor))
       .where("case_artifacts.state", "=", "available")
       .where("case_artifacts.deleted_at", "is", null)
-      .where("rental_cases.owner_type", "=", "user")
-      .where("rental_cases.owner_subject_id", "=", input.actor.userId)
+      .where("rental_cases.owner_type", "=", input.actor.kind)
+      .where("rental_cases.owner_subject_id", "=", actorSubject(input.actor))
       .where("rental_cases.deleted_at", "is", null)
       .orderBy("case_artifacts.created_at", "asc")
       .execute();
@@ -320,8 +323,8 @@ export class PostgresRealDemoRepository implements RealDemoRepositoryPort {
         .selectFrom("rental_cases")
         .select("id")
         .where("id", "=", input.caseId)
-        .where("owner_type", "=", "user")
-        .where("owner_subject_id", "=", input.actor.userId)
+        .where("owner_type", "=", input.actor.kind)
+        .where("owner_subject_id", "=", actorSubject(input.actor))
         .where("deleted_at", "is", null)
         .executeTakeFirst();
       if (!owned) throw new RealDemoAccessError("REAL_DEMO_CASE_NOT_FOUND_OR_FORBIDDEN");
@@ -342,8 +345,8 @@ export class PostgresRealDemoRepository implements RealDemoRepositoryPort {
         .selectFrom("rental_cases")
         .select(["id", "state"])
         .where("id", "=", input.caseId)
-        .where("owner_type", "=", "user")
-        .where("owner_subject_id", "=", input.actor.userId)
+        .where("owner_type", "=", input.actor.kind)
+        .where("owner_subject_id", "=", actorSubject(input.actor))
         .where("deleted_at", "is", null)
         .forUpdate()
         .executeTakeFirst();
@@ -361,8 +364,8 @@ export class PostgresRealDemoRepository implements RealDemoRepositoryPort {
           updated_at: input.now,
         }))
         .where("id", "=", input.caseId)
-        .where("owner_type", "=", "user")
-        .where("owner_subject_id", "=", input.actor.userId)
+        .where("owner_type", "=", input.actor.kind)
+        .where("owner_subject_id", "=", actorSubject(input.actor))
         .where("deleted_at", "is", null)
         .executeTakeFirstOrThrow();
     });
@@ -377,4 +380,11 @@ function postgresCode(error: unknown): string | null {
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function actorSubject(actor: ActorContext): string {
+  // Guest ownership is deliberately bound to the one browser session, not merely
+  // to the longer-lived guest identity. This keeps a future second session for the
+  // same identity from inheriting access to the first session's private case.
+  return actor.kind === "user" ? actor.userId : actor.guestSessionId;
 }

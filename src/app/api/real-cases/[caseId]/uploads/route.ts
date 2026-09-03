@@ -4,7 +4,7 @@ import { SharpImageSanitizer } from "@/adapters/ingestion/sharp";
 import { RealArtifactKindSchema } from "@/application/real-demo";
 import { detectSensitiveConversationContent } from "@/application/conversation/security";
 import { guardSingleUploadRequest } from "@/application/uploads";
-import { resolveCurrentAccountActor } from "@/server/auth/current-actor";
+import { resolveCurrentCaseActor } from "@/server/auth/current-actor";
 import { validateSelfHostedAuthBinaryMutation } from "@/server/auth/request-guard";
 import { getServerEnvironment } from "@/server/env";
 import { getRealDemoRuntime } from "@/server/real-demo";
@@ -61,7 +61,7 @@ export async function POST(
   if (!verified.ok) return errorResponse(400, verified.code);
 
   try {
-    const actor = await resolveCurrentAccountActor(request, true);
+    const actor = await resolveCurrentCaseActor(request);
     const { caseId } = await context.params;
     const service = (await getRealDemoRuntime()).service;
     let saved;

@@ -1,4 +1,4 @@
-import { resolveCurrentAccountActor } from "@/server/auth/current-actor";
+import { resolveCurrentCaseActor } from "@/server/auth/current-actor";
 import { validateSelfHostedAuthMutation } from "@/server/auth/request-guard";
 import { getServerEnvironment } from "@/server/env";
 import { getRealDemoRuntime } from "@/server/real-demo";
@@ -17,7 +17,7 @@ export async function DELETE(
     return errorResponse(404, "REAL_DEMO_ROUTE_UNAVAILABLE");
   }
   try {
-    const actor = await resolveCurrentAccountActor(request, true);
+    const actor = await resolveCurrentCaseActor(request);
     const { caseId } = await context.params;
     await (await getRealDemoRuntime()).service.deleteCase(actor, caseId);
     return new Response(null, { status: 204, headers: privateHeaders() });

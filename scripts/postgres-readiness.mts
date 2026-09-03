@@ -50,7 +50,8 @@ async function main(): Promise<void> {
               'auth_sessions',
               'auth_password_reset_challenges',
               'auth_email_verification_challenges',
-              'case_artifacts'
+              'case_artifacts',
+              'guest_sessions'
             )
         ) AS "productTableCount",
         to_regclass('rentproof.kysely_migration') IS NOT NULL AS "hasMigrationTable",

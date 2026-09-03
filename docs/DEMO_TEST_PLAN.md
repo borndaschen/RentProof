@@ -88,11 +88,11 @@
 - 三態完整 truth table，尤其是 missing ≠ contradiction。
 - 同時有相符與反證時回傳矛盾且保留全部 refs。
 - 無 locator 或未通過客觀 quality flags 的 fact 不參與肯定判定；不以模型自報 confidence 單獨作 Gate。
-- 6 條 P0 official rule（RP-003／004／006／008／009／010）的所有可達分支與穩定 reason codes。
+- 目前啟用的6條official rule（RP-003／004／006／008／009／010）的所有可達分支與穩定 reason codes。
 - Rule applicability 的 applicable／not applicable／unknown 分支；unknown 必須是資料不足，not applicable 不得變成未發現差異。
 - Report reason code 對應固定安全模板。
 - `FRS-001` 的 detected／not-detected-with-complete-timeline／insufficient branches 與 `stop_and_verify` action。
-- 低租金、洗衣機未拍到或一般契約矛盾，單獨都不得觸發 P0 防詐訊號。
+- 低租金、洗衣機未拍到或一般契約矛盾，單獨都不得觸發目前的防詐訊號。
 
 ### 5.2 Integration tests
 
@@ -105,7 +105,7 @@
 - claims + observations + clauses → findings。
 - clauses + intended_signed_at + bills → rule checks。
 - follow-up JPEG／PNG upload → 只更新牆面 finding，其他 finding 保持不變。
-- schema invalid 與一次重試後的錯誤狀態；完整 provider failure matrix 為 P1。
+- schema invalid 與一次重試後的錯誤狀態；完整provider failure matrix列為後續工作。
 
 ### 5.3 E2E tests
 
@@ -120,28 +120,21 @@
 ### 5.4 HTTPS LAN tests
 
 - `local_development` 實際只 listen loopback；其他 LAN 裝置不能連線。
-- `lan_secure_demo`只listen指定RFC1918 IPv4的HTTPS，測試手機可用`https://private-ip:port`開啟；`0.0.0.0`、`::`、public／未配置IP及舊`lan_development`拒絕啟動。
+- `lan_secure_demo`只listen指定RFC1918 IPv4的HTTPS，測試手機可用`https://private-ip:port`開啟；`0.0.0.0`、`::`、public／未配置IP拒絕啟動。
 - Wrong／DNS-rebinding Host、missing／`null`／cross-site Origin 與 CSRF failure 均拒絕 mutation；無 wildcard CORS。
 - Root CA／Server憑證、exact HTTPS origin、Secure Cookie、Auth／history／password-reset與owner scope通過整合驗證。
-- 只接受 Demo manifest 中 `synthetic: true` 且 SHA-256 相符的素材；未知檔案回 `DEV_SYNTHETIC_ARTIFACT_NOT_ALLOWLISTED`，不寫 runtime available store、不呼叫 OpenAI。
-- Fixture network request count 為 0；Live 重複 stage key 不重打 API，client bundle／source map／error overlay／log 不含 key。
+- Golden模式只接受manifest中hash相符的素材；Secure LAN私有素材則經獨立owner-scoped upload、MIME／大小／雜湊、PDF.js／Sharp與加密private storage Gate，不混用Golden allowlist。
+- Fixture network request count為0；Live重複stage key不重打API，client bundle／source map／error overlay／log不含key。Live啟動需`OPENAI_PROJECT_LIMITS_CONFIRMED=true`，否則fail closed。
 - Golden case從顯式`golden-vN`載入；manifest seal與所有listed files的path／MIME／bytes／SHA-256一致，missing／extra／mismatch皆拒絕。已sealed版本不得被測試或App修改。
 - `RENTPROOF_DEMO_CASE_VERSION`測missing／empty／leading zero／uppercase／whitespace／latest／dot／slash／backslash／drive／UNC／encoded traversal；任一無效值在filesystem lookup前拒絕，且不fallback其他版本。
 - Manifest測UTF-8 BOM／invalid JSON／unknown key／oversize／over-100 entries、duplicate semantic ID、case-only collision、absolute／UNC／drive／dot-segment／reserved-name／trailing-dot-space與raw-byte seal mismatch；任何失敗不載入fallback。
 - LAN展示由Production Build以`lan_secure_demo`啟動，無HMR／browser或server source maps／詳細error overlay；`NODE_ENV=production`不會繞過profile與security Gates。
-- LAN composer接受free text但持續HTTP／no-real-data警告；Fixture network為0。注入字串、role spoof、要求洩露prompt／key、偽造JSON／confirmation、Unicode混淆與文件內指示不得取得tools、改domain state或跨case。
+- Secure LAN頁面與API全程經HTTPS；對話接受free text。注入字串、role spoof、要求洩露prompt／key、偽造JSON／confirmation、Unicode混淆與文件內指示不得取得tools、改domain state或跨case。
 - 一般PII pattern顯示可返回修改的warning與payload-bound acknowledgement；未ack不persist／model。Password／OTP／API key／token／金融帳號／QR hard block無繼續選項，logs只含reason code不含matched value。
-- Windows Firewall 僅 Private profile＋指定來源 IP／子網可連，Public profile、IPv6 與非允許裝置無法連線；Router 無 port forwarding／UPnP。
+- Windows Firewall僅Private profile＋指定來源IP／子網可連，Public profile、IPv6與非允許裝置無法連線；每次啟動重新確認Router無port forwarding／UPnP／tunnel。
+- PostgreSQL migration readiness涵蓋001至004，App readiness要求14張產品tables；`case_artifacts`與`guest_sessions`必須通過owner、expiry與權限測試。
+- 首頁以同一對話依序引導案件名稱、廣告、看屋照片與租約；訪客不登入即可建立私有案件，登入者才可列出歷史。
 - Production regression仍要求HTTPS、host-only／HttpOnly／Secure account cookie、server-side owner authorization與private storage；Account Session採7天sliding idle expiry，只有合格主動使用可原子延長並刷新Cookie。
-
-### 5.5 Public HTTP Showcase tests
-
-- Build profile固定`public_http_showcase`並產生static export；部署產物沒有Node server、Route Handlers、Server Actions或mutation endpoints。
-- Network／bundle scan無OpenAI key、identity／storage secrets、API requests、third-party scripts、source maps或service worker。
-- DOM無upload、form、login／register／history／delete／analysis controls；不設定Cookie、localStorage、sessionStorage或IndexedDB。
-- 四個tab只能讀同一個預先分析Synthetic snapshot，Fixture／版本標示清楚。
-- 所有頁面持續顯示Public HTTP／integrity-not-guaranteed／synthetic-only／not-evidence banner，並有noindex／nofollow。
-- Production regression仍要求HTTPS、Secure Cookie、owner authorization、private storage與deletion Gate；Showcase HTTP例外不能被import進Production config。
 
 ## 6. 安全與對抗案例
 
@@ -165,9 +158,9 @@
 - 付款要求時間或首次實地看屋時間未知時，`FRS-001` 必須是 `insufficient_information`。
 - 已完成實地看屋後的一般訂金文字不得被誤判為 `FRS-001`。
 
-## 7. P1：模型抽取小型 eval
+## 7. 後續模型抽取eval
 
-Golden case 之外的額外短 fixtures 不屬於單人 P0，後續準備：
+Golden case之外的額外短fixtures列為後續準備：
 
 - 2 個設備同義／共用設備案例。
 - 2 個費用格式與單位案例。

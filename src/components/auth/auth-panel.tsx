@@ -200,33 +200,29 @@ export function AuthPanel() {
                   </span>
                 </label>
               )}
-              <button type="submit" disabled={busy || !csrfToken}>
+              <button className="auth-primary-action" type="submit" disabled={busy || !csrfToken}>
                 {busy ? "處理中…" : actionFor(mode)}
               </button>
             </form>
             <nav aria-label="帳戶選項" className="auth-options">
-              <button
-                type="button"
-                onClick={() => changeMode("login")}
-                aria-pressed={mode === "login"}
-              >
-                登入
-              </button>
-              <button
-                type="button"
-                onClick={() => changeMode("register")}
-                aria-pressed={mode === "register"}
-              >
-                註冊
-              </button>
-              <button
-                type="button"
-                onClick={() => changeMode("forgot")}
-                aria-pressed={mode === "forgot" || mode === "reset_code"}
-              >
-                忘記密碼
-              </button>
-              <Link href="/">返回</Link>
+              {mode !== "login" ? (
+                <button type="button" onClick={() => changeMode("login")}>
+                  登入
+                </button>
+              ) : null}
+              {mode !== "register" && mode !== "verify_registration" ? (
+                <button type="button" onClick={() => changeMode("register")}>
+                  註冊
+                </button>
+              ) : null}
+              {mode !== "forgot" && mode !== "reset_code" ? (
+                <button type="button" onClick={() => changeMode("forgot")}>
+                  忘記密碼
+                </button>
+              ) : null}
+              <Link className="auth-option-link" href="/">
+                返回
+              </Link>
             </nav>
             {(mode === "verify_registration" || mode === "reset_code") && (
               <p className="auth-demo-mailbox-note">

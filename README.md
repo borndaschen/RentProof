@@ -19,6 +19,12 @@ RentProof 協助租屋者在付訂金或簽約前，把廣告、看屋照片、�
 - 以對話方式引導操作，並提供證據工作區與可列印報告。
 - 可選擇註冊／登入，以保存及查詢自己的案件；未登入也能使用。
 
+## 使用與保存
+
+使用者不必先註冊或登入。第一次進入時，Server會建立只屬於該瀏覽器的訪客工作階段，讓使用者直接建立案件、加入資料並進行分析。訪客工作階段自建立起固定保留24小時，不會因持續操作而延長，也不會出現在歷史案件清單。
+
+需要日後查詢案件時，可以選擇註冊或登入。帳戶工作階段採7天滑動期限；符合條件的主動操作會安全延長期限。每個案件、素材與分析結果仍會在Server逐次確認擁有者，不能只靠案件網址或ID取得。
+
 ## 系統架構
 
 ```text
@@ -44,6 +50,8 @@ Listing、Viewing、Evidence、Contract 四個 Agent 名稱代表固定處理階
 - Mozilla PDF.js、Sharp
 - PostgreSQL、Kysely、node-postgres、Argon2id
 - Vitest、Testing Library、axe、Playwright
+
+目前資料庫包含四個依序執行的版本化migration：基礎案件資料、自建帳戶、私有案件素材，以及固定24小時的訪客工作階段。Migration由獨立維運指令執行，不會由Web request自動套用。
 
 完整設計見[系統架構](docs/SYSTEM_ARCHITECTURE.md)、[安全與隱私](docs/SECURITY_PRIVACY.md)及[Server 配置](docs/SERVER_CONFIGURATION.md)。
 
@@ -76,7 +84,7 @@ pnpm test:e2e
 
 ### 區域網路 HTTPS
 
-區域網路展示使用 `lan_secure_demo`，預設網址格式為 `https://<私人IP>:3443`。它需要受信任的本機 CA／Server 憑證、精確 Host／Origin、Private-profile Firewall、loopback PostgreSQL、自建登入與受保護的私有資料目錄。
+區域網路展示使用`lan_secure_demo`，預設網址格式為`https://<私人IP>:3443`，內部Next.js只監聽`127.0.0.1:3100`。它需要受信任的本機CA／Server憑證、精確Host／Origin、Private-profile Firewall、loopback PostgreSQL、訪客或自建帳戶工作階段，以及受保護的私有資料目錄；不必先登入即可建立訪客案件。
 
 ```powershell
 pnpm secure-lan:firewall:verify
@@ -100,7 +108,7 @@ pnpm start:secure-lan
 - OpenAI 輸出必須通過 schema 與來源定位驗證，不能直接修改案件事實。
 - 政策文件目前仍是草案；缺少營運者法定資訊與法務／隱私審閱前，不代表正式服務條款。
 
-目前仍待完成的正式上線項目包括 Transactional Email、Production 私有物件儲存、刪除／清理排程、異地加密備份、正式網域與憑證，以及台灣法務與隱私審閱。
+目前仍待完成的正式上線項目包括Transactional Email、正式環境私有物件儲存、刪除／清理排程、異地加密備份、正式網域與憑證，以及台灣法務與隱私審閱。現有隱私政策、使用條款與Cookie政策均維持`DRAFT`，不得視為已完成法務審查或已正式生效。
 
 ## 資料與授權
 

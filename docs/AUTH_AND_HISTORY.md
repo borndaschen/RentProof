@@ -1,9 +1,8 @@
 # RentProof 選用帳戶、登入與歷史租約架構
 
-- 狀態：first real-data release requirement
+- 狀態：目前帳戶與訪客流程基線
 - 日期：2026-09-03
-- P0 local Demo：不需帳戶、synthetic-only
-- 真實資料產品：單一入口；訪客可使用，登入後才提供跨 session／裝置歷史紀錄
+- 單一入口：訪客不需帳戶即可使用；登入後才提供跨工作階段／裝置的歷史紀錄
 
 本文件也定義政策版本與使用者事件的技術契約；政策文字見 [隱私政策草案](PRIVACY_POLICY_DRAFT.md)、[使用條款草案](TERMS_OF_USE_DRAFT.md) 與 [Cookie 政策草案](COOKIE_POLICY_DRAFT.md)。三份文件目前都不是已生效法律文件。
 
@@ -23,24 +22,25 @@
 
 只有登入畫面而沒有上述資料與授權邊界，不能安全提供歷史租約。訪客案件也不是公開資料：它使用短期、不可猜測的 server-side guest session，只允許同一工作階段存取並依明確期限自動清除。
 
+目前已以`004_guest_sessions` migration建立獨立訪客工作階段資料表與固定期限constraint。訪客token為32-byte CSPRNG opaque value，資料庫只保存server-keyed HMAC-SHA-256 digest；建立與解析流程不會滑動到期時間。Web端在未登入時自動取得訪客工作階段，沿用同一個對話式案件介面，不另設第二個入口。
+
 Conversation turns、typed candidates與confirmation events都屬case-owned資料，沿用相同guest／user owner authorization、retention與deletion；歷史清單不得載入conversation text。對話投影不能繞過case owner query，原始聊天也不作報告或安全稽核的替代來源。
 
 Raw conversation text另採固定7天retention，到期隱藏並24小時內online purge；Guest 24小時、Formal Demo cleanup與case／account deletion等較短規則優先。Typed intent／candidate／confirmation／snapshot references可隨case保留，但不得保存可還原原文的excerpt／hash。歷史detail可用typed events重建，不從raw text建立搜尋索引。
 
 ## 2. Product profiles
 
-| Profile                | Registration／login              | Data                                            | History                                                             |
-| ---------------------- | -------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------- |
-| `local_development`    | 可啟用自建Auth；只限精確loopback | synthetic external Demo；Fixture／Live 明確設定 | PostgreSQL owner-scoped synthetic history                           |
-| `lan_secure_demo`      | 自建Email／密碼Auth或訪客Session | 私有資料；PostgreSQL＋private storage           | Owner-scoped；帳戶可查歷史，訪客不可列出歷史                        |
-| `public_http_showcase` | 不啟用、HTTP靜態唯讀             | 預先分析synthetic data                          | 無session／Cookie／history，不保存訪客資料                          |
-| `production`           | 選用；訪客與帳戶共用單一入口     | 使用者真實案件                                  | 訪客無歷史查詢；登入者有 owner-scoped cross-session／device history |
+| Profile             | Registration／login              | Data                                            | History                                                             |
+| ------------------- | -------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------- |
+| `local_development` | 可啟用自建Auth；只限精確loopback | synthetic external Demo；Fixture／Live 明確設定 | PostgreSQL owner-scoped synthetic history                           |
+| `lan_secure_demo`   | 自建Email／密碼Auth或訪客Session | 私有資料；PostgreSQL＋private storage           | Owner-scoped；帳戶可查歷史，訪客不可列出歷史                        |
+| `production`        | 選用；訪客與帳戶共用單一入口     | 使用者真實案件                                  | 訪客無歷史查詢；登入者有 owner-scoped cross-session／device history |
 
 Production profile 可建立 guest case，但不提供公開／無 session 的 case，也不允許 guest 列出歷史。Profile 由 deployment config 固定，不能由 query／UI 切換。
 
 ## 3. 身分供應策略：RentProof self-hosted Auth
 
-D-089已取代Clerk決策。系統採Application ports＋PostgreSQL adapter的自建Email／密碼Auth；Clerk SDK、subject mapping、Dashboard設定與Session皆不再構成現行架構。帳戶功能只在精確loopback測試或`lan_secure_demo`／未來Production HTTPS環境開啟；舊HTTP LAN profile已退役。
+D-089已取代Clerk決策。系統採Application ports＋PostgreSQL adapter的自建Email／密碼Auth；Clerk SDK、subject mapping、Dashboard設定與Session皆不再構成現行架構。帳戶功能只在精確loopback測試或`lan_secure_demo`／未來Production HTTPS環境開啟。
 
 ```ts
 interface PasswordHasherPort {
@@ -112,7 +112,7 @@ sequenceDiagram
 
 - 帳戶與訪客皆使用RentProof server-managed opaque cookie，但使用不同名稱、key與資料表；禁止把session／refresh token或guest secret放入localStorage／sessionStorage。
 - Cookie 使用 `Secure`、`HttpOnly`、明確 `SameSite=Lax` 或 `Strict`、host-only scope 與 `Path=/`。
-- `lan_secure_demo`與Production的account／guest session使用HTTPS；登入／權限變更後rotate session ID。本機HTTP只允許loopback測試，舊`lan_development`拒絕啟動。
+- `lan_secure_demo`與Production的account／guest session使用HTTPS；登入／權限變更後rotate session ID。本機HTTP只允許loopback測試。
 - Account Session採7天sliding idle expiry。只有通過owner／policy Gate的主動HTML mutation或明確案件／history操作可在單一原子DB statement延長server expiry，且同一成功response同步刷新Cookie Max-Age；`GET /api/auth/session`、prefetch、polling、靜態資源、健康檢查與失敗request不得延長。
 - Guest Session自建立起固定24小時到期且不滑動；server只存opaque token hash，cookie不得晚於server expiry。到期後立即拒絕案件存取並停止未完成工作，所有線上案件資料於24小時內完成purge。
 - 刪除帳戶、匯出敏感資料、變更Email／密碼等高敏感操作要求15分鐘內密碼reverification；不得以「Session尚在7天內」省略。
@@ -164,7 +164,7 @@ OWASP 將 authentication 與 authorization 明確區分，並建議每次 reques
 
 ## 7. Production data model
 
-目前repository已包含feature-gated Kysely／node-postgres schema、owner-scoped case state、self-hosted credential／session／challenge、policy／consent、deletion request與最小security audit adapter；此基礎尚未因存在而自動啟用Production。`lan_secure_demo`可在HTTPS、loopback PostgreSQL、private storage與完整owner Gate下驗證私有案件；Web process不自動migration。正式上線仍須完成Transactional Email、排程式retention／purge、off-host backup與Production Gate。
+目前repository已接通feature-gated Kysely／node-postgres schema、owner-scoped case state、self-hosted credential／session／challenge、固定24小時guest session、private artifacts、policy／consent、deletion request與最小security audit adapter。`lan_secure_demo`可在HTTPS、loopback PostgreSQL、加密private storage與完整owner Gate下建立、上傳、分析及刪除私有案件；Web process不自動migration。正式上線仍須完成Transactional Email、排程式retention／purge、off-host backup與Production Gate。
 
 ```text
 UserAccount
@@ -328,9 +328,9 @@ type CaseHistoryItem = {
 
 使用單一網站入口，不改 case 內四個主 tab：
 
-- `/`／`/app/new`：所有人從相同起點開始；訪客可直接使用，header 提供選用的「登入／註冊」。
+- `/`：所有人從相同起點開始；Server自動建立訪客工作階段，對話依序引導案件名稱、廣告、看屋照片與租約，header提供選用的「登入／註冊」。
 - `/auth` panel／route：同一區塊切換登入、註冊與忘記密碼，不建立兩個互斥入口；Email／SMS recovery 是其中一步。
-- Guest notice：建立案件前與上傳區持續可見「未登入，無法查詢歷史」；提供「登入／註冊並保存」與「繼續但不保存」兩個清楚動作。
+- Guest不需先選模式或通過登入提示即可開始；登入／註冊只作為保存與查詢歷史的選用入口。
 - `/cases`：歷史案件；Desktop quiet table／list，Mobile cards。
 - Account menu：帳戶、登出、隱私／資料刪除。
 - `/legal/privacy`、`/legal/terms`、`/legal/cookies`：公開、可列印、正文 16 px 以上並顯示版本／生效日。
@@ -409,4 +409,4 @@ flowchart LR
 - Case deletion、account deletion、retention／backup policy。
 - Audit／security events與 incident process。
 
-未完成此 Gate 前，公開版只能是無上傳的 read-only synthetic showcase。正式開放guest真實資料前，必須實作並驗證固定24小時Session、到期立即拒絕、24小時線上purge SLA及遺失session後不可恢復的告知文字。
+Secure LAN目前已具備HTTPS、固定24小時guest session、owner-scoped private upload與到期拒絕能力。正式公開服務前仍必須完成自動化24小時online purge、Transactional Email、off-host backup、Production憑證／部署與法務隱私審閱；Secure LAN驗證不等同Production上線核准。

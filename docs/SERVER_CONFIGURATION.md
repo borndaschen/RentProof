@@ -12,7 +12,7 @@
 | `public_http_showcase` | 停用                        | 未來可能的靜態唯讀展示   | 不得 Build 或部署                             |
 | `production`           | HTTPS                       | 未來正式服務             | 尚未完成 Production Gate                      |
 
-舊的 `lan_development` HTTP profile 已依 D-093 退役。`dev:lan`、`start:lan`、`.env.lan.local`與 `--profile=lan` 均不是可用介面；啟動器遇到舊值必須拒絕，而不能自動改用較寬鬆設定。
+區域網路不提供HTTP listener或寬鬆fallback；唯一可用的LAN入口是`lan_secure_demo` HTTPS。
 
 Profile 只在 process 啟動時決定，不能由 request、query、Cookie 或瀏覽器切換。`NODE_ENV=production`只代表 Next.js Build／Runtime 最佳化，不會自動開啟正式資料能力。
 
@@ -36,7 +36,7 @@ RENTPROOF_ALLOW_REAL_DATA=false
 pnpm dev
 ```
 
-`pnpm demo:check`只檢查這個loopback profile。它不接受 `--profile=lan`。
+`pnpm demo:check`只檢查這個loopback profile；LAN HTTPS由獨立的啟動與Firewall Gate驗證。
 
 ## 3. 區域網路 HTTPS
 
@@ -102,7 +102,7 @@ Firewall切換需要UAC，但Node App維持一般使用者權限。管理腳本�
 - JPEG／PNG與文字型PDF通過stream size、magic bytes／parser、來源定位與repository quota檢查後才available。
 - 原檔存放於private runtime；圖片衍生檔重新編碼並移除EXIF／XMP／IPTC／GPS。
 - PostgreSQL使用Kysely＋node-postgres adapter；Domain／Application只依賴typed repository ports。
-- Migration只由獨立指令執行，不由Web startup或request自動執行。
+- Migration只由獨立指令執行，不由Web startup或request自動執行。目前依序為`001_initial_real_data_schema`、`002_self_hosted_auth`、`003_private_case_artifacts`與`004_guest_sessions`，App readiness要求14張產品資料表。
 - 訪客Session固定24小時；帳戶Session在合格主動使用時滑動延長7天。
 - 案件或帳戶刪除後立即拒絕一般存取，再依Guest 24小時或Account 7日SLA執行冪等清理。
 - Backup／PITR最多14天；Deletion tombstone保存21天並於restore前重播。
@@ -124,7 +124,7 @@ Fixture與Live模式仍須明確設定。Live時：
 - Profile、IP、ports、HTTPS origin或exact allowlists不一致。
 - 憑證、私鑰、CA、資料目錄或ACL檢查失敗。
 - Firewall不存在、未啟用或scope不精確。
-- 偵測舊HTTP LAN設定、wildcard／public bind、對外DB listener或公開Tunnel。
+- 偵測任何LAN HTTP listener、wildcard／public bind、對外DB listener或公開Tunnel。
 - Auth／PostgreSQL／owner／policy／storage／deletion設定不完整。
 - Live模式未提供API key，或未確認OpenAI Project limits。
 

@@ -8,6 +8,11 @@ const actor = {
   userId: "user_abcdefghijklmnopqrstuvwxyz123456",
   sessionId: "session_abcdefghijklmnopqrstuvwxyz123",
 } as const satisfies ActorContext;
+const guestActor = {
+  kind: "guest",
+  guestId: "guest_abcdefghijklmnopqrstuvwxyz12345",
+  guestSessionId: "guest_session_abcdefghijklmnopqrstuv",
+} as const satisfies ActorContext;
 
 function sha256(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
@@ -40,7 +45,7 @@ function dependencies() {
 }
 
 describe("RealDemoService", () => {
-  it("requires an account and explicit cloud-processing acknowledgement", async () => {
+  it("requires a current actor and explicit cloud-processing acknowledgement", async () => {
     const { repository, store } = dependencies();
     const service = new RealDemoService(repository, store);
     await expect(
@@ -52,6 +57,21 @@ describe("RealDemoService", () => {
         cloudProcessingAcknowledged: false,
       }),
     ).rejects.toThrow("REAL_DEMO_REQUEST_INVALID");
+  });
+
+  it("allows a guest actor to create a case without an account", async () => {
+    const { repository, store } = dependencies();
+    const service = new RealDemoService(repository, store);
+
+    await expect(
+      service.createCase(guestActor, {
+        displayName: "訪客案件",
+        cloudProcessingAcknowledged: true,
+      }),
+    ).resolves.toMatchObject({ caseId: expect.stringMatching(/^case_/u) });
+    expect(repository.createCase).toHaveBeenCalledWith(
+      expect.objectContaining({ actor: guestActor, displayName: "訪客案件" }),
+    );
   });
 
   it("creates an owned case with versioned processing consent", async () => {

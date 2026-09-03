@@ -1,4 +1,4 @@
-import { resolveCurrentAccountActor } from "@/server/auth/current-actor";
+import { resolveCurrentCaseActor } from "@/server/auth/current-actor";
 import { readBoundedAuthJson } from "@/server/auth/http";
 import { validateSelfHostedAuthMutation } from "@/server/auth/request-guard";
 import { getServerEnvironment } from "@/server/env";
@@ -15,7 +15,7 @@ export async function POST(request: Request): Promise<Response> {
     return errorResponse(404, "REAL_DEMO_ROUTE_UNAVAILABLE");
   }
   try {
-    const actor = await resolveCurrentAccountActor(request, true);
+    const actor = await resolveCurrentCaseActor(request);
     const input = await readBoundedAuthJson(request);
     const result = await (await getRealDemoRuntime()).service.createCase(actor, input);
     return Response.json(

@@ -12,23 +12,23 @@ MVP採模組化單體Web App，讓conversation UI、workspace、上傳、分析�
 
 建議技術棧：
 
-- pnpm 作為唯一 package manager；Scaffold 時鎖定 `packageManager` 版本並提交 `pnpm-lock.yaml`
+- pnpm 目為唯一 package manager；Scaffold 時鎖定 `packageManager` 版本並提交 `pnpm-lock.yaml`
 - Node.js 24 LTS；Scaffold 時鎖定當時最新 `24.x` patch，開發／CI／Production 使用同一 major／patch
 - Next.js 16 Active LTS App Router＋TypeScript；Scaffold 時鎖定最新 patched `16.x`
-- Tailwind CSS 作 design-token／layout styling 基礎
-- shadcn/ui＋Radix Primitives 作 UI component baseline；只加入必要官方元件，生成 source 進 repository 並套用 RentProof design tokens
-- ESLint Flat Config＋Next.js／TypeScript／React rules作code-quality Gate；Prettier作獨立formatter
+- Tailwind CSS 目 design-token／layout styling 基礎
+- shadcn/ui＋Radix Primitives 目 UI component baseline；只加入必要官方元件，生成 source 進 repository 並套用 RentProof design tokens
+- ESLint Flat Config＋Next.js／TypeScript／React rules目code-quality Gate；Prettier目獨立formatter
 - TypeScript增強嚴格模式：`strict`＋unchecked index／exact optional／return／switch／override／side-effect import checks，`noEmit`
 - TypeScript 6.0穩定線；Scaffold時鎖定最新`6.0.x`與相容的typescript-eslint／React／Node types
-- Mozilla PDF.js（`pdfjs-dist`）作P0文字型PDF逐頁抽取與安全預覽基礎，封裝於`PdfTextExtractor` adapter
-- Sharp作P0 JPEG／PNG server-side decode、auto-orient、resize、metadata stripping與sanitized derivative encoder
+- Mozilla PDF.js（`pdfjs-dist`）目目前文字型PDF逐頁抽取與安全預覽基礎，封裝於`PdfTextExtractor` adapter
+- Sharp目目前JPEG／PNG server-side decode、auto-orient、resize、metadata stripping與sanitized derivative encoder
 - Mobile-first RWD、極簡主義、正文／表格至少 16 px、caption 至少 14 px；完整規格見 `UI_DESIGN.md`
-- P0：typed repository interface＋記憶體／外部 JSON state；真實資料版以Kysely＋node-postgres實作PostgreSQL infrastructure adapter
-- Zod 作為 API、LLM Structured Outputs 與 storage adapter 邊界的共用驗證層
+- Golden流程保留typed記憶體／外部JSON adapter；私有素材流程已使用Kysely＋node-postgres的PostgreSQL adapter與加密private storage
+- Zod 目為 API、LLM Structured Outputs 與 storage adapter 邊界的共用驗證層
 - OpenAI Responses API＋官方TypeScript SDK：Conversation使用`gpt-5.6-luna`／low；Evidence stages使用`gpt-5.6-terra`／medium；JSON Schema Structured Outputs
 - OpenAI `service_tier: default`明確鎖定標準價格／效能，requested／resolved tier進provenance
 - Evidence budget：16 Terra attempts、concurrency 2、500K input、50K output＋reasoning、US$2 alert；Conversation另用24h Luna 200 attempts／500K／100K、concurrency 1、US$0.50 alert
-- P0：12 張照片；FFmpeg 與 30 秒影片抽幀為 P1
+- 目前支援最多12張照片；FFmpeg與30秒影片抽幀列為後續功能
 - Vitest + 一條 Playwright Golden smoke flow
 - UI component layer使用jsdom＋React Testing Library／user-event／jest-dom／axe；browser layer使用Playwright＋axe
 - HTML print stylesheet：MVP 報告輸出，不新增 PDF 服務
@@ -37,7 +37,7 @@ Repository 不混用 npm／Yarn／Bun lockfile。CI 與本機安裝必須使用 
 
 Development與Demo執行於目前Windows桌面電腦；filesystem／path／process scripts需在Windows＋Node.js 24驗證。Production OS尚未決定，因此Domain／Application與migration不得依賴Windows Server、systemd或POSIX-only行為，production service wrapper留待後續決策。
 
-P0 runtime由原生Node.js 24＋pnpm scripts啟動Next.js，不加入Docker、Apache／WAMP、IIS或Windows Service adapter。集中launcher驗證deployment profile、bind host、port、origin與allowlists後才啟動，並將host／port實際傳給Next CLI；不得只驗證env後仍使用wildcard listener。
+目前runtime由原生Node.js 24＋pnpm scripts啟動Next.js，不加入Docker、Apache／WAMP、IIS或Windows Service adapter。集中launcher驗證deployment profile、bind host、port、origin與allowlists後才啟動，並將host／port實際傳給Next CLI；不得只驗證env後仍使用wildcard listener。
 
 日常開發使用loopback Next Dev Server；LAN展示使用Production Build與`lan_secure_demo`。Next的`NODE_ENV`與RentProof capability profile分離：Production Build不會自動開啟私有資料、Auth、PostgreSQL或OpenAI Live。展示環境關閉HMR、browser／server source maps與詳細error overlay。
 
@@ -57,7 +57,7 @@ Development OpenAI Project model limits分流：Terra維持30 RPM／500K TPM／4
 
 Compiler使用TypeScript 6.0 stable line，不採TypeScript 7／nightly。Scaffold鎖定最新`6.0.x`，明確設定bundler module resolution、types與src paths，不依賴跨版本floating defaults；typescript-eslint、Next plugin與第三方types需在同一pnpm lockfile相容集合內。
 
-P0 model routing固定：Conversation intent／explanation為`gpt-5.6-luna`＋low，Evidence extraction為`gpt-5.6-terra`＋medium；都由分離allowlisted env載入，不使用latest alias或跨route fallback。OpenAI官方分別將Luna定位為成本敏感高流量、Terra定位為智慧與成本平衡：[Luna](https://developers.openai.com/api/docs/models/gpt-5.6-luna)、[Terra](https://developers.openai.com/api/docs/models/gpt-5.6-terra)。完整規格見[OpenAI整合](OPENAI_INTEGRATION.md)。
+模型路由固定：Conversation intent／explanation為`gpt-5.6-luna`＋low，Evidence extraction為`gpt-5.6-terra`＋medium；都由分離allowlisted env載入，不使用latest alias或跨route fallback。OpenAI官方分別將Luna定位為成本敏感高流量、Terra定位為智慧與成本平衡：[Luna](https://developers.openai.com/api/docs/models/gpt-5.6-luna)、[Terra](https://developers.openai.com/api/docs/models/gpt-5.6-terra)。完整規格見[OpenAI整合](OPENAI_INTEGRATION.md)。
 
 Listener設定集中於 `RENTPROOF_DEPLOYMENT_PROFILE`、`RENTPROOF_BIND_HOST`、`RENTPROOF_PORT`、`RENTPROOF_PUBLIC_ORIGIN`、`RENTPROOF_ALLOWED_HOSTS` 與 `RENTPROOF_ALLOWED_ORIGINS`。HTTP只允許loopback；`lan_secure_demo`只能以HTTPS綁定明確private IP。啟動器必須實際傳遞已驗證的host／port，不得默認listen `0.0.0.0`。
 
@@ -92,9 +92,9 @@ flowchart TD
     FOLLOWUP --> EVIDENCE
 ```
 
-所有 stage 接收已驗證的 domain object 並輸出不可變結果。MVP 在同一 server process 內順序執行，由 `PipelineRun` 協調多個 `StageRun`；全部驗證完成後才原子切換 `AnalysisSnapshot`。不導入 ORM、Redis、訊息佇列或工作流平台。資料存取先走 repository interface，讓 P1 可換成 PostgreSQL 而不改 domain logic。
+所有stage接收已驗證的domain object並輸出不可變結果。MVP在同一server process內順序執行，由`PipelineRun`協調多個`StageRun`；全部驗證完成後才原子切換`AnalysisSnapshot`。不導入Redis、訊息佇列或工目流平台。Golden與PostgreSQL adapters都實目相同repository ports，domain logic不依賴儲存方式。
 
-真實資料版的PostgreSQL adapter固定使用Kysely＋node-postgres。Kysely與`pg`只能存在於infrastructure／database adapter；Domain與Application不得直接import。Owner scope是repository method的必要輸入而非呼叫端可省略的filter；多步驟寫入以同一connection transaction完成。P0不因此新增資料庫依賴，migration與production connection policy待真實資料scaffold前另行決定。
+私有素材流程的PostgreSQL adapter固定使用Kysely＋node-postgres。Kysely與`pg`只能存在於infrastructure／database adapter；Domain與Application不得直接import。Owner scope是repository method的必要輸入而非呼叫端可省略的filter；多步驟寫入以同一connection transaction完成。凍結migration目前為`001_initial_real_data_schema`、`002_self_hosted_auth`、`003_private_case_artifacts`與`004_guest_sessions`，App readiness要求14張產品tables。
 
 PostgreSQL schema migration固定使用Kysely Migrator與versioned TypeScript migration。Migration需凍結於建立當下，不得import會隨產品演進的Domain／Application code；依字典序執行並保持既有migration不可變。Migrator只由獨立deployment／operator command執行，使用database lock避免平行套用，不得在Next.js process啟動或一般request中自動執行。
 
@@ -107,7 +107,7 @@ First real-data Production的Next.js App與PostgreSQL位於同一Server。Kysely
 | 模組                 | 責任                                                                       | 明確不負責                                              |
 | -------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------- |
 | Conversation         | 固定state machine、typed command candidates、確認與snapshot-bound blocks   | 直接修改domain結果、自治選stage、把raw model text當事實 |
-| Ingestion            | 外部資料目錄、MIME／大小／雜湊、私有補拍暫存、PDF 頁碼                     | 判讀內容；P0 不處理影片                                 |
+| Ingestion            | 外部資料目錄、MIME／大小／雜湊、私有補拍暫存、PDF頁碼                      | 判讀內容；目前不處理影片                                |
 | Listing              | 抽取廣告 claim 與來源位置                                                  | 判斷承諾真假                                            |
 | Viewing              | 將 claim 轉成問題與指定拍攝清單                                            | 分析尚未上傳的影像                                      |
 | Evidence             | 描述可觀察內容、定位與不確定原因                                           | 從沒拍到推論不存在；診斷漏水／結構                      |
@@ -168,7 +168,7 @@ Case
 
 | Entity                     | 必要欄位                                                                                                                                                                                                   |
 | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Case`                     | `id`, `title`, `status`, `created_at`, `purge_after?`（P1）                                                                                                                                                |
+| `Case`                     | `id`, `title`, `status`, `created_at`, `purge_after?`（後續）                                                                                                                                              |
 | `CaseApplicabilityProfile` | `jurisdiction`, `general_residential_scope: true \| false \| unknown`, `rental_period_days?`, `intended_signed_at?`, `electricity_payer: landlord \| tenant \| shared \| unknown`, `confirmed_by_user_at?` |
 | `Artifact`                 | `id`, `case_id`, `kind`, opaque `storage_key`, `mime_type`, `sha256`, `source_url?`, `page_no?`, `timestamp_ms?`                                                                                           |
 | `SourceLocator`            | discriminated union：`image`、`pdf`、`text`、`video`；每一型別都有必填且可驗證的範圍欄位                                                                                                                   |
@@ -256,7 +256,7 @@ type ExtractedField<T> =
 額外保守條件：
 
 - 影像沒有涵蓋設備預期位置，不建立 negative observation。
-- OCR／視覺結果未通過可客觀驗證的 quality flags（schema、locator、coverage、解析品質）時，不參與肯定或矛盾判定；不以模型自報 confidence 單獨作安全 Gate。
+- OCR／視覺結果未通過可客觀驗證的 quality flags（schema、locator、coverage、解析品質）時，不參與肯定或矛盾判定；不以模型自報 confidence 單獨目安全 Gate。
 - 來源互相衝突時不靠 confidence 自動消除其中一方。
 - 契約「未列設備」本身是證據不足；只有契約明載「不含該設備」才構成反證。
 - `Finding.summary` 由 reason code 套用模板，不能讓 LLM 自由生成結論。
@@ -268,9 +268,9 @@ type ExtractedField<T> =
 1. `create_case`：建立案件與資料保存設定。
 2. `ingest_listing`：保存截圖／文字／URL metadata，以 OpenAI Responses API 抽取廣告 claims。
 3. `build_viewing_checklist`：為每項可現場驗證的 claim 產生具體問題與拍攝指示。
-4. `ingest_viewing_media`：P0 直接分析 12 張照片；P1 才加入影片每 2 秒取幀與最多 15 幀限制。
+4. `ingest_viewing_media`：目前直接分析最多12張照片；後續才加入影片每2秒取幀與最多15幀限制。
 5. `analyze_observations`：照片以 OpenAI Responses API 只輸出可觀察內容、位置、信心與不確定原因。
-6. `ingest_contract`：P0 只接受可可靠取得文字與頁碼的清楚 PDF，先在本機抽取帶頁碼文字；掃描件與頁面影像 OCR 為 P1。
+6. `ingest_contract`：目前只接受可可靠取得文字與頁碼的清楚PDF，先在本機抽取帶頁碼文字；掃描件與頁面影像OCR列為後續功能。
 7. `extract_contract_clauses`：將最小必要文字送往 OpenAI Responses API，輸出費用、設備附件、補貼、修繕等 semantic keys；另以專用strict field抽取專有部分非自然死亡的明確契約／已簽現況確認書揭露。Server驗證case、artifact、page與逐字locator後才映射domain statement，傳聞、新聞、地址搜尋、文件沉默與模型推論不得成為肯定事實。
 8. `compare_claims`：正規化後執行三態 truth table。
 9. `compose_costs`：以廣告／契約費用產生固定月費、變動公式與一次性費用；沒有用量不產生完整月總額。
@@ -289,7 +289,7 @@ type ExtractedField<T> =
 | `POST`  | `/api/cases/:caseId/artifacts`                      | 上傳並標記素材種類                                      |
 | `PATCH` | `/api/cases/:caseId/profile`                        | 更新人工適用性資料，需 expected revision                |
 | `PUT`   | `/api/cases/:caseId/fraud-timeline`                 | 保存人工付款／首次實地看屋時間線                        |
-| `POST`  | `/api/cases/:caseId/analysis-runs`                  | P0 foreground 執行 full／allowlisted target pipeline    |
+| `POST`  | `/api/cases/:caseId/analysis-runs`                  | 前景執行完整或allowlisted target pipeline               |
 | `GET`   | `/api/cases/:caseId/analysis-runs/:runId`           | 讀取指定 PipelineRun／StageRun 狀態                     |
 | `GET`   | `/api/cases/:caseId/summary`                        | 物件與成本摘要                                          |
 | `GET`   | `/api/cases/:caseId/matrix`                         | 證據矩陣與 locator                                      |
@@ -300,22 +300,22 @@ type ExtractedField<T> =
 | `GET`   | `/api/cases/:caseId/fraud-signals`                  | 讀取訊號、locator、缺少資料與查證行動                   |
 | `GET`   | `/api/cases/:caseId/artifacts/:artifactId/content`  | 驗證 case association 後串流 sanitized preview          |
 
-P0 只需支援一個 Golden case 與一次補拍；route 保留通用命名，避免之後重寫。API 錯誤回傳穩定 `error_code`，例如 `DEMO_DIR_MISSING`、`UNSUPPORTED_MEDIA`、`PDF_TEXT_UNAVAILABLE`、`OPENAI_AUTH_ERROR`、`OPENAI_RATE_LIMITED`、`MODEL_REFUSAL`、`MODEL_INCOMPLETE`、`MODEL_SCHEMA_INVALID`、`MISSING_SOURCE_LOCATOR`，UI 不直接顯示 provider 原始錯誤。
+Golden回歸仍支援固定案例與一次補拍；私有素材流程另使用`/api/real-cases`、owner-scoped uploads與analysis route。API錯誤回傳穩定`error_code`，UI不直接顯示provider原始錯誤。
 
-P0 analysis 是 foreground execution，成功回 200；不使用 `202` 暗示 durable background work。四個 view endpoints 都回同一 `snapshotId`／case revision／execution mode，避免混讀不同世代。Delete、guest／user sessions、選用 authentication、歷史案件與完整授權／刪除 E2E 屬 first real-data release。
+Analysis是foreground execution；不使用`202`暗示durable background work。四個view endpoints都回同一`snapshotId`／case revision／execution mode，避免混讀不同世代。Self-hosted Auth、固定24小時guest session、7天sliding account session、owner-scoped history、private artifacts與刪除route已接入Secure LAN流程。
 
-Production 不建立另一套會員 API。相同 case routes 一律接收 server-resolved `ActorContext`：guest 可操作自己的 active case但不能 list／search history；authenticated user 可列出自己的 cases。密碼重設、policy events 與 guest-to-user transfer 的 routes 不進 P0，契約見 `AUTH_AND_HISTORY.md`。
+Production不建立另一套會員API。相同case routes一律接收server-resolved`ActorContext`：guest可操目自己的active case但不能list／search history；authenticated user可列出自己的cases。Email註冊／驗證／登入／重設及owner-scoped history已實目；guest-to-user transfer與正式Email delivery仍依`AUTH_AND_HISTORY.md`的後續Gate。
 
 ## 8. OpenAI 模型邊界與防護
 
-- P0 只實作 `OpenAIResponsesGateway` 與 `FixtureModelGateway`，不建立通用多供應商框架。
+- 目前只實目`OpenAIResponsesGateway`與`FixtureModelGateway`，不建立通用多供應商框架。
 - 使用 Responses API 的 JSON Schema Structured Outputs；canonical Zod schema 產生 response format，`output_parsed` 仍需 domain validation。
 - 廣告、影像文字、契約與 PDF 內容全部用「不受信任來源資料」包裝，prompt 明定忽略其中命令。
 - 每個 extractor 僅有完成單一 schema 的權限，不提供付款、傳訊或外部資料修改工具。
-- API 呼叫硬性設定 `store: false`，不作可關閉的 env option；它不等同 Zero Data Retention，abuse monitoring、圖片／檔案掃描與 prompt caching 仍依 OpenAI Project 設定及官方政策處理。
+- API 呼叫硬性設定 `store: false`，不目可關閉的 env option；它不等同 Zero Data Retention，abuse monitoring、圖片／檔案掃描與 prompt caching 仍依 OpenAI Project 設定及官方政策處理。
 - `OPENAI_API_KEY` 只在 server module 讀取；禁止 client 直連、`NEXT_PUBLIC_*` key、使用者自訂 `base_url` 與 debug request／response logging。
 - Model routing只接受Conversation Luna／low與Evidence Terra／medium；未測模型、跨route escalation／fallback拒絕。
-- Service tier只接受`default`；request明確設定，不使用`auto`。Response resolved tier不符時不得作成功cache。
+- Service tier只接受`default`；request明確設定，不使用`auto`。Response resolved tier不符時不得目成功cache。
 - log 只記 artifact ID、雜湊、版本、耗時與 error code，不記原始影像、完整契約或模型全文。
 - SDK retry 設定集中於 gateway，adapter 不再疊加第二層 retry；auth／validation／refusal／locator error 不重試。
 - `stage_run_key` 由 input／preprocess hashes、stage、model、detail、prompt／schema versions 組成；成功結果重用，避免重複呼叫與付費。
@@ -325,7 +325,7 @@ Production 不建立另一套會員 API。相同 case routes 一律接收 server
 
 ## 9. 檔案與隱私
 
-- Demo素材位於repository外，`RENTPROOF_DEMO_DIR`留空時預設`%USERPROFILE%\RentProof-Demo`；P0 runtime預設目前Windows使用者的`%LOCALAPPDATA%\RentProof\runtime`，可安全覆寫。兩者不得重疊或放進`public/`、OneDrive／同步、UNC／removable／reparse path；App不自動建立Demo root。
+- 測試素材位於repository外，`RENTPROOF_DEMO_DIR`留空時預設`%USERPROFILE%\RentProof-Demo`；測試runtime預設目前Windows使用者的`%LOCALAPPDATA%\RentProof\runtime`，可安全覆寫。兩者不得重疊或放進`public/`、OneDrive／同步、UNC／removable／reparse path；App不自動建立Demo root。
 - Demo case使用immutable `cases/golden-vN/`；manifest＋sidecar seal驗證每個素材、truth與fallback的relative path、kind、MIME、bytes、SHA-256及provenance。App顯式選版、不使用latest alias；任一missing／extra／hash mismatch fail closed。Truth只含人工assertions，fallback只含版本化分析snapshot。
 - `RENTPROOF_DEMO_CASE_VERSION`為local／LAN必填，僅接受`golden-v`＋無前導零正整數；解析為單一segment後仍做root containment。Active version／manifest hash寫入AnalysisSnapshot與report provenance，不輸出absolute path。
 - `manifest.json`使用`rentproof.demo-manifest.v1` strict Zod schema並輸出JSON Schema；UTF-8 raw bytes最多1 MiB、files最多100筆，先比對`manifest.sha256`再parse unknown。Paths做case-insensitive collision、Windows reserved／absolute／UNC／drive／traversal拒絕及realpath containment；unknown fields fail closed。
@@ -336,7 +336,7 @@ Production 不建立另一套會員 API。相同 case routes 一律接收 server
 - 圖片通過magic／MIME後交給Sharp，以`autoOrient`＋受限resize重新編碼為allowlisted JPEG／PNG derivative；不使用`keepMetadata`／`withMetadata`，也不啟用`unlimited`。輸出再解析確認format／dimensions／bytes與metadata已移除後才標available。
 - 圖片安全常數：`maxImageBytes = 25 MiB`、`maxImagePixels = 50_000_000`、`maxCaseOriginalImageBytes = 400 MiB`、`derivativeMaxLongEdge = 3200`、`withoutEnlargement = true`。每個request只收一張圖；先以stream byte cap停止過大body，再以Sharp`limitInputPixels`／format block解碼，最後以repository transaction檢查案件總量。
 - Demo fixture 完全虛構且不提交到 repository；不使用真實姓名、地址、電話、身分證號、簽名、門牌或人臉。
-- P0 runtime依D-068清理：Development run最後寫入後最多7天；Formal Demo run正常結束即清除，abandoned run於下次Demo前清除。這只適用synthetic P0 runtime，不等同Production retention／deletion E2E；真正部署仍需完整case／backup／第三方刪除流程。
+- 測試runtime依D-068清理：Development run最後寫入後最多7天；正式展示run正常結束即清除，abandoned run於下次展示前清除。這不等同正式服務的retention／deletion E2E；真正部署仍需完整case／backup／第三方刪除流程。
 - arbitrary URL fetching 不在 MVP，避免 SSRF、登入狀態、反爬蟲與內容授權風險。
 - 完整 threat model、upload controls、prompt injection 與真實資料 Gate 見 [安全與隱私規格](SECURITY_PRIVACY.md)。
 - Production guest data 仍放 private storage，使用短期 guest session 與 owner-scoped query；「未登入」只是不提供歷史紀錄，不能降低 upload、encryption、OpenAI notice 或 deletion controls。
@@ -352,6 +352,6 @@ Production 不建立另一套會員 API。相同 case routes 一律接收 server
 
 ## 11. 部署與演進
 
-目前交付範圍為本機HTTP開發與trusted private LAN HTTPS展示。`public_http_showcase`static export規格保留但停用，不建立公網Hosting／Port Forwarding／VPS。任何未來公開Showcase需新決策；正式服務仍必須使用HTTPS、PostgreSQL／private object storage及完整owner／retention／deletion Gate。
+目前交付範圍為本機HTTP開發與trusted private LAN HTTPS私有素材展示，不建立公網Hosting／Port Forwarding／VPS。Secure LAN使用PostgreSQL、加密private storage、guest／account owner checks及OpenAI Cloud告知；正式服務仍需完成排程式retention／deletion、off-host backup與Transactional Email Gate。
 
-後續可替換的邊界包括：OpenAI adapter、資料庫、物件儲存、背景工作執行器與 PDF 匯出。P0 不實作第二個 LLM provider；證據 graph、三態語意、rule schema 與 source locator 不應因部署方式改變。
+後續可替換的邊界包括：OpenAI adapter、資料庫、物件儲存、背景工目執行器與PDF匯出。目前不實目第二個LLM provider；證據graph、三態語意、rule schema與source locator不應因部署方式改變。

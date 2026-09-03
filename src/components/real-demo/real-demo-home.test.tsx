@@ -14,15 +14,15 @@ vi.mock("next/link", () => ({
 afterEach(() => vi.unstubAllGlobals());
 
 describe("RealDemoHome", () => {
-  it("guides a signed-out visitor to the account flow in plain language", async () => {
+  it("lets a signed-out visitor start with a guest session", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => Response.json({ status: "signed_out", csrfToken: "c".repeat(43) })),
     );
     const { container } = render(<RealDemoHome />);
-    expect(await screen.findByRole("heading", { name: "先登入或建立帳戶" })).toBeVisible();
-    expect(screen.getByRole("link", { name: "登入／註冊" })).toHaveAttribute("href", "/auth");
-    expect(screen.queryByText(/Demo|Fixture|Golden|P0|Synthetic|虛構/u)).not.toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "這間房子要叫什麼名稱？" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "登入保存紀錄" })).toHaveAttribute("href", "/auth");
+    expect(screen.queryByText(/Demo|Fixture|Golden|P0|P1|Synthetic|虛構/u)).not.toBeInTheDocument();
     expect((await axe(container)).violations).toHaveLength(0);
   });
 
@@ -38,8 +38,8 @@ describe("RealDemoHome", () => {
     const { container } = render(<RealDemoHome />);
     await user.type(await screen.findByLabelText("案件名稱"), "民生東路套房");
     await user.click(screen.getByRole("checkbox"));
-    await user.click(screen.getByRole("button", { name: "建立案件" }));
-    expect(await screen.findByRole("heading", { name: "民生東路套房" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "繼續" }));
+    expect(await screen.findByText("我要整理「民生東路套房」。")).toBeVisible();
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     const request = fetchMock.mock.calls[1];
     expect(request?.[0]).toBe("/api/real-cases");
@@ -92,11 +92,12 @@ describe("RealDemoHome", () => {
     vi.stubGlobal("fetch", fetchMock);
     vi.stubGlobal("crypto", { randomUUID: () => "12345678-1234-1234-1234-123456789012" });
     const user = userEvent.setup();
-    render(<RealDemoHome analysisEnabled />);
+    const { container } = render(<RealDemoHome analysisEnabled />);
     await user.type(await screen.findByLabelText("案件名稱"), "測試案件");
     await user.click(screen.getByRole("checkbox"));
-    await user.click(screen.getByRole("button", { name: "建立案件" }));
-    const fileInput = await screen.findByLabelText("選擇檔案");
+    await user.click(screen.getByRole("button", { name: "繼續" }));
+    expect(await screen.findByRole("heading", { name: "請加入租屋廣告" })).toBeVisible();
+    let fileInput = await screen.findByLabelText("選擇租屋廣告圖片");
     const uploadForm = fileInput.closest("form");
     if (!uploadForm) throw new Error("UPLOAD_FORM_MISSING");
 
@@ -106,22 +107,30 @@ describe("RealDemoHome", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
     await screen.findByText("租屋廣告已安全加入。");
 
-    await user.selectOptions(screen.getByLabelText("照片類型"), "viewing_image");
+    expect(await screen.findByRole("heading", { name: "接著加入看屋照片" })).toBeVisible();
+    fileInput = await screen.findByLabelText("選擇看屋照片");
     await user.upload(fileInput, new File(["jpg"], "viewing.jpg", { type: "image/jpeg" }));
-    fireEvent.submit(uploadForm);
+    const viewingForm = fileInput.closest("form");
+    if (!viewingForm) throw new Error("VIEWING_FORM_MISSING");
+    fireEvent.submit(viewingForm);
     await screen.findByText("看屋照片已安全加入。");
 
+    expect(await screen.findByRole("heading", { name: "最後加入租約" })).toBeVisible();
+    fileInput = await screen.findByLabelText("選擇租約PDF");
     await user.upload(fileInput, new File(["pdf"], "contract.pdf", { type: "application/pdf" }));
-    fireEvent.submit(uploadForm);
+    const contractForm = fileInput.closest("form");
+    if (!contractForm) throw new Error("CONTRACT_FORM_MISSING");
+    fireEvent.submit(contractForm);
     await screen.findByText("租約已安全加入。");
 
     await user.click(await screen.findByRole("button", { name: "開始整理與比對" }));
-    expect(await screen.findByRole("heading", { name: "整理結果" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "這些是目前的比對結果" })).toBeVisible();
     expect(screen.getByText("確認洗衣機是否寫入附件。")).toBeVisible();
     expect(screen.getAllByText("1 項")).toHaveLength(3);
 
     await user.click(screen.getByRole("button", { name: "刪除這個案件" }));
     expect(await screen.findByText("案件已刪除並停止存取。")).toBeVisible();
-    expect(screen.getByRole("heading", { name: "建立案件" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "這間房子要叫什麼名稱？" })).toBeVisible();
+    expect((await axe(container)).violations).toHaveLength(0);
   });
 });
