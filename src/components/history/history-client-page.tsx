@@ -2,16 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { z } from "zod";
-import { CaseHistorySummarySchema, type CaseHistorySummary } from "@/application/history";
+import type { CaseHistorySummary } from "@/application/history";
+import { parseHistoryResponse } from "./history-client-parser";
 import { HistoryList } from "./history-list";
-
-const ResponseSchema = z
-  .object({
-    schemaVersion: z.literal("rentproof.case-history.v1"),
-    cases: z.array(CaseHistorySummarySchema),
-  })
-  .strict();
 
 type State =
   | { status: "loading" }
@@ -22,14 +15,17 @@ export function HistoryClientPage() {
   const [state, setState] = useState<State>({ status: "loading" });
   useEffect(() => {
     let active = true;
-    void fetch("/api/history", { cache: "no-store", credentials: "same-origin" })
+    const controller = new AbortController();
+    void fetch("/api/history", {
+      cache: "no-store",
+      credentials: "same-origin",
+      signal: controller.signal,
+    })
       .then(async (response): Promise<State> => {
         if (response.status === 401) return { status: "authentication_required" };
         if (!response.ok) return { status: "unavailable" };
-        const parsed = ResponseSchema.safeParse((await response.json()) as unknown);
-        return parsed.success
-          ? { status: "loaded", cases: parsed.data.cases }
-          : { status: "unavailable" };
+        const parsed = parseHistoryResponse((await response.json()) as unknown);
+        return parsed === null ? { status: "unavailable" } : { status: "loaded", cases: parsed };
       })
       .catch((): State => ({ status: "unavailable" }))
       .then((next) => {
@@ -37,12 +33,13 @@ export function HistoryClientPage() {
       });
     return () => {
       active = false;
+      controller.abort();
     };
   }, []);
 
   if (state.status === "loaded") return <HistoryList cases={state.cases} />;
   if (state.status === "loading")
-    return <HistoryNotice title="正在載入" message="正在進行帳戶與案件擁有者驗證。" />;
+    return <HistoryNotice title="正在載入" message="正在確認你可以查看的案件。" />;
   if (state.status === "authentication_required") {
     return <HistoryNotice title="請先登入" message="登入後才能查詢目前帳戶已保存的歷史案件。" />;
   }

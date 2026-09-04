@@ -17,6 +17,8 @@ test("runs the server-side subsidy precheck and remains accessible", async ({ pa
   expect(response.status()).toBe(200);
   expect(response.headers()["cache-control"]).toContain("no-store");
   await expect(page.getByRole("heading", { level: 2, name: "申請條件預檢結果" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "申請條件預檢結果" })).toBeFocused();
+  await expect(page.getByRole("status")).toContainText("預檢完成：資料不足");
   await expect(page.getByText("資料不足", { exact: true }).first()).toBeVisible();
   await expect(
     page.locator("section").filter({ hasText: "申請條件預檢結果" }).getByRole("listitem"),
@@ -25,6 +27,22 @@ test("runs the server-side subsidy precheck and remains accessible", async ({ pa
     "href",
     "https://pip.moi.gov.tw/v3/B/SCRB0102.aspx",
   );
+
+  const dimensions = await page.evaluate(() => ({
+    documentWidth: document.documentElement.scrollWidth,
+    viewportWidth: document.documentElement.clientWidth,
+  }));
+  expect(dimensions.documentWidth).toBeLessThanOrEqual(dimensions.viewportWidth + 1);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+});
+
+test("keeps all precheck content usable at a 360 px mobile viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.goto("/rent-subsidy");
+
+  await expect(page.getByRole("heading", { level: 1, name: "租屋補助申請條件預檢" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "查看預檢結果" })).toBeVisible();
+  await expect(page.getByRole("radio", { name: "還不確定" }).first()).toBeChecked();
 
   const dimensions = await page.evaluate(() => ({
     documentWidth: document.documentElement.scrollWidth,

@@ -21,7 +21,7 @@ export default async function AccountVerificationCenterPage() {
       <section className="auth-panel" aria-labelledby="mailbox-title">
         <p className="eyebrow">一次性帳戶驗證</p>
         <h1 id="mailbox-title">帳戶驗證中心</h1>
-        <p>輸入剛才使用的Email，取得本次操作的一次性驗證碼。每個驗證碼只顯示一次。</p>
+        <p>輸入剛才使用的電子郵件，取得本次操作的一次性驗證碼。每個驗證碼只顯示一次。</p>
         {csrfToken ? (
           <form action="/api/auth/dev-mailbox" method="post">
             <input type="hidden" name="csrf" value={csrfToken} />
@@ -41,7 +41,7 @@ export default async function AccountVerificationCenterPage() {
             </button>
           </form>
         ) : (
-          <p role="alert">請先返回帳戶頁，讓伺服器建立短效CSRF保護後再開啟信箱。</p>
+          <p role="alert">請先回到帳戶頁，再重新開啟驗證中心，以建立這次操作所需的短效安全保護。</p>
         )}
         <Link className="auth-option-link auth-back-link" href="/auth">
           返回

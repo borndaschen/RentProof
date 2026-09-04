@@ -2,16 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { z } from "zod";
-import { CaseHistoryDetailSchema, type CaseHistoryDetail } from "@/application/history";
+import type { CaseHistoryDetail } from "@/application/history";
+import { parseHistoryDetailResponse } from "./history-client-parser";
 import { HistoryDetail } from "./history-detail";
-
-const ResponseSchema = z
-  .object({
-    schemaVersion: z.literal("rentproof.case-history-detail.v1"),
-    case: CaseHistoryDetailSchema,
-  })
-  .strict();
 
 type State =
   | { status: "loading" | "not_found" | "unavailable" }
@@ -21,17 +14,19 @@ export function HistoryDetailClientPage({ caseId }: { caseId: string }) {
   const [state, setState] = useState<State>({ status: "loading" });
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
     void fetch(`/api/history/${encodeURIComponent(caseId)}`, {
       cache: "no-store",
       credentials: "same-origin",
+      signal: controller.signal,
     })
       .then(async (response): Promise<State> => {
         if (response.status === 404 || response.status === 401) return { status: "not_found" };
         if (!response.ok) return { status: "unavailable" };
-        const parsed = ResponseSchema.safeParse((await response.json()) as unknown);
-        return parsed.success
-          ? { status: "loaded", rentalCase: parsed.data.case }
-          : { status: "unavailable" };
+        const parsed = parseHistoryDetailResponse((await response.json()) as unknown);
+        return parsed === null
+          ? { status: "unavailable" }
+          : { status: "loaded", rentalCase: parsed };
       })
       .catch((): State => ({ status: "unavailable" }))
       .then((next) => {
@@ -39,6 +34,7 @@ export function HistoryDetailClientPage({ caseId }: { caseId: string }) {
       });
     return () => {
       active = false;
+      controller.abort();
     };
   }, [caseId]);
 
@@ -53,7 +49,7 @@ export function HistoryDetailClientPage({ caseId }: { caseId: string }) {
               ? "找不到案件"
               : "暫時無法載入"}
         </h1>
-        <p>不存在、未登入與非案件擁有者不會揭露不同的案件內容。</p>
+        <p>為保護隱私，找不到案件、尚未登入或沒有查看權限時，畫面都不會顯示案件內容。</p>
         <Link className="secondary-button" href="/history">
           返回
         </Link>

@@ -2,6 +2,7 @@ import { OpenAIAnalysisError } from "@/adapters/openai/analysis/adapter";
 import { resolveCurrentCaseActor } from "@/server/auth/current-actor";
 import { validateSelfHostedAuthMutation } from "@/server/auth/request-guard";
 import { getServerEnvironment } from "@/server/env";
+import { privateNoStoreHeaders } from "@/server/http/private-response";
 import { analyzeRealCase } from "@/server/real-demo/analysis";
 
 export const runtime = "nodejs";
@@ -26,7 +27,7 @@ export async function POST(
     if (!actor) return errorResponse(401, "REAL_DEMO_AUTH_REQUIRED");
     const { caseId } = await context.params;
     const snapshot = await analyzeRealCase({ actor, caseId, apiKey });
-    return Response.json(snapshot, { status: 201, headers: privateHeaders() });
+    return Response.json(snapshot, { status: 201, headers: privateNoStoreHeaders() });
   } catch (error) {
     if (error instanceof OpenAIAnalysisError) {
       return errorResponse(
@@ -52,13 +53,9 @@ function errorResponse(status: number, code: string, retryAfterSeconds?: number)
     {
       status,
       headers: {
-        ...privateHeaders(),
+        ...privateNoStoreHeaders(),
         ...(retryAfterSeconds === undefined ? {} : { "Retry-After": String(retryAfterSeconds) }),
       },
     },
   );
-}
-
-function privateHeaders(): HeadersInit {
-  return { "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" };
 }

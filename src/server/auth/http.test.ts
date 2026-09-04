@@ -9,6 +9,7 @@ import {
   setSessionCookie,
   type AuthCookieStore,
 } from "./http";
+import { selfHostedAuthRateLimiter } from "./rate-limit";
 
 const environment = {
   RENTPROOF_AUTH_MODE: "self_hosted",
@@ -102,6 +103,48 @@ describe("self-hosted auth HTTP utilities", () => {
     expect(warning).toHaveBeenCalledWith("AUTH_READ_REJECTED_NETWORK_FORWARDED_HOST_MISMATCH");
     expect(JSON.stringify(warning.mock.calls)).not.toMatch(/attacker|rentproof_account|ssss/iu);
     warning.mockRestore();
+  });
+
+  it("keeps trusted LAN source-IP quotas independent and rejects a missing source identity", () => {
+    selfHostedAuthRateLimiter.reset();
+    const lanEnvironment = {
+      RENTPROOF_AUTH_MODE: "self_hosted",
+      RENTPROOF_DEPLOYMENT_PROFILE: "lan_secure_demo",
+      RENTPROOF_PUBLIC_ORIGIN: "https://192.168.1.20:3443",
+      RENTPROOF_INTERNAL_PROXY_TOKEN: "p".repeat(43),
+      allowedHosts: ["192.168.1.20:3443"],
+      allowedOrigins: ["https://192.168.1.20:3443"],
+    } as never;
+    const request = (sourceIp?: string, token = "a".repeat(43)) =>
+      new Request("https://192.168.1.20:3443/api/auth/session", {
+        headers: {
+          host: "192.168.1.20:3443",
+          "x-rentproof-network-verified": "p".repeat(43),
+          ...(sourceIp === undefined ? {} : { "x-rentproof-source-ip": sourceIp }),
+          cookie: `__Host-rentproof_account=${token}`,
+        },
+      });
+
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      expect(guardAuthRead(request("192.168.1.55"), lanEnvironment, "session")).toBeNull();
+    }
+    expect(guardAuthRead(request("192.168.1.55"), lanEnvironment, "session")?.status).toBe(429);
+    expect(
+      guardAuthRead(request("192.168.1.56", "b".repeat(43)), lanEnvironment, "session"),
+    ).toBeNull();
+    expect(guardAuthRead(request(), lanEnvironment, "session")?.status).toBe(429);
+    selfHostedAuthRateLimiter.reset();
+
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const rotatingToken = String(attempt).padStart(43, "x");
+      expect(
+        guardAuthRead(request("192.168.1.57", rotatingToken), lanEnvironment, "session"),
+      ).toBeNull();
+    }
+    expect(
+      guardAuthRead(request("192.168.1.57", "z".repeat(43)), lanEnvironment, "session")?.status,
+    ).toBe(429);
+    selfHostedAuthRateLimiter.reset();
   });
 
   it.each([

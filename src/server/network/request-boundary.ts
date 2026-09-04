@@ -111,6 +111,7 @@ export function sanitizedDirectRequestHeaders(headers: Headers): Headers {
     "x-forwarded-server",
     "x-original-host",
     "x-host",
+    "x-rentproof-source-ip",
   ])
     sanitized.delete(name);
   return sanitized;

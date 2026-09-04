@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { readUniqueCookie, validateSelfHostedAuthRead } from "@/server/auth/request-guard";
 import { GUEST_SESSION_COOKIE, getGuestSessionRuntime } from "@/server/auth/guest-session";
 import { getServerEnvironment } from "@/server/env";
+import { privateNoStoreHeaders } from "@/server/http/private-response";
 
 export const runtime = "nodejs";
 
@@ -11,7 +12,10 @@ export async function GET(request: Request): Promise<Response> {
     environment.RENTPROOF_DEPLOYMENT_PROFILE !== "lan_secure_demo" ||
     !validateSelfHostedAuthRead(request, environment)
   ) {
-    return Response.json({ error: { code: "GUEST_SESSION_UNAVAILABLE" } }, { status: 404 });
+    return Response.json(
+      { error: { code: "GUEST_SESSION_UNAVAILABLE" } },
+      { status: 404, headers: privateNoStoreHeaders() },
+    );
   }
   try {
     const cookieStore = await cookies();
@@ -21,7 +25,7 @@ export async function GET(request: Request): Promise<Response> {
     if (actor) {
       return Response.json(
         { schemaVersion: "rentproof.guest-session.v1", status: "guest" },
-        { headers: privateHeaders() },
+        { headers: privateNoStoreHeaders() },
       );
     }
     const issued = await runtime.issue();
@@ -37,16 +41,12 @@ export async function GET(request: Request): Promise<Response> {
     });
     return Response.json(
       { schemaVersion: "rentproof.guest-session.v1", status: "guest" },
-      { status: 201, headers: privateHeaders() },
+      { status: 201, headers: privateNoStoreHeaders() },
     );
   } catch {
     return Response.json(
       { error: { code: "GUEST_SESSION_UNAVAILABLE" } },
-      { status: 503, headers: privateHeaders() },
+      { status: 503, headers: privateNoStoreHeaders() },
     );
   }
-}
-
-function privateHeaders(): HeadersInit {
-  return { "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" };
 }

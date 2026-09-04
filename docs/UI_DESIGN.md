@@ -351,6 +351,7 @@ Fixture mode 需要持續 banner，不可只顯示一次 toast。
 - shadcn generated source 放在 `src/components/ui/` 或等價內部目錄；feature modules 透過 RentProof wrappers／variants 使用，不直接複製多套風格。
 - 只允許官方 shadcn registry／已審查 Radix packages；第三方 registry snippet 視為不受信任程式碼，未經 dependency／source review 不加入。
 - Client 不自行推導 guest／user owner；server view model 提供 actor state、history availability 與可用動作。
+- 租金補貼預檢結果卡與15項明細依Server狀態使用不同左側語意線：初步相符採accent、有待確認採warning、資料不足採muted；不得所有結果都使用成功色。來源過期需顯示「官方資料待更新」，不能落入一般連線錯誤或空結果。
 
 ## 14. UI Definition of Done
 

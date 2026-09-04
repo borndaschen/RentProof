@@ -45,7 +45,7 @@ const validResult = {
       sourceId: "MOI_115_CONDITIONS",
       title: "115年度申請條件",
       publisher: "內政部不動產資訊平台",
-      url: "https://pip.moi.gov.tw/Publicize/Info/B1020",
+      url: "https://pip.moi.gov.tw/Publicize/Info/B1020?n=%E7%94%B3%E8%AB%8B%E6%A2%9D%E4%BB%B6&y=115",
       verifiedAt: "2026-09-04",
       snapshotSha256: "a".repeat(64),
     },
@@ -53,7 +53,7 @@ const validResult = {
       sourceId: "MOI_115_FAQ",
       title: "115年度常見問題",
       publisher: "內政部不動產資訊平台",
-      url: "https://pip.moi.gov.tw/Publicize/Info/B1022",
+      url: "https://pip.moi.gov.tw/Publicize/Info/B1020?n=%E5%95%8F%E8%88%87%E7%AD%94&y=115",
       verifiedAt: "2026-09-04",
       snapshotSha256: "b".repeat(64),
     },
@@ -82,6 +82,11 @@ describe("RentSubsidyPrecheck", () => {
     await user.click(screen.getByRole("button", { name: "查看預檢結果" }));
 
     expect(await screen.findByRole("heading", { name: "申請條件預檢結果" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "申請條件預檢結果" })).toHaveFocus();
+    expect(screen.getByRole("status")).toHaveTextContent("預檢完成：資料不足");
+    expect(
+      screen.getByRole("heading", { name: "申請條件預檢結果" }).closest("section"),
+    ).toHaveAttribute("data-status", "insufficient_information");
     expect(screen.getByText("資料不足", { selector: "p" })).toBeVisible();
     expect(screen.getAllByRole("listitem")).toHaveLength(15);
     expect(
@@ -94,6 +99,10 @@ describe("RentSubsidyPrecheck", () => {
     );
     const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
     expect(body.schemaVersion).toBe("rentproof.rent-subsidy-precheck-input.v1");
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      cache: "no-store",
+      credentials: "same-origin",
+    });
     expect(body.input).toMatchObject({
       applicationDate: "unknown",
       rentalCountyCity: "臺北市",
@@ -104,9 +113,12 @@ describe("RentSubsidyPrecheck", () => {
       is24HourCareInstitution: "unknown",
     });
     expect(Object.keys(body.input)).toHaveLength(17);
+
+    await user.selectOptions(screen.getByLabelText("租屋處縣市"), "新北市");
+    expect(screen.queryByRole("heading", { name: "申請條件預檢結果" })).not.toBeInTheDocument();
   });
 
-  it("fails closed for a response outside the strict domain schema", async () => {
+  it("fails closed for a response outside the required display projection", async () => {
     vi.stubGlobal(
       "fetch",
       vi
@@ -120,7 +132,91 @@ describe("RentSubsidyPrecheck", () => {
     await user.selectOptions(screen.getByLabelText("租屋處縣市"), "新北市");
     await user.click(screen.getByRole("button", { name: "查看預檢結果" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("沒有產生資格結論");
+    expect(screen.getByRole("heading", { name: "預檢未完成" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "重新檢查" })).toBeVisible();
     expect(screen.queryByRole("heading", { name: "申請條件預檢結果" })).not.toBeInTheDocument();
+  });
+
+  it("explains a typed stale-source failure without presenting a result", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: { code: "SUBSIDY_SOURCE_STALE" } }), {
+          status: 503,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    render(<RentSubsidyPrecheck />);
+    await user.selectOptions(screen.getByLabelText("租屋處縣市"), "新北市");
+    await user.click(screen.getByRole("button", { name: "查看預檢結果" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("官方資料待更新");
+    expect(screen.queryByRole("heading", { name: "申請條件預檢結果" })).not.toBeInTheDocument();
+  });
+
+  it("offers an accessible retry after a temporary request failure", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockRejectedValueOnce(new TypeError("network unavailable"))
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify(validResult), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        ),
+    );
+    const user = userEvent.setup();
+    render(<RentSubsidyPrecheck />);
+    await user.selectOptions(screen.getByLabelText("租屋處縣市"), "新北市");
+    await user.click(screen.getByRole("button", { name: "查看預檢結果" }));
+    await user.click(await screen.findByRole("button", { name: "重新檢查" }));
+
+    expect(await screen.findByRole("heading", { name: "申請條件預檢結果" })).toHaveFocus();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    {
+      officialSources: [
+        { ...validResult.officialSources[0], url: "https://attacker.invalid/source" },
+        validResult.officialSources[1],
+      ],
+    },
+    {
+      officialSources: [validResult.officialSources[0], validResult.officialSources[0]],
+    },
+    {
+      officialSources: [
+        {
+          ...validResult.officialSources[0],
+          url: "https://pip.moi.gov.tw/Publicize/Info/not-the-reviewed-source",
+        },
+        validResult.officialSources[1],
+      ],
+    },
+    {
+      checks: validResult.checks.map((check, index) =>
+        index === 1 ? { ...check, criterion: "application_window" } : check,
+      ),
+    },
+  ])("rejects unsafe or duplicate Server projection data %#", async (override) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ ...validResult, ...override }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    render(<RentSubsidyPrecheck />);
+    await user.selectOptions(screen.getByLabelText("租屋處縣市"), "新北市");
+    await user.click(screen.getByRole("button", { name: "查看預檢結果" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("沒有產生資格結論");
   });
 
   it("groups every criterion into eight questions and supports keyboard radio selection", async () => {

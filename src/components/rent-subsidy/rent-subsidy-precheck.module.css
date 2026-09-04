@@ -68,6 +68,10 @@
   margin-bottom: 0;
 }
 
+.error button {
+  margin-top: 16px;
+}
+
 .form {
   display: grid;
   gap: 14px;
@@ -198,6 +202,25 @@
   border-left: 5px solid var(--accent);
 }
 
+.result[data-status="needs_review"] {
+  border-left-color: var(--warning);
+}
+
+.result[data-status="insufficient_information"] {
+  border-left-color: var(--text-muted);
+}
+
+.result h2:focus,
+.error h2:focus {
+  outline: none;
+}
+
+.result h2:focus-visible,
+.error h2:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 45%, white);
+  outline-offset: 4px;
+}
+
 .result h3 {
   margin: 20px 0 6px;
   font-size: 17px;
@@ -219,8 +242,17 @@
   display: grid;
   gap: 2px;
   padding: 12px;
+  border-left: 3px solid var(--accent);
   border-radius: 12px;
   background: var(--surface-muted);
+}
+
+.checkList li[data-status="needs_review"] {
+  border-left-color: var(--warning);
+}
+
+.checkList li[data-status="insufficient_information"] {
+  border-left-color: var(--text-muted);
 }
 
 .checkList span,
@@ -264,6 +296,18 @@
 
 .statusGuide dd {
   margin: 4px 0 0;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 @media (max-width: 520px) {

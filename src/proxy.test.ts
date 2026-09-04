@@ -12,6 +12,13 @@ const safeEnvironment = {
   RENTPROOF_PUBLIC_ORIGIN: "http://127.0.0.1:3000",
   RENTPROOF_AUTH_MODE: "synthetic",
 };
+const secureLanEnvironment = {
+  allowedHosts: ["192.168.1.20:3443"],
+  RENTPROOF_PUBLIC_ORIGIN: "https://192.168.1.20:3443",
+  RENTPROOF_AUTH_MODE: "self_hosted",
+  RENTPROOF_DEPLOYMENT_PROFILE: "lan_secure_demo",
+  RENTPROOF_INTERNAL_PROXY_TOKEN: "p".repeat(43),
+};
 
 import proxy, { config } from "./proxy";
 
@@ -67,5 +74,35 @@ describe("global proxy network boundary", () => {
     const response = proxy(request()) as Response;
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ error: "REQUEST_NETWORK_BOUNDARY_REJECTED" });
+  });
+
+  it("copies only a trusted TLS proxy source IP into the internal request header", () => {
+    getServerEnvironment.mockReturnValue(secureLanEnvironment);
+    const trusted = proxy(
+      new NextRequest("https://192.168.1.20:3443/api/auth/login", {
+        headers: {
+          host: "192.168.1.20:3443",
+          "x-forwarded-for": "192.168.1.55",
+          "x-forwarded-host": "192.168.1.20:3443",
+          "x-forwarded-port": "3443",
+          "x-forwarded-proto": "https",
+          "x-rentproof-network-verified": "p".repeat(43),
+        },
+      }),
+    ) as Response;
+    expect(trusted.status).toBe(200);
+    expect(trusted.headers.get("x-middleware-request-x-rentproof-source-ip")).toBe("192.168.1.55");
+
+    const untrusted = proxy(
+      new NextRequest("https://192.168.1.20:3443/api/auth/login", {
+        headers: {
+          host: "192.168.1.20:3443",
+          "x-forwarded-for": "192.168.1.77",
+          "x-rentproof-source-ip": "192.168.1.88",
+        },
+      }),
+    ) as Response;
+    expect(untrusted.status).toBe(200);
+    expect(untrusted.headers.get("x-middleware-request-x-rentproof-source-ip")).toBeNull();
   });
 });

@@ -107,9 +107,11 @@ describe("sanitizedDirectRequestHeaders", () => {
         "x-forwarded-proto": "http",
         "x-forwarded-port": "3000",
         "x-forwarded-for": "198.51.100.2",
+        "x-rentproof-source-ip": "198.51.100.99",
       }),
     );
     expect(result.get("host")).toBe("127.0.0.1:3000");
     expect([...result.keys()].some((name) => name.startsWith("x-forwarded"))).toBe(false);
+    expect(result.get("x-rentproof-source-ip")).toBeNull();
   });
 });

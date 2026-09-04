@@ -76,7 +76,7 @@ export function AuthPanel({ usesExternalEmail = false }: { usesExternalEmail?: b
         setMode("verify_registration");
         setMessage(
           usesExternalEmail
-            ? "若可建立帳戶，6位數驗證碼已寄至你輸入的Email。"
+            ? "若可建立帳戶，6 位數驗證碼已寄至你輸入的電子郵件信箱。"
             : "若可建立帳戶，驗證碼已準備完成。請前往帳戶驗證中心取得。",
         );
         return;
@@ -101,7 +101,7 @@ export function AuthPanel({ usesExternalEmail = false }: { usesExternalEmail?: b
         setMode("reset_code");
         setMessage(
           usesExternalEmail
-            ? "若帳戶存在，6位數重設碼已寄至你輸入的Email。"
+            ? "若帳戶存在，6 位數重設碼已寄至你輸入的電子郵件信箱。"
             : "若帳戶存在，重設碼已準備完成。請前往帳戶驗證中心取得。",
         );
         return;
@@ -114,7 +114,7 @@ export function AuthPanel({ usesExternalEmail = false }: { usesExternalEmail?: b
       form.reset();
       setMode("login");
       setSession("signed_out");
-      setMessage("若重設要求有效，密碼已更新且既有工作階段已撤銷。請重新登入。");
+      setMessage("若重設要求有效，密碼已更新且原有登入狀態已失效。請重新登入。");
     } catch {
       form.reset();
       setMessage(genericFailure);
@@ -132,7 +132,7 @@ export function AuthPanel({ usesExternalEmail = false }: { usesExternalEmail?: b
       if (!response.ok) throw new Error("AUTH_FAILED");
       setSession("signed_out");
       setMode("login");
-      setMessage("已安全登出。另一個有效要求才會再次建立工作階段。");
+      setMessage("已安全登出。下次必須重新登入才能使用帳戶。");
       router.refresh();
     } catch {
       setMessage(genericFailure);
@@ -148,9 +148,9 @@ export function AuthPanel({ usesExternalEmail = false }: { usesExternalEmail?: b
         <h1 id="auth-title">{session === "authenticated" ? "我的帳戶" : titleFor(mode)}</h1>
         <p>登入後可以保存、查詢與刪除你的案件。</p>
 
-        {session === "loading" && <p role="status">正在檢查工作階段…</p>}
+        {session === "loading" && <p role="status">正在確認登入狀態…</p>}
         {session === "unavailable" && (
-          <p role="alert">帳戶服務目前無法使用。系統不會改用不安全的備援登入。</p>
+          <p role="alert">帳戶服務目前無法使用。為保護資料，系統不會改用安全性較低的登入方式。</p>
         )}
         {session === "authenticated" && (
           <div className="auth-session-actions">
@@ -169,7 +169,7 @@ export function AuthPanel({ usesExternalEmail = false }: { usesExternalEmail?: b
             <form onSubmit={submit} autoComplete="on">
               {(mode === "login" || mode === "register" || mode === "forgot") && (
                 <label>
-                  Email
+                  電子郵件
                   <input name="email" type="email" autoComplete="email" required maxLength={254} />
                 </label>
               )}
@@ -188,7 +188,7 @@ export function AuthPanel({ usesExternalEmail = false }: { usesExternalEmail?: b
               )}
               {(mode === "verify_registration" || mode === "reset_code") && (
                 <label>
-                  Email 驗證碼
+                  電子郵件驗證碼
                   <input
                     name="code"
                     autoComplete="one-time-code"
@@ -252,7 +252,7 @@ export function AuthPanel({ usesExternalEmail = false }: { usesExternalEmail?: b
             )}
             {usesExternalEmail && (mode === "verify_registration" || mode === "reset_code") && (
               <p className="auth-demo-mailbox-note">
-                請查看Email中的6位數驗證碼；驗證碼15分鐘後失效。
+                請查看電子郵件中的 6 位數驗證碼；驗證碼 15 分鐘後失效。
               </p>
             )}
           </>
@@ -325,7 +325,7 @@ function titleFor(mode: Mode): string {
 function actionFor(mode: Mode): string {
   if (mode === "login") return "登入";
   if (mode === "register") return "建立帳戶";
-  if (mode === "verify_registration") return "驗證 Email";
-  if (mode === "forgot") return "建立重設要求";
-  return "設定新密碼並撤銷工作階段";
+  if (mode === "verify_registration") return "驗證電子郵件";
+  if (mode === "forgot") return "取得重設碼";
+  return "設定新密碼並登出其他裝置";
 }

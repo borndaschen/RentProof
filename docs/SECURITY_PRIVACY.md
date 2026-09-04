@@ -156,6 +156,9 @@ flowchart LR
 - Raw conversation text固定7天、到期hidden且24小時內online purge；Guest／Formal Demo／case delete較短規則優先。Typed refs可保留，但excerpt／embedding／index／reversible hash禁止。Backup restore需以21天retention tombstone清除已過期turn，raw text永不進security audit。
 - Hybrid response將security／policy／confirmation／results／priority／CTA鎖在Server templates。LLM explanation只讀verified facts／locators且每segment需source refs／insufficient reason；禁止產生actions／cards。Same-snapshot refs、forbidden phrases與semantic eval失敗均回Server safe template。
 - Refusal、schema invalid、rate limit、網路失敗不會顯示成「沒有問題」。
+- 全站回應除既有CSP、`frame-ancestors 'none'`、nosniff及Permissions Policy外，加入`script-src-attr 'none'`、Cross-Origin-Opener-Policy、Cross-Origin-Resource-Policy與禁止cross-domain policy檔案；敏感JSON routes共用`private, no-store`＋nosniff helper，避免route間安全標頭漂移。
+- Auth request limiter會清除過期scope並限制最多10,000個counter；時鐘倒退、無效時間、空scope或容量耗盡時fail closed且`Retry-After`維持bounded，避免長時間process的記憶體無界成長。LAN使用TLS proxy驗證後的來源IP與高熵session／pre-auth／reset token雜湊分開扣額度，避免單一client耗盡全站共用host bucket。
+- PII acknowledgement、conversation idempotency result與待確認租屋URL使用各自10,000筆硬上限及到期清理；容量滿載不得驅逐仍有效紀錄或覆寫其他actor資料，回typed unavailable error。內部`x-rentproof-source-ip`只由已驗證TLS proxy chain建立，外部同名header在TLS入口拒絕並在Next proxy清除。
 - 所有肯定 finding 有有效 locator。
 - 禁止措辭與 HTML／script escaping 測試通過。
 - OpenAI usage、request ID、model、effort 與 error code 可追蹤，但 log 無原始敏感內容。

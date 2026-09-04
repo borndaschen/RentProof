@@ -5,25 +5,22 @@ export default function PrivacyPage() {
     <LegalPage title="隱私政策草案">
       <h2>目前開發版的資料範圍</h2>
       <p>
-        本機與私人 LAN
-        此展示版只能使用範例資料，不應輸入真實姓名、地址、電話、帳號、身分文件、租約或其他可識別個人的內容。
+        本機展示只能使用虛構範例資料，不應輸入真實姓名、地址、電話、帳號、身分文件、租約或其他可識別個人的內容。私人網路展示只有在安全檢查全部通過後，才可處理必要的真實資料。
       </p>
       <h2>對話與案件資料</h2>
       <p>
-        Raw 對話文字預定最多保存 7 天；Guest 案件、Formal Demo
-        結束或案件刪除等較短期限優先。到期後只保留不含內容的 opaque metadata 與已驗證 typed
-        references。
+        原始對話文字預定最多保存 7
+        天；訪客案件、正式展示結束或案件刪除如有更短期限，會優先適用。到期後只保留不含原文的必要操作紀錄，以及已確認的案件資料來源。
       </p>
-      <h2 id="cloud-processing">OpenAI Cloud Processing</h2>
+      <h2 id="cloud-processing">OpenAI 雲端處理</h2>
       <p>
-        Live 模式只會由 Server 將必要、經 schema 驗證的內容送至 OpenAI Responses API，固定設定
-        store: false。這項設定不等同 Zero Data Retention，也不代表正式資料治理已完成。
+        啟用雲端分析時，系統只會把完成格式與安全檢查的必要內容送至 OpenAI，並要求 OpenAI
+        不儲存這次回覆供後續取用。這項設定不代表資料完全不會被暫時保留，也不代表正式資料治理已完成。
       </p>
       <h2>安全與限制</h2>
       <p>
-        密碼、OTP、API key、session token、完整金融帳號、QR code 與 private key
-        會被阻擋，不保存、不寫入
-        log，也不送給模型。一般個資疑慮會要求使用者明確確認，但偵測不保證完整。
+        密碼、一次性驗證碼、服務金鑰、登入憑證、完整金融帳號、付款 QR Code
+        與私密金鑰會被阻擋，不會保存、寫入系統紀錄或送給模型。遇到一般個人資料疑慮時，系統會要求使用者明確確認，但無法保證找出所有個人資料。
       </p>
       <h2>尚待正式決定</h2>
       <p>

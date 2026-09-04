@@ -1,5 +1,6 @@
 import "server-only";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
+import { isIP } from "node:net";
 import { z } from "zod";
 import type { AccountSessionCookie, AuthRegistrationDatabaseDetail } from "@/application/auth";
 import type { ServerEnvironment } from "@/server/env";
@@ -149,7 +150,7 @@ export function guardAuthRead(
     }
     return authDisabledResponse();
   }
-  return rateLimitResponse(request, action);
+  return rateLimitResponse(request, environment, action);
 }
 
 export function guardAuthMutation(
@@ -158,7 +159,7 @@ export function guardAuthMutation(
   action: string,
 ): Response | null {
   if (!validateSelfHostedAuthMutation(request, environment)) return authDisabledResponse();
-  return rateLimitResponse(request, action);
+  return rateLimitResponse(request, environment, action);
 }
 
 export function authDisabledResponse(): Response {
@@ -335,15 +336,40 @@ export function privateHeaders(): HeadersInit {
   };
 }
 
-function rateLimitResponse(request: Request, action: string): Response | null {
-  const host = request.headers.get("host") ?? "unknown";
-  const result = selfHostedAuthRateLimiter.take(`${action}:${host}`);
-  if (result.allowed) return null;
+function rateLimitResponse(
+  request: Request,
+  environment: ServerEnvironment,
+  action: string,
+): Response | null {
+  const sourceIp =
+    environment.RENTPROOF_DEPLOYMENT_PROFILE === "local_development"
+      ? "127.0.0.1"
+      : request.headers.get("x-rentproof-source-ip");
+  if (sourceIp === null || isIP(sourceIp) !== 4) return rateLimitedResponse(1);
+
+  const names = authCookieNames(environment);
+  const actorToken =
+    readUniqueCookie(request.headers.get("cookie"), names.session) ??
+    readUniqueCookie(request.headers.get("cookie"), names.preauth) ??
+    readUniqueCookie(request.headers.get("cookie"), names.reset);
+  const actorRef = actorToken
+    ? createHash("sha256").update(actorToken, "ascii").digest("hex")
+    : `source-${sourceIp}`;
+  const sourceResult = selfHostedAuthRateLimiter.take(`source:${action}:${sourceIp}`);
+  if (!sourceResult.allowed) {
+    return rateLimitedResponse(sourceResult.retryAfterSeconds ?? 1);
+  }
+  const actorResult = selfHostedAuthRateLimiter.take(`actor:${action}:${actorRef}`);
+  if (actorResult.allowed) return null;
+  return rateLimitedResponse(actorResult.retryAfterSeconds ?? 1);
+}
+
+function rateLimitedResponse(retryAfterSeconds: number): Response {
   return Response.json(
     { error: { code: "AUTH_RATE_LIMITED", message: "要求過於頻繁，請稍後再試。" } },
     {
       status: 429,
-      headers: { ...privateHeaders(), "Retry-After": String(result.retryAfterSeconds ?? 1) },
+      headers: { ...privateHeaders(), "Retry-After": String(retryAfterSeconds) },
     },
   );
 }

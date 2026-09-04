@@ -16,6 +16,7 @@
 - Retention purge worker可清除到期guest、case／account deletion內容、21天tombstone與180天audit metadata；需由正式host排程。
 - 個人Gmail API低量寄送adapter、最小`gmail.send` OAuth邊界、Fixture網路禁用與實際連線寄送已完成。
 - Apache-2.0授權、第三方來源揭露與公開repository安全掃描。
+- 租金補貼頁移除Client-side Zod／Domain runtime，保留Server strict schema與輕量display projection；首載未壓縮JavaScript由857,011降至480,456 bytes。History list／detail同樣改用輕量projection parser，首載由約850KB降至約468KB。敏感JSON routes共用no-store／nosniff helper，History與real-data requests會在元件卸載時中止。
 
 ## 尚待完成
 

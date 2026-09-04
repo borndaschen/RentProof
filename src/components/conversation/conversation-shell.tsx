@@ -14,6 +14,13 @@ import { GoldenUploadPanel } from "@/components/uploads";
 import type { RuntimeStatusProjection } from "@/server/runtime-status";
 
 const maxCodePoints = 2_000;
+const piiKindLabels = {
+  email: "電子郵件",
+  phone: "電話號碼",
+  taiwan_national_id: "身分證字號",
+  full_address: "完整地址",
+} as const;
+type PiiKind = keyof typeof piiKindLabels;
 const PiiWarningResponseSchema = z
   .object({
     error: z.object({ code: z.literal("PII_WARNING_REQUIRED") }).passthrough(),
@@ -21,7 +28,7 @@ const PiiWarningResponseSchema = z
       .object({
         acknowledgementId: z.string().min(20).max(128),
         expiresAt: z.iso.datetime({ offset: true }),
-        piiKinds: z.array(z.string()).max(8),
+        piiKinds: z.array(z.enum(["email", "phone", "taiwan_national_id", "full_address"])).max(4),
       })
       .strict(),
   })
@@ -48,7 +55,7 @@ type PendingPiiWarning = {
   userText: string;
   acknowledgementId: string;
   expiresAt: string;
-  piiKinds: readonly string[];
+  piiKinds: readonly PiiKind[];
 };
 
 function codePointLength(value: string): number {
@@ -77,7 +84,6 @@ function PendingConfirmationCard({
   onApplied?: (revision: number) => void;
 }) {
   const [status, setStatus] = useState<"pending" | "saving" | "applied" | "failed">("pending");
-  const [revision, setRevision] = useState<number | null>(null);
 
   async function confirm() {
     setStatus("saving");
@@ -95,7 +101,6 @@ function PendingConfirmationCard({
       );
       const parsed = ConsumeConfirmationResponseSchema.safeParse(await response.json());
       if (!response.ok || !parsed.success) throw new Error("CONFIRMATION_CONSUME_FAILED");
-      setRevision(parsed.data.revision);
       setStatus("applied");
       onApplied?.(parsed.data.revision);
     } catch {
@@ -108,7 +113,7 @@ function PendingConfirmationCard({
       <strong>{candidateSummary(value.candidate)}</strong>
       <span>確認期限：{new Date(value.expiresAt).toLocaleTimeString("zh-TW")}</span>
       {status === "applied" ? (
-        <p role="status">已確認並寫入案件修訂 {revision}。</p>
+        <p role="status">已確認並更新案件。</p>
       ) : (
         <div className="card-actions">
           <button
@@ -177,14 +182,14 @@ export function ConversationShell({ runtimeStatus }: { runtimeStatus: RuntimeSta
       }
       const parsed = AssistantTurnSchema.safeParse(payload);
       if (!parsed.success) {
-        setError("系統回覆未通過結構驗證，沒有寫入案件。");
+        setError("系統回覆格式有誤，沒有更新案件。請稍後再試。");
         return;
       }
       setSubmittedTurns((turns) => [...turns, { id: requestId, userText, assistant: parsed.data }]);
       setDraft("");
       setPiiWarning(null);
     } catch {
-      setError("連線中斷。內容已保留，請確認 Server 狀態後重試。");
+      setError("連線中斷。內容已保留，請確認網路後重試。");
     } finally {
       setIsSubmitting(false);
     }
@@ -235,8 +240,7 @@ export function ConversationShell({ runtimeStatus }: { runtimeStatus: RuntimeSta
       </header>
       {runtimeStatus.llmMode === "live" && runtimeStatus.projectLimits === "unverified" ? (
         <div className="project-limit-warning" role="alert">
-          OpenAI Project 額度尚未經操作人員確認。Live
-          可能產生費用；請先核對每月上限、警示與模型速率限制。
+          雲端分析的費用保護尚未確認，目前不應執行會產生費用的分析。請由操作人員完成設定。
         </div>
       ) : null}
 
@@ -265,9 +269,7 @@ export function ConversationShell({ runtimeStatus }: { runtimeStatus: RuntimeSta
                   <h2 id="candidate-title">電費由房客負擔</h2>
                 </div>
                 <span className="status-pill">
-                  {fixtureAppliedRevision === null
-                    ? "尚未寫入案件"
-                    : `已寫入修訂 ${fixtureAppliedRevision}`}
+                  {fixtureAppliedRevision === null ? "尚未加入案件" : "已加入案件"}
                 </span>
               </div>
               <p>這是從虛構廣告與契約抽出的候選資料。確認後才會成為案件事實。</p>
@@ -283,7 +285,7 @@ export function ConversationShell({ runtimeStatus }: { runtimeStatus: RuntimeSta
                     type="button"
                     onClick={issueFixtureConfirmation}
                   >
-                    產生確認卡
+                    檢查後加入
                   </button>
                 </div>
               )}
@@ -330,7 +332,7 @@ export function ConversationShell({ runtimeStatus }: { runtimeStatus: RuntimeSta
                 </article>
                 <article className="message assistant">
                   <div className="message-label">
-                    RentProof・{runtimeStatus.llmMode === "live" ? "OpenAI Live" : "Fixture"} 回覆
+                    RentProof・{runtimeStatus.llmMode === "live" ? "AI 協助說明" : "範例說明"}
                   </div>
                   {turn.assistant.segments.map((segment, index) => (
                     <p key={`${turn.id}-segment-${index}`}>{segment.text}</p>
@@ -370,8 +372,7 @@ export function ConversationShell({ runtimeStatus }: { runtimeStatus: RuntimeSta
               aria-describedby="composer-help composer-count"
             />
             <div id="composer-help" className="warning-note">
-              <ShieldAlert aria-hidden="true" size={18} /> HTTP
-              傳輸可能被讀取或修改；請只使用虛構資料。
+              <ShieldAlert aria-hidden="true" size={18} /> 此頁只供範例展示；請勿輸入真實個人資料。
             </div>
             {error ? (
               <p className="composer-error" role="alert">
@@ -382,8 +383,8 @@ export function ConversationShell({ runtimeStatus }: { runtimeStatus: RuntimeSta
               <div className="pii-warning" role="alert">
                 <strong>可能包含個人資料</strong>
                 <p>
-                  偵測類型：{piiWarning.piiKinds.join("、")}。HTTP
-                  首次傳送已可能暴露內容；你可以返回修改，或明確繼續。
+                  可能涉及：{piiWarning.piiKinds.map((kind) => piiKindLabels[kind]).join("、")}
+                  。請先確認內容確實必要；你可以返回修改，或明確繼續。
                 </p>
                 <div className="card-actions">
                   <button
@@ -420,9 +421,9 @@ export function ConversationShell({ runtimeStatus }: { runtimeStatus: RuntimeSta
         </section>
 
         <aside className="workspace-panel" aria-labelledby="workspace-title">
-          <p className="eyebrow">Evidence Workspace</p>
+          <p className="eyebrow">證據工作區</p>
           <h2 id="workspace-title">案件證據工作區</h2>
-          <p className="subtitle">對話與四區工作區使用相同 Snapshot，不在瀏覽器重新判斷結果。</p>
+          <p className="subtitle">對話與四區工作區顯示同一批結果；所有判斷都由系統完成。</p>
           <Tabs.Root className="workspace-tabs" defaultValue="summary">
             <Tabs.List className="workspace-tab-list" aria-label="案件證據區域">
               <Tabs.Trigger className="workspace-tab" value="summary">
@@ -504,7 +505,7 @@ export function ConversationShell({ runtimeStatus }: { runtimeStatus: RuntimeSta
               </p>
             </Tabs.Content>
           </Tabs.Root>
-          <div className="card-actions" aria-label="Golden case 原始素材">
+          <div className="card-actions" aria-label="虛構範例案件原始資料">
             <a
               className="secondary-button"
               href="/api/demo/golden-v1/artifacts/listing-synthetic-listing-png"
@@ -530,9 +531,7 @@ export function ConversationShell({ runtimeStatus }: { runtimeStatus: RuntimeSta
               查看虛構租約
             </a>
           </div>
-          <div className="warning-note">
-            這是預先分析的 Synthetic Fixture，不是法律意見或詐騙判決。
-          </div>
+          <div className="warning-note">這是預先整理的虛構範例，不是法律意見或詐騙判決。</div>
         </aside>
       </div>
       <footer className="site-footer">

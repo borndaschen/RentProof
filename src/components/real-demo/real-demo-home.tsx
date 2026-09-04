@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { REAL_DEMO_CLOUD_CONSENT_TEXT } from "@/application/real-demo/contracts";
 
 type Session =
@@ -28,6 +28,7 @@ const kindLabels = {
 } as const;
 
 export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: boolean }) {
+  const request = useAbortableFetch();
   const [session, setSession] = useState<Session>({ status: "loading", csrfToken: "" });
   const [caseId, setCaseId] = useState<string | null>(null);
   const [caseName, setCaseName] = useState("");
@@ -44,7 +45,12 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
 
   useEffect(() => {
     let active = true;
-    void fetch("/api/auth/session", { cache: "no-store" })
+    const controller = new AbortController();
+    void fetch("/api/auth/session", {
+      cache: "no-store",
+      credentials: "same-origin",
+      signal: controller.signal,
+    })
       .then(async (response) => {
         const data = (await response.json()) as unknown;
         if (!active || !response.ok || !isSessionResponse(data)) return null;
@@ -53,7 +59,11 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
       .then(async (data) => {
         if (!active) return;
         if (data?.status === "signed_out") {
-          const guest = await fetch("/api/guest/session", { cache: "no-store" });
+          const guest = await fetch("/api/guest/session", {
+            cache: "no-store",
+            credentials: "same-origin",
+            signal: controller.signal,
+          });
           if (!active) return;
           setSession(
             guest.ok
@@ -73,6 +83,7 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
       });
     return () => {
       active = false;
+      controller.abort();
     };
   }, []);
 
@@ -83,7 +94,7 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
     setBusy(true);
     setMessage("");
     try {
-      const response = await fetch("/api/real-cases", {
+      const response = await request("/api/real-cases", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -121,7 +132,9 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
     const mime = acceptedMime(file.type);
     const step = nextUploadStep(receipts, listingUrlAdded);
     if (!mime || !step.accepts.includes(mime)) {
-      setMessage(step.kind === "contract_pdf" ? "請選擇PDF格式的租約。" : "請選擇JPEG或PNG照片。");
+      setMessage(
+        step.kind === "contract_pdf" ? "請選擇 PDF 租約檔案。" : "請選擇 JPEG 或 PNG 圖片。",
+      );
       return;
     }
     const kind = step.kind;
@@ -129,7 +142,7 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
     setBusy(true);
     setMessage("正在安全處理檔案…");
     try {
-      const response = await fetch(`/api/real-cases/${encodeURIComponent(caseId)}/uploads`, {
+      const response = await request(`/api/real-cases/${encodeURIComponent(caseId)}/uploads`, {
         method: "POST",
         headers: {
           "Content-Type": "application/octet-stream",
@@ -162,7 +175,7 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
     if (!hasCaseSession(session) || !caseId || busy) return;
     setBusy(true);
     try {
-      const response = await fetch(`/api/real-cases/${encodeURIComponent(caseId)}`, {
+      const response = await request(`/api/real-cases/${encodeURIComponent(caseId)}`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -189,7 +202,7 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
     setBusy(true);
     setMessage("正在整理資料…");
     try {
-      const response = await fetch(`/api/real-cases/${encodeURIComponent(caseId)}/analysis`, {
+      const response = await request(`/api/real-cases/${encodeURIComponent(caseId)}/analysis`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -251,7 +264,7 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
   } | null> {
     if (!targetCaseId || !hasCaseSession(session)) return null;
     try {
-      const response = await fetch(
+      const response = await request(
         `/api/real-cases/${encodeURIComponent(targetCaseId)}/conversation`,
         {
           method: "POST",
@@ -286,7 +299,10 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
     setBusy(true);
     setMessage("正在確認帳戶並保存案件…");
     try {
-      const sessionResponse = await fetch("/api/auth/session", { cache: "no-store" });
+      const sessionResponse = await request("/api/auth/session", {
+        cache: "no-store",
+        credentials: "same-origin",
+      });
       const sessionData = (await sessionResponse.json()) as unknown;
       if (
         !sessionResponse.ok ||
@@ -295,7 +311,7 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
       ) {
         throw new Error("ACCOUNT_REQUIRED");
       }
-      const response = await fetch(`/api/real-cases/${encodeURIComponent(caseId)}/transfer`, {
+      const response = await request(`/api/real-cases/${encodeURIComponent(caseId)}/transfer`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -352,7 +368,7 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
         {session.status === "guest" ? (
           <div className="real-message assistant guest-save-reminder">
             <p>
-              目前以訪客模式使用，資料只屬於這個短期工作階段。若要日後查詢，請
+              目前以訪客模式使用，資料只會在這次訪客使用期間保留。若要日後查詢，請
               <Link href="/auth">登入後保存案件</Link>。
             </p>
           </div>
@@ -676,8 +692,8 @@ function nextUploadStep(receipts: readonly Receipt[], listingUrlAdded = false): 
     return {
       kind: "contract_pdf",
       title: "最後加入租約",
-      prompt: "目前接受文字清楚、未加密的PDF檔案。",
-      inputLabel: "選擇租約PDF",
+      prompt: "目前接受文字清楚、未加密的 PDF 租約檔案。",
+      inputLabel: "選擇 PDF 租約",
       accepts: ["application/pdf"],
     };
   }
@@ -724,3 +740,40 @@ function countStatus(
 }
 
 const RealKinds = ["listing_image", "viewing_image", "contract_pdf", "follow_up_image"];
+
+function useAbortableFetch() {
+  const activeControllers = useRef(new Set<AbortController>());
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    const controllers = activeControllers.current;
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      for (const controller of controllers) controller.abort();
+      controllers.clear();
+    };
+  }, []);
+
+  return useCallback(async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    if (!mounted.current) throw new DOMException("Page unmounted", "AbortError");
+    const controller = new AbortController();
+    const controllers = activeControllers.current;
+    controllers.add(controller);
+    const timeout = setTimeout(() => controller.abort(), 60_000);
+    controller.signal.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timeout);
+        controllers.delete(controller);
+      },
+      { once: true },
+    );
+    try {
+      return await fetch(input, { ...init, signal: controller.signal });
+    } finally {
+      clearTimeout(timeout);
+      controllers.delete(controller);
+    }
+  }, []);
+}

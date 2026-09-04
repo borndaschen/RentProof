@@ -78,7 +78,7 @@ export function ReportDocument({ report }: { report: PreSigningReport }) {
     <main className="report-shell">
       <header className="report-hero">
         <div>
-          <p className="eyebrow">RentProof｜Golden Synthetic Demo</p>
+          <p className="eyebrow">RentProof｜虛構範例報告</p>
           <h1>簽約前確認報告</h1>
           <p className="subtitle">把廣告、現場、契約與付款要求連回可定位來源。</p>
         </div>
@@ -254,27 +254,27 @@ export function ReportDocument({ report }: { report: PreSigningReport }) {
         id="report-sources"
         aria-labelledby="provenance-heading"
       >
-        <p className="eyebrow">列印與重現資訊</p>
-        <h2 id="provenance-heading">Snapshot／Manifest Provenance</h2>
+        <p className="eyebrow">列印與核對資訊</p>
+        <h2 id="provenance-heading">資料版本與完整性</h2>
         <dl>
           <div>
-            <dt>Snapshot</dt>
+            <dt>分析結果版本</dt>
             <dd>
               {report.provenance.snapshotId} · {report.provenance.snapshotVersion}
             </dd>
           </div>
           <div>
-            <dt>Snapshot hash</dt>
+            <dt>分析結果完整性碼</dt>
             <dd>{report.provenance.snapshotHash}</dd>
           </div>
           <div>
-            <dt>Manifest</dt>
+            <dt>素材清單版本</dt>
             <dd>
               {report.provenance.manifestVersion} · {report.provenance.manifestSchema}
             </dd>
           </div>
           <div>
-            <dt>Manifest hash</dt>
+            <dt>素材清單完整性碼</dt>
             <dd>{report.provenance.manifestHash}</dd>
           </div>
         </dl>

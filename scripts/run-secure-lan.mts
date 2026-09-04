@@ -171,6 +171,7 @@ function safeIncomingHeaders(
     "x-host",
     "proxy-connection",
     "x-rentproof-network-verified",
+    "x-rentproof-source-ip",
   ].some((name) => headers[name] !== undefined);
 }
 

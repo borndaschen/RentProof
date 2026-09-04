@@ -14,6 +14,13 @@ export default function proxy(request: NextRequest) {
   }
   const boundary = validateGlobalNetworkBoundary(request.headers, environment);
   if (!boundary.ok) return networkBoundaryError(400);
+  const trustedSourceIp =
+    environment.RENTPROOF_DEPLOYMENT_PROFILE === "lan_secure_demo" &&
+    environment.RENTPROOF_INTERNAL_PROXY_TOKEN !== undefined &&
+    request.headers.get("x-rentproof-network-verified") ===
+      environment.RENTPROOF_INTERNAL_PROXY_TOKEN
+      ? request.headers.get("x-forwarded-for")
+      : null;
   const sanitizedHeaders = sanitizedDirectRequestHeaders(request.headers);
   if (
     environment.RENTPROOF_DEPLOYMENT_PROFILE === "lan_secure_demo" &&
@@ -23,6 +30,7 @@ export default function proxy(request: NextRequest) {
       "x-rentproof-network-verified",
       environment.RENTPROOF_INTERNAL_PROXY_TOKEN,
     );
+    if (trustedSourceIp !== null) sanitizedHeaders.set("x-rentproof-source-ip", trustedSourceIp);
   }
   return NextResponse.next({ request: { headers: sanitizedHeaders } });
 }

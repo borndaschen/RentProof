@@ -6,7 +6,7 @@ import { getServerEnvironment } from "@/server/env";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Golden 簽約前報告｜RentProof",
+  title: "虛構範例簽約前報告｜RentProof",
   description: "完全虛構的 RentProof 簽約前確認報告。",
 };
 

@@ -48,14 +48,51 @@ export type IssuePiiAcknowledgement = {
 export type ConsumePiiAcknowledgementResult =
   { ok: true } | { ok: false; code: "PII_ACK_EXPIRED" | "PII_ACK_STALE" | "PII_ACK_ALREADY_USED" };
 
+export const PII_ACKNOWLEDGEMENT_MAX_RECORDS = 10_000;
+export const PII_ACKNOWLEDGEMENT_TERMINAL_RETENTION_MS =
+  CONVERSATION_LIMITS.piiAcknowledgementTtlMs;
+
+export class PiiAcknowledgementStoreCapacityError extends Error {
+  constructor() {
+    super("PII_ACK_STORE_CAPACITY_EXCEEDED");
+    this.name = "PiiAcknowledgementStoreCapacityError";
+  }
+}
+
+type InMemoryPiiAcknowledgementStoreOptions = Readonly<{
+  maxRecords?: number;
+  terminalRetentionMs?: number;
+}>;
+
 export class InMemoryPiiAcknowledgementStore {
   readonly #records = new Map<string, PiiAcknowledgementRecord>();
+  readonly #maxRecords: number;
+  readonly #terminalRetentionMs: number;
+
+  constructor(options: InMemoryPiiAcknowledgementStoreOptions = {}) {
+    this.#maxRecords = options.maxRecords ?? PII_ACKNOWLEDGEMENT_MAX_RECORDS;
+    this.#terminalRetentionMs =
+      options.terminalRetentionMs ?? PII_ACKNOWLEDGEMENT_TERMINAL_RETENTION_MS;
+    if (!Number.isSafeInteger(this.#maxRecords) || this.#maxRecords < 1) {
+      throw new RangeError("maxRecords must be a positive safe integer");
+    }
+    if (!Number.isSafeInteger(this.#terminalRetentionMs) || this.#terminalRetentionMs < 0) {
+      throw new RangeError("terminalRetentionMs must be a non-negative safe integer");
+    }
+  }
 
   issue(input: IssuePiiAcknowledgement): {
     acknowledgementId: string;
     expiresAt: string;
   } {
     const nowMs = input.nowMs ?? Date.now();
+    if (!Number.isSafeInteger(nowMs) || nowMs < 0) {
+      throw new RangeError("nowMs must be a non-negative safe integer");
+    }
+    this.#prune(nowMs);
+    if (this.#records.size >= this.#maxRecords) {
+      throw new PiiAcknowledgementStoreCapacityError();
+    }
     const acknowledgementId = randomBytes(32).toString("base64url");
     const acknowledgementIdHash = sha256(acknowledgementId);
     const record = PiiAcknowledgementRecordSchema.parse({
@@ -76,10 +113,11 @@ export class InMemoryPiiAcknowledgementStore {
 
   consume(untrustedCommand: unknown, nowMs = Date.now()): ConsumePiiAcknowledgementResult {
     const parsed = ConsumePiiAcknowledgementSchema.safeParse(untrustedCommand);
-    if (!parsed.success || !Number.isFinite(nowMs) || nowMs < 0) {
+    if (!parsed.success || !Number.isSafeInteger(nowMs) || nowMs < 0) {
       return { ok: false, code: "PII_ACK_STALE" };
     }
 
+    this.#prune(nowMs);
     const command = parsed.data;
     const idHash = sha256(command.acknowledgementId);
     const record = this.#records.get(idHash);
@@ -117,6 +155,13 @@ export class InMemoryPiiAcknowledgementStore {
     const record = this.#records.get(idHash);
     if (record?.status === "pending") {
       this.#records.set(idHash, { ...record, status: "revoked" });
+    }
+  }
+
+  #prune(nowMs: number): void {
+    for (const [idHash, record] of this.#records) {
+      const purgeAt = Date.parse(record.expiresAt) + this.#terminalRetentionMs;
+      if (nowMs >= purgeAt) this.#records.delete(idHash);
     }
   }
 }

@@ -53,7 +53,7 @@ describe("AuthPanel", () => {
     render(<AuthPanel />);
     await screen.findByRole("heading", { name: "登入 RentProof" });
     await user.tab();
-    expect(screen.getByLabelText("Email")).toHaveFocus();
+    expect(screen.getByLabelText("電子郵件")).toHaveFocus();
     await user.tab();
     expect(screen.getByLabelText("密碼")).toHaveFocus();
     await user.tab();
@@ -68,8 +68,8 @@ describe("AuthPanel", () => {
       );
     const user = userEvent.setup();
     render(<AuthPanel />);
-    await screen.findByLabelText("Email");
-    await user.type(screen.getByLabelText("Email"), "renter@example.test");
+    await screen.findByLabelText("電子郵件");
+    await user.type(screen.getByLabelText("電子郵件"), "renter@example.test");
     await user.type(screen.getByLabelText("密碼"), "correct-password");
     await user.click(screen.getAllByRole("button", { name: "登入" })[0]!);
     await waitFor(() => expect(mocks.routerReplace).toHaveBeenCalledWith("/history"));
@@ -96,12 +96,12 @@ describe("AuthPanel", () => {
     render(<AuthPanel />);
     await screen.findByRole("heading", { name: "登入 RentProof" });
     await user.click(screen.getByRole("button", { name: "註冊" }));
-    await user.type(screen.getByLabelText("Email"), "new@example.test");
+    await user.type(screen.getByLabelText("電子郵件"), "new@example.test");
     await user.type(screen.getByLabelText("密碼"), "new-password-12");
     await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: "建立帳戶" }));
     expect(await screen.findByText(/驗證碼已準備完成/u)).toBeVisible();
-    expect(screen.getByRole("button", { name: "驗證 Email" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "驗證電子郵件" })).toBeVisible();
     expect(screen.getByRole("link", { name: "帳戶驗證中心" })).toHaveAttribute(
       "href",
       "/auth/dev-mailbox",
@@ -140,10 +140,10 @@ describe("AuthPanel", () => {
     render(<AuthPanel />);
     await screen.findByRole("heading", { name: "登入 RentProof" });
     await user.click(screen.getByRole("button", { name: "忘記密碼" }));
-    await user.type(screen.getByLabelText("Email"), "nobody@example.invalid");
-    await user.click(screen.getByRole("button", { name: "建立重設要求" }));
+    await user.type(screen.getByLabelText("電子郵件"), "nobody@example.invalid");
+    await user.click(screen.getByRole("button", { name: "取得重設碼" }));
     expect(await screen.findByText(/若帳戶存在/u)).toBeVisible();
-    const codeInput = screen.getByLabelText("Email 驗證碼");
+    const codeInput = screen.getByLabelText("電子郵件驗證碼");
     expect(codeInput).toBeVisible();
     expect(codeInput).toHaveAttribute("inputmode", "numeric");
     expect(codeInput).toHaveAttribute("autocomplete", "one-time-code");
@@ -153,7 +153,7 @@ describe("AuthPanel", () => {
     const resetCode = "123456";
     await user.type(codeInput, resetCode);
     await user.type(screen.getByLabelText("新密碼"), "replacement-password");
-    await user.click(screen.getByRole("button", { name: "設定新密碼並撤銷工作階段" }));
+    await user.click(screen.getByRole("button", { name: "設定新密碼並登出其他裝置" }));
     expect(await screen.findByText(/若重設要求有效/u)).toBeVisible();
     expect(mockedFetch.mock.calls[1]![0]).toBe("/api/auth/password-reset/request");
     expect(mockedFetch.mock.calls[2]![0]).toBe("/api/auth/password-reset/complete");
@@ -170,10 +170,10 @@ describe("AuthPanel", () => {
     render(<AuthPanel usesExternalEmail />);
     await screen.findByRole("heading", { name: "登入 RentProof" });
     await user.click(screen.getByRole("button", { name: "忘記密碼" }));
-    await user.type(screen.getByLabelText("Email"), "account@example.test");
-    await user.click(screen.getByRole("button", { name: "建立重設要求" }));
-    expect(await screen.findByText(/6位數重設碼已寄至/u)).toBeVisible();
-    expect(screen.getByText(/請查看Email中的6位數驗證碼/u)).toBeVisible();
+    await user.type(screen.getByLabelText("電子郵件"), "account@example.test");
+    await user.click(screen.getByRole("button", { name: "取得重設碼" }));
+    expect(await screen.findByText(/6 位數重設碼已寄至/u)).toBeVisible();
+    expect(screen.getByText(/請查看電子郵件中的 6 位數驗證碼/u)).toBeVisible();
     expect(screen.queryByRole("link", { name: "帳戶驗證中心" })).not.toBeInTheDocument();
   });
 
@@ -183,8 +183,8 @@ describe("AuthPanel", () => {
       .mockResolvedValueOnce(new Response("provider secret detail", { status: 503 }));
     const user = userEvent.setup();
     render(<AuthPanel />);
-    await screen.findByLabelText("Email");
-    await user.type(screen.getByLabelText("Email"), "account@example.test");
+    await screen.findByLabelText("電子郵件");
+    await user.type(screen.getByLabelText("電子郵件"), "account@example.test");
     await user.type(screen.getByLabelText("密碼"), "incorrect-password");
     await user.click(screen.getAllByRole("button", { name: "登入" })[0]!);
     expect(await screen.findByRole("status")).toHaveTextContent("系統不會透露帳戶是否存在");
@@ -201,9 +201,7 @@ describe("AuthPanel", () => {
     expect(await screen.findByRole("heading", { name: "我的帳戶" })).toBeVisible();
     expect(screen.queryByLabelText("密碼")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "登出" }));
-    expect(
-      await screen.findByText("已安全登出。另一個有效要求才會再次建立工作階段。"),
-    ).toBeVisible();
+    expect(await screen.findByText("已安全登出。下次必須重新登入才能使用帳戶。")).toBeVisible();
     expect(mockedFetch.mock.calls[1]![0]).toBe("/api/auth/logout");
     expect(mocks.routerRefresh).toHaveBeenCalledOnce();
   });

@@ -85,6 +85,7 @@ describe("ConversationShell", () => {
     await user.click(screen.getByRole("button", { name: /送出/u }));
 
     expect(await screen.findByText("可能包含個人資料")).toBeVisible();
+    expect(screen.getByText(/可能涉及：電子郵件/u)).toBeVisible();
     expect(screen.getByRole("button", { name: "返回修改" })).toBeVisible();
     expect(screen.getByRole("button", { name: "我了解，仍要送出" })).toBeVisible();
     expect(input).toHaveValue("example@example.com");
@@ -143,7 +144,7 @@ describe("ConversationShell", () => {
     await user.type(input, "保留這段草稿");
     await user.click(screen.getByRole("button", { name: "送出" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "系統回覆未通過結構驗證，沒有寫入案件。",
+      "系統回覆格式有誤，沒有更新案件。請稍後再試。",
     );
     expect(input).toHaveValue("保留這段草稿");
   });
@@ -216,10 +217,10 @@ describe("ConversationShell", () => {
     const user = userEvent.setup();
     render(<ConversationShell runtimeStatus={runtimeStatus} />);
 
-    await user.click(screen.getByRole("button", { name: "產生確認卡" }));
+    await user.click(screen.getByRole("button", { name: "檢查後加入" }));
     const confirm = await screen.findByRole("button", { name: "確認並加入案件" });
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(screen.getByText("尚未寫入案件")).toBeVisible();
+    expect(screen.getByText("尚未加入案件")).toBeVisible();
     expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/cases/golden-v1/confirmations");
     expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
       method: "POST",
@@ -227,7 +228,7 @@ describe("ConversationShell", () => {
       body: JSON.stringify({ candidateKey: "fixture_electricity_payer_tenant" }),
     });
     await user.click(confirm);
-    expect(await screen.findByText("已確認並寫入案件修訂 1。")).toBeVisible();
+    expect(await screen.findByText("已確認並更新案件。")).toBeVisible();
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
       "/api/cases/golden-v1/confirmations/confirmation_fixture_000001",
@@ -249,7 +250,7 @@ describe("ConversationShell", () => {
     );
     vi.stubGlobal("fetch", issueFailure);
     const firstRender = render(<ConversationShell runtimeStatus={runtimeStatus} />);
-    await user.click(screen.getByRole("button", { name: "產生確認卡" }));
+    await user.click(screen.getByRole("button", { name: "檢查後加入" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "確認卡目前無法建立；案件內容沒有變更。",
     );
@@ -283,10 +284,10 @@ describe("ConversationShell", () => {
       );
     vi.stubGlobal("fetch", consumeFailure);
     render(<ConversationShell runtimeStatus={runtimeStatus} />);
-    await user.click(screen.getByRole("button", { name: "產生確認卡" }));
+    await user.click(screen.getByRole("button", { name: "檢查後加入" }));
     await user.click(await screen.findByRole("button", { name: "確認並加入案件" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("確認失敗；案件內容沒有變更。");
-    expect(screen.getByText("尚未寫入案件")).toBeVisible();
+    expect(screen.getByText("尚未加入案件")).toBeVisible();
   });
 
   it("uses semantic sections without presenting prohibited verdict labels", () => {
@@ -316,7 +317,7 @@ describe("ConversationShell", () => {
     );
 
     expect(screen.queryByText(/OpenAI Live・Golden v1.*P0 六條規則/u)).not.toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveTextContent("OpenAI Project 額度尚未經操作人員確認");
+    expect(screen.getByRole("alert")).toHaveTextContent("雲端分析的費用保護尚未確認");
   });
 
   it("does not show a Project warning when limits are operator-confirmed", () => {
@@ -326,6 +327,6 @@ describe("ConversationShell", () => {
       />,
     );
 
-    expect(screen.queryByText(/OpenAI Project 額度尚未/u)).not.toBeInTheDocument();
+    expect(screen.queryByText(/雲端分析的費用保護尚未確認/u)).not.toBeInTheDocument();
   });
 });

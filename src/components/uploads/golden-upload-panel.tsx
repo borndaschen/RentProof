@@ -12,6 +12,12 @@ import {
 
 const OpaqueIdSchema = z.string().regex(/^[A-Za-z0-9_-]{20,128}$/u);
 const Sha256Schema = z.string().regex(/^[a-f0-9]{64}$/u);
+const ClaimIdSchema = z.enum([
+  "claim-rent",
+  "claim-washing-machine",
+  "claim-electricity-rate",
+  "claim-rent-subsidy",
+]);
 const UploadReceiptSchema = z
   .object({
     schemaVersion: z.literal("rentproof.synthetic-upload-receipt.v1"),
@@ -50,7 +56,7 @@ const UploadReceiptSchema = z
   });
 const FindingSummarySchema = z
   .object({
-    claimId: z.string().min(1).max(128),
+    claimId: ClaimIdSchema,
     status: z.enum(["supported", "contradicted", "insufficient_evidence"]),
     sourceRefs: z.array(z.string().min(1).max(160)).min(1).max(8),
   })
@@ -191,6 +197,13 @@ type AnalysisState =
 type FollowUpState =
   | { status: "idle" | "pending" | "failure" }
   | { status: "success"; result: z.infer<typeof FollowUpResultViewSchema> };
+
+const claimLabels: Readonly<Record<z.infer<typeof ClaimIdSchema>, string>> = {
+  "claim-rent": "月租金額",
+  "claim-washing-machine": "洗衣機承諾",
+  "claim-electricity-rate": "電費單價",
+  "claim-rent-subsidy": "租金補貼承諾",
+};
 
 const GOLDEN_ARTIFACTS = [
   {
@@ -351,12 +364,12 @@ export function GoldenUploadPanel() {
     <section className="evidence-card" aria-labelledby="golden-upload-title">
       <div className="card-heading">
         <div>
-          <p className="eyebrow">Synthetic Golden 素材</p>
+          <p className="eyebrow">虛構範例資料</p>
           <h2 id="golden-upload-title">載入已封存的虛構證據</h2>
         </div>
         <span className="status-pill">固定 4 項</span>
       </div>
-      <p>HTTP 開發模式只允許下列已封存素材。這裡沒有真實檔案選擇、拖放、網址或自由上傳入口。</p>
+      <p>這個展示只接受下列已封存的虛構資料，不提供真實檔案、拖放、網址或自由上傳入口。</p>
       <ul className="workspace-list">
         {GOLDEN_ARTIFACTS.map((artifact) => {
           const state = states[artifact.artifactId];
@@ -402,15 +415,16 @@ export function GoldenUploadPanel() {
         </p>
       ) : null}
       {analysisState.status === "success" ? (
-        <div className="fixture-analysis-result" role="region" aria-label="Golden 分析結果">
+        <div className="fixture-analysis-result" role="region" aria-label="範例分析結果">
           <strong>
-            已建立{analysisState.snapshot.executionMode === "live" ? " OpenAI Live" : " Fixture"}{" "}
-            Snapshot
+            {analysisState.snapshot.executionMode === "live"
+              ? "已完成 OpenAI 雲端分析"
+              : "已載入預先整理結果"}
           </strong>
           <ul>
             {analysisState.snapshot.findings.map((finding) => (
               <li key={finding.claimId}>
-                {finding.claimId}：{findingStatusLabel(finding.status)}
+                {claimLabels[finding.claimId]}：{findingStatusLabel(finding.status)}
               </li>
             ))}
           </ul>
@@ -435,12 +449,12 @@ export function GoldenUploadPanel() {
       ) : null}
       {followUpState.status === "failure" ? (
         <p className="composer-error" role="alert">
-          補拍更新未完成；原 Snapshot 與判斷維持不變。
+          補拍更新未完成；原有結果與判斷維持不變。
         </p>
       ) : null}
       {followUpState.status === "success" ? (
         <div className="fixture-analysis-result" role="region" aria-label="牆面補拍更新結果">
-          <strong>已建立局部更新 Snapshot</strong>
+          <strong>已完成局部更新</strong>
           <p>{followUpState.result.wallObservation.description}</p>
           <ul>
             {followUpState.result.wallFinding.actions.map((action) => (
@@ -457,7 +471,8 @@ export function GoldenUploadPanel() {
         </div>
       ) : null}
       <div className="warning-note" role="note">
-        僅限 Synthetic 開發資料；Live 模式會送往 OpenAI Cloud，但不得用於真實租約、個資或正式證據。
+        僅限虛構範例資料。啟用雲端分析時，內容會傳送至
+        OpenAI；不得用於真實租約、個人資料或正式證據。
       </div>
     </section>
   );
@@ -480,10 +495,10 @@ function findingStatusLabel(status: "supported" | "contradicted" | "insufficient
 
 function UploadStatus({ state }: { state: UploadState }) {
   if (state.status === "pending") {
-    return <span role="status">正在取得並驗證 sealed bytes。</span>;
+    return <span role="status">正在取得檔案並確認內容完整。</span>;
   }
   if (state.status === "failure") {
-    return <span role="alert">載入失敗；未建立任何素材收據。</span>;
+    return <span role="alert">載入失敗；沒有加入任何資料。</span>;
   }
   if (state.status === "success") {
     return state.receipt.media.type === "image" ? (

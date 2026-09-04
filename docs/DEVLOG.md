@@ -2,6 +2,32 @@
 
 本檔記錄已完成的事實與驗證，不把規劃中的工作寫成已完成。最新紀錄放最上方。
 
+## 2026-09-04 — 全域安全、效能、除錯、UI／UX與程式收斂
+
+### 已完成
+
+- 安全：CSP新增`script-src-attr 'none'`，全站補Cross-Origin-Opener／Resource Policy及禁止cross-domain policy；新增行為測試。Real case、Guest與補貼API改用共用`private, no-store`＋nosniff response helper，移除各route重複實作。
+- 安全／效能：Auth rate limiter新增過期counter清理、10,000-scope容量上限、無效時間／空scope fail-closed及時鐘倒退bounded retry，並改用TLS proxy驗證後的來源IP＋session／pre-auth／reset token雜湊雙層bucket，避免全站共用host bucket與長時間process記憶體無界成長。外部來源不得注入內部IP header；TLS與Next proxy間仍重驗單一IP及proxy marker。
+- 安全／效能：PII acknowledgement store加入10,000筆硬上限、TTL後10分鐘typed reason保留及清理；conversation completed-turn與pending-listing maps改用可測試的10,000筆expiring bounded map。容量滿載不驅逐live紀錄，而以typed 503 fail closed。
+- 效能／精簡：補貼Client不再載入Zod與Domain runtime，改為Server唯一strict schema＋Client最小display projection。Next route bundle統計的`/rent-subsidy`首載未壓縮JS由857,011降至480,456 bytes，減少376,555 bytes（44.0%）。History list／detail亦移除Client Zod/application runtime，首載分別由850,551／849,844降至467,999／467,606 bytes，約減少45.0%。
+- 除錯／UX：補貼Client區分來源過期typed 503與一般錯誤，顯示「官方資料待更新」；拒絕重複criterion／source、非官方URL或錯誤版本。結果與明細使用初步相符／有待確認／資料不足三種不同語意線，不再全部呈現成功色。
+- 效能：History list、History detail與Real Data首頁的初始fetch在元件卸載時會Abort，並明確使用same-origin credentials／no-store，避免離頁後仍保留不必要request。
+- 自然語言：一般頁面移除Fixture、Golden、Synthetic、Server、Client、Snapshot、Manifest、schema及Project等工程詞；內部claim／status／reason不直接顯示，改為「洗衣機承諾」「有項目待確認」等租屋者可理解文字。PII warning只把allowlisted code映射成中文類型，未知code不回顯。
+
+### 驗證
+
+- 最終Coverage為149 files／1,391 tests通過；statements 85.64%、branches 80.79%、functions 89.74%、lines 88.46%。安全／記憶體／來源IP／自然語言／UI聚焦回歸另有11 files／112 tests及多組agent獨立測試通過。
+- Prettier、TypeScript、ESLint、612-file Security Gate及Next Production Build通過，並以route bundle stats量測上述差異。
+- Playwright desktop／mobile為25 passed／3個既有mobile singleton mutation案例依設計skip；包含補貼360 px、axe、結果焦點、自然語言確認與既有報告／網路邊界流程。
+- `pnpm audit --prod`已嘗試，但npm registry advisories endpoint三次皆timeout；不得把外部查核失敗記成零漏洞。Repository Security Gate與完整測試仍由最終Gate執行。
+
+### 尚未完成／風險
+
+- Production dependency advisory仍需在registry恢復後重跑；本次保留明確外部查核失敗紀錄。
+- CSP仍需Next.js inline bootstrap相容性而保留`script-src 'unsafe-inline'`；本次以禁止script attribute、cross-origin isolation與既有無raw HTML控制縮小風險。若未來導入request nonce，必須先完成Next App Router production hydration與LAN E2E。
+
+---
+
 ## 2026-09-04 — README依作品模板重整
 
 ### 已完成

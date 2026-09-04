@@ -34,12 +34,20 @@ describe("HistoryClientPage", () => {
         ],
       }),
     );
-    render(<HistoryClientPage />);
+    const { unmount } = render(<HistoryClientPage />);
     expect(await screen.findByText("南京東路套房")).toBeVisible();
-    expect(mockedFetch).toHaveBeenCalledWith("/api/history", {
-      cache: "no-store",
-      credentials: "same-origin",
-    });
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "/api/history",
+      expect.objectContaining({
+        cache: "no-store",
+        credentials: "same-origin",
+        signal: expect.any(AbortSignal),
+      }),
+    );
+    const requestOptions = mockedFetch.mock.calls[0]?.[1];
+    expect(requestOptions?.signal?.aborted).toBe(false);
+    unmount();
+    expect(requestOptions?.signal?.aborted).toBe(true);
   });
 
   it("fails closed on an untyped payload", async () => {

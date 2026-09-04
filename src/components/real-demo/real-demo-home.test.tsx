@@ -14,6 +14,36 @@ vi.mock("next/link", () => ({
 afterEach(() => vi.unstubAllGlobals());
 
 describe("RealDemoHome", () => {
+  it("aborts an in-flight session request when the page unmounts", () => {
+    const fetchMock = vi.fn<typeof fetch>(() => new Promise<Response>(() => undefined));
+    vi.stubGlobal("fetch", fetchMock);
+    const { unmount } = render(<RealDemoHome />);
+    const signal = fetchMock.mock.calls[0]?.[1]?.signal;
+    expect(signal).toBeInstanceOf(AbortSignal);
+    expect(signal?.aborted).toBe(false);
+    unmount();
+    expect(signal?.aborted).toBe(true);
+  });
+
+  it("aborts an in-flight case mutation when the page unmounts", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ status: "authenticated", csrfToken: "c".repeat(43) }))
+      .mockImplementationOnce(() => new Promise<Response>(() => undefined));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    const { unmount } = render(<RealDemoHome />);
+    await user.type(await screen.findByLabelText("輸入訊息"), "未完成案件");
+    await user.click(screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("button", { name: "傳送" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    const signal = fetchMock.mock.calls[1]?.[1]?.signal;
+    expect(signal).toBeInstanceOf(AbortSignal);
+    expect(signal?.aborted).toBe(false);
+    unmount();
+    expect(signal?.aborted).toBe(true);
+  });
+
   it("lets a signed-out visitor start with a guest session", async () => {
     vi.stubGlobal(
       "fetch",
@@ -43,7 +73,7 @@ describe("RealDemoHome", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     const request = fetchMock.mock.calls[1];
     expect(request?.[0]).toBe("/api/real-cases");
-    expect(request?.[1]).toMatchObject({ method: "POST" });
+    expect(request?.[1]).toMatchObject({ method: "POST", signal: expect.any(AbortSignal) });
     expect(String(request?.[1]?.body)).toContain('"cloudProcessingAcknowledged":true');
     expect((await axe(container)).violations).toHaveLength(0);
   });
@@ -211,7 +241,7 @@ describe("RealDemoHome", () => {
     await user.click(screen.getByRole("button", { name: "傳送" }));
     await screen.findByText("看屋照片已安全加入。");
 
-    expect(await screen.findByText(/文字清楚、未加密的PDF/u)).toBeVisible();
+    expect(await screen.findByText(/文字清楚、未加密的 PDF/u)).toBeVisible();
     fileInput = await screen.findByLabelText("加入附件");
     await user.upload(fileInput, new File(["pdf"], "contract.pdf", { type: "application/pdf" }));
     await user.click(screen.getByRole("button", { name: "傳送" }));

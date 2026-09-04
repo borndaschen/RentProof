@@ -64,10 +64,10 @@ describe("HistoryList", () => {
       />,
     );
 
-    expect(screen.getByText("草稿")).toBeVisible();
-    expect(screen.getByText("分析中")).toBeVisible();
-    expect(screen.getByText("待確認")).toBeVisible();
-    expect(screen.getByText("可查看")).toBeVisible();
+    expect(screen.getByText("準備資料中")).toBeVisible();
+    expect(screen.getByText("正在整理")).toBeVisible();
+    expect(screen.getByText("有項目待確認")).toBeVisible();
+    expect(screen.getByText("可查看結果")).toBeVisible();
     expect(screen.getByRole("link", { name: /草稿案件/u })).toHaveAttribute(
       "href",
       "/history/case%2Fdraft",

@@ -38,7 +38,7 @@ const request = (text: string, acknowledgementId?: string, fixedKey?: string) =>
       headers: {
         origin: "https://127.0.0.1:3443",
         "idempotency-key": fixedKey ?? `turn_${String((requestNumber += 1)).padStart(20, "0")}`,
-        "x-forwarded-for": `203.0.113.${String(requestNumber)}`,
+        "x-rentproof-source-ip": `203.0.113.${String(requestNumber)}`,
         ...(acknowledgementId ? { "pii-acknowledgement": acknowledgementId } : {}),
       },
       body: JSON.stringify({ text }),

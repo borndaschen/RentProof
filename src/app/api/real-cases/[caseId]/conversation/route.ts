@@ -5,6 +5,7 @@ import {
   detectSensitiveConversationContent,
   InMemoryConversationRateLimiter,
   InMemoryPiiAcknowledgementStore,
+  PiiAcknowledgementStoreCapacityError,
 } from "@/application/conversation/security";
 import { createListingUrlService } from "@/application/listing-url";
 import type { ActorContext } from "@/application/repositories";
@@ -13,11 +14,13 @@ import { OpaqueIdSchema } from "@/domain/conversation";
 import { resolveCurrentCaseActor } from "@/server/auth/current-actor";
 import { validateSelfHostedAuthMutation } from "@/server/auth/request-guard";
 import { getServerEnvironment } from "@/server/env";
+import { privateNoStoreHeaders } from "@/server/http/private-response";
+import { ExpiringBoundedMap } from "@/server/memory/expiring-bounded-map";
 import { getRealDemoRuntime } from "@/server/real-demo";
 
 export const runtime = "nodejs";
 
-const pendingListingUrls = new Map<
+const pendingListingUrls = new ExpiringBoundedMap<
   string,
   {
     expectedRevision: number;
@@ -26,14 +29,14 @@ const pendingListingUrls = new Map<
     contentHash: string;
     expiresAt: number;
   }
->();
+>(10_000);
 const rateLimiter = new InMemoryConversationRateLimiter();
 const piiAcknowledgements = new InMemoryPiiAcknowledgementStore();
 const activeCases = new Set<string>();
-const completedTurns = new Map<
+const completedTurns = new ExpiringBoundedMap<
   string,
   { payloadHash: string; response: Record<string, unknown> | null; expiresAt: number }
->();
+>(10_000);
 
 export async function POST(
   request: Request,
@@ -80,7 +83,7 @@ export async function POST(
     if (!OpaqueIdSchema.safeParse(idempotencyKey).success) {
       return errorResponse(400, "IDEMPOTENCY_KEY_REQUIRED");
     }
-    pruneCompletedTurns();
+    completedTurns.prune();
     const turnKey = `${actorRef}:${caseId}:${idempotencyKey}`;
     const payloadHash = createHash("sha256").update(normalized.value, "utf8").digest("hex");
     const previous = completedTurns.get(turnKey);
@@ -89,12 +92,12 @@ export async function POST(
         return errorResponse(409, "IDEMPOTENCY_KEY_PAYLOAD_MISMATCH");
       }
       return previous.response
-        ? Response.json(previous.response, { headers: privateHeaders() })
+        ? Response.json(previous.response, { headers: privateNoStoreHeaders() })
         : errorResponse(409, "CONVERSATION_TURN_IN_PROGRESS");
     }
     const rate = rateLimiter.consume({
       actorRef,
-      sourceIp: request.headers.get("x-forwarded-for") ?? "verified-direct-client",
+      sourceIp: request.headers.get("x-rentproof-source-ip") ?? "verified-direct-client",
     });
     if (!rate.ok) {
       return Response.json(
@@ -102,7 +105,7 @@ export async function POST(
         {
           status: 429,
           headers: {
-            ...privateHeaders(),
+            ...privateNoStoreHeaders(),
             "Retry-After": String(rate.retryAfterSeconds),
           },
         },
@@ -114,13 +117,15 @@ export async function POST(
       response: null as Record<string, unknown> | null,
       expiresAt: Date.now() + 24 * 60 * 60 * 1_000,
     };
-    completedTurns.set(turnKey, turnRecord);
+    if (!completedTurns.set(turnKey, turnRecord)) {
+      return errorResponse(503, "CONVERSATION_IDEMPOTENCY_STORE_UNAVAILABLE");
+    }
     activeCases.add(caseId);
     let completed = false;
     const respond = (payload: Record<string, unknown>): Response => {
       turnRecord.response = payload;
       completed = true;
-      return Response.json(payload, { headers: privateHeaders() });
+      return Response.json(payload, { headers: privateNoStoreHeaders() });
     };
     try {
       const realRuntime = await getRealDemoRuntime();
@@ -142,7 +147,7 @@ export async function POST(
               expiresAt: acknowledgement.expiresAt,
               piiKinds: sensitive.piiKinds,
             },
-            { status: 422, headers: privateHeaders() },
+            { status: 422, headers: privateNoStoreHeaders() },
           );
         }
         const consumed = piiAcknowledgements.consume({
@@ -156,7 +161,7 @@ export async function POST(
       }
       const intent = recognizeRealConversationIntent(normalized.value);
       const pendingKey = actorCaseKey(actor, caseId);
-      prunePending();
+      pendingListingUrls.prune();
       if (intent.kind === "listing_url_candidate") {
         const allowedHosts = parseAllowedListingHosts(
           process.env["RENTPROOF_LISTING_URL_ALLOWED_HOSTS"],
@@ -166,13 +171,17 @@ export async function POST(
           const extracted = await createListingUrlService(
             createListingUrlFetcher({ allowedHosts }),
           ).extract(intent.url);
-          pendingListingUrls.set(pendingKey, {
-            expectedRevision: caseContext.revision,
-            sourceUrl: extracted.sourceUrl,
-            text: extracted.text,
-            contentHash: createHash("sha256").update(extracted.text, "utf8").digest("hex"),
-            expiresAt: Date.now() + 10 * 60 * 1_000,
-          });
+          if (
+            !pendingListingUrls.set(pendingKey, {
+              expectedRevision: caseContext.revision,
+              sourceUrl: extracted.sourceUrl,
+              text: extracted.text,
+              contentHash: createHash("sha256").update(extracted.text, "utf8").digest("hex"),
+              expiresAt: Date.now() + 10 * 60 * 1_000,
+            })
+          ) {
+            return errorResponse(503, "LISTING_URL_PENDING_STORE_UNAVAILABLE");
+          }
           return respond({
             schemaVersion: "rentproof.real-conversation-intent.v1",
             intent,
@@ -220,6 +229,9 @@ export async function POST(
       if (!completed) completedTurns.delete(turnKey);
     }
   } catch (error) {
+    if (error instanceof PiiAcknowledgementStoreCapacityError) {
+      return errorResponse(503, error.message);
+    }
     const code = error instanceof Error ? error.message : "";
     if (code === "REAL_DEMO_AUTH_REQUIRED") return errorResponse(401, code);
     if (code === "REAL_DEMO_CASE_NOT_FOUND_OR_FORBIDDEN") return errorResponse(404, code);
@@ -283,22 +295,6 @@ function parseAllowedListingHosts(value: string | undefined): readonly string[] 
     : [];
 }
 
-function prunePending(now = Date.now()): void {
-  for (const [key, pending] of pendingListingUrls) {
-    if (pending.expiresAt <= now) pendingListingUrls.delete(key);
-  }
-}
-
-function pruneCompletedTurns(now = Date.now()): void {
-  for (const [key, turn] of completedTurns) {
-    if (turn.expiresAt <= now) completedTurns.delete(key);
-  }
-}
-
 function errorResponse(status: number, code: string): Response {
-  return Response.json({ error: { code } }, { status, headers: privateHeaders() });
-}
-
-function privateHeaders(): HeadersInit {
-  return { "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" };
+  return Response.json({ error: { code } }, { status, headers: privateNoStoreHeaders() });
 }

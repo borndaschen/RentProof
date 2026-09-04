@@ -87,6 +87,8 @@ describe("guest session route", () => {
       }),
     );
     expect(response.status).toBe(404);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
     expect(mocks.resolve).not.toHaveBeenCalled();
     expect(mocks.issue).not.toHaveBeenCalled();
   });

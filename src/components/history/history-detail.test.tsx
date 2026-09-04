@@ -5,7 +5,7 @@ import { HistoryDetail } from "./history-detail";
 
 describe("HistoryDetail", () => {
   it.each([
-    ["fixture", "已整理的資料"],
+    ["fixture", "預先整理結果"],
     ["live", "OpenAI 雲端分析"],
   ] as const)("renders an accessible %s owner-scoped case summary", async (sourceMode, label) => {
     const { container } = render(

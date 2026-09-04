@@ -6,6 +6,7 @@ import {
   evaluateRentalSubsidyPrecheck115,
 } from "@/domain/subsidy";
 import { getServerEnvironment } from "@/server/env";
+import { privateNoStoreHeaders } from "@/server/http/private-response";
 import { validateSubsidyPrecheckRequest } from "@/server/subsidy/request-boundary";
 
 export const runtime = "nodejs";
@@ -28,7 +29,7 @@ export async function POST(request: Request): Promise<Response> {
     assertCurrentSubsidySources(new Date());
     return Response.json(evaluateRentalSubsidyPrecheck115(parsed.input), {
       status: 200,
-      headers: privateHeaders(),
+      headers: privateNoStoreHeaders(),
     });
   } catch (error) {
     if (error instanceof SubsidySourceGovernanceError) {
@@ -81,10 +82,6 @@ async function readBoundedJson(request: Request): Promise<unknown> {
   return JSON.parse(text) as unknown;
 }
 
-function privateHeaders(): HeadersInit {
-  return { "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" };
-}
-
 function errorResponse(status: number, code: string): Response {
-  return Response.json({ error: { code } }, { status, headers: privateHeaders() });
+  return Response.json({ error: { code } }, { status, headers: privateNoStoreHeaders() });
 }

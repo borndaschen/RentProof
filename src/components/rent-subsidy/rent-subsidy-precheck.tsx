@@ -1,12 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
-import {
-  SubsidyPrecheckInputSchema,
-  SubsidyPrecheckResultSchema,
-  type SubsidyPrecheckResult,
-} from "@/domain/subsidy/schema";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import rawStyles from "./rent-subsidy-precheck.module.css";
 
 const styles = {
@@ -29,9 +24,35 @@ const styles = {
   resultLabel: rawStyles["resultLabel"],
   checkList: rawStyles["checkList"],
   sourceLinks: rawStyles["sourceLinks"],
+  visuallyHidden: rawStyles["visuallyHidden"],
 } as const;
 
 const officialApplicationUrl = "https://pip.moi.gov.tw/v3/B/SCRB0102.aspx";
+const officialSourceUrls = {
+  MOI_115_CONDITIONS:
+    "https://pip.moi.gov.tw/Publicize/Info/B1020?n=%E7%94%B3%E8%AB%8B%E6%A2%9D%E4%BB%B6&y=115",
+  MOI_115_FAQ: "https://pip.moi.gov.tw/Publicize/Info/B1020?n=%E5%95%8F%E8%88%87%E7%AD%94&y=115",
+} as const;
+type OfficialSourceId = keyof typeof officialSourceUrls;
+type PrecheckStatus = "preliminary_match" | "needs_review" | "insufficient_information";
+type PrecheckCriterion = (typeof criterionValues)[number];
+type PrecheckView = Readonly<{
+  program: string;
+  rulesVersion: string;
+  overallStatus: PrecheckStatus;
+  checks: readonly Readonly<{
+    criterion: PrecheckCriterion;
+    status: PrecheckStatus;
+    officialQuestionReference: string;
+    thresholdTwd?: number;
+  }>[];
+  officialSources: readonly Readonly<{
+    sourceId: OfficialSourceId;
+    title: string;
+    url: string;
+  }>[];
+}>;
+
 const cityOptions = [
   "臺北市",
   "新北市",
@@ -56,14 +77,29 @@ const cityOptions = [
   "金門縣",
   "連江縣",
 ] as const;
-const statusLabels = {
+const statusLabels: Readonly<Record<PrecheckStatus, string>> = {
   preliminary_match: "初步相符",
   needs_review: "有待確認",
   insufficient_information: "資料不足",
 } as const;
-const criterionLabels: Readonly<
-  Record<SubsidyPrecheckResult["checks"][number]["criterion"], string>
-> = {
+const criterionValues = [
+  "application_window",
+  "nationality_and_registration",
+  "age_basis",
+  "home_ownership",
+  "income",
+  "other_housing_assistance",
+  "lease_timing",
+  "building_basis",
+  "named_leaseholder",
+  "lease_genuineness",
+  "landlord_relationship",
+  "housing_program_type",
+  "monthly_rent_cap",
+  "residential_use",
+  "care_institution",
+] as const;
+const criterionLabels: Readonly<Record<PrecheckCriterion, string>> = {
   application_window: "申請期間",
   nationality_and_registration: "國籍與戶籍條件",
   age_basis: "年齡條件",
@@ -87,17 +123,34 @@ const triStateOptions = [
 ] as const;
 
 export function RentSubsidyPrecheck() {
-  const [result, setResult] = useState<SubsidyPrecheckResult | null>(null);
+  const [result, setResult] = useState<PrecheckView | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const resultHeadingRef = useRef<HTMLHeadingElement>(null);
+  const errorHeadingRef = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    if (result !== null) resultHeadingRef.current?.focus();
+  }, [result]);
+
+  useEffect(() => {
+    if (error !== "") errorHeadingRef.current?.focus();
+  }, [error]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (isSubmitting) return;
     const form = new FormData(event.currentTarget);
-    const input = SubsidyPrecheckInputSchema.safeParse({
+    const monthlyRentTwd = numberOrUnknown(form, "monthlyRentTwd");
+    const rentalCountyCity = textValue(form, "rentalCountyCity");
+    if (rentalCountyCity === "" || monthlyRentTwd === null) {
+      setResult(null);
+      setError("請先選擇租屋縣市，並確認金額只填整數；其他不知道的項目可以保留為「還不確定」。");
+      return;
+    }
+    const input = {
       applicationDate: textValue(form, "applicationDate") || "unknown",
-      rentalCountyCity: textValue(form, "rentalCountyCity"),
+      rentalCountyCity,
       nationalityAndRegistration: textValue(form, "nationalityAndRegistration"),
       ageBasis: textValue(form, "ageBasis"),
       householdHomeOwnership: textValue(form, "householdHomeOwnership"),
@@ -116,29 +169,36 @@ export function RentSubsidyPrecheck() {
         "landlordOrOwnerIsHouseholdMemberOrLinealRelative",
       ),
       housingProgramType: textValue(form, "housingProgramType"),
-      monthlyRentTwd: numberOrUnknown(form, "monthlyRentTwd"),
+      monthlyRentTwd,
       leaseUseIncludesResidence: textValue(form, "leaseUseIncludesResidence"),
       is24HourCareInstitution: textValue(form, "is24HourCareInstitution"),
-    });
-    if (!input.success) {
-      setError("請先選擇租屋縣市，並確認金額只填整數；其他不知道的項目可以保留為「還不確定」。");
-      return;
-    }
+    };
     setIsSubmitting(true);
     setError("");
     setResult(null);
     try {
       const response = await fetch("/api/rent-subsidy/precheck", {
         method: "POST",
+        cache: "no-store",
+        credentials: "same-origin",
+        signal: AbortSignal.timeout(15_000),
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           schemaVersion: "rentproof.rent-subsidy-precheck-input.v1",
-          input: input.data,
+          input,
         }),
       });
-      const parsed = SubsidyPrecheckResultSchema.safeParse(await response.json());
-      if (!response.ok || !parsed.success) throw new Error("INVALID_PRECHECK_RESPONSE");
-      setResult(parsed.data);
+      const payload: unknown = await response.json();
+      if (!response.ok) {
+        if (response.status === 503 && isSourceGovernanceError(payload)) {
+          setError("官方資料待更新，目前暫停預檢。請直接前往官方網站確認最新條件。");
+          return;
+        }
+        throw new Error("PRECHECK_REQUEST_FAILED");
+      }
+      const parsed = parsePrecheckView(payload);
+      if (parsed === null) throw new Error("INVALID_PRECHECK_RESPONSE");
+      setResult(parsed);
     } catch {
       setError("目前無法完成預檢，沒有產生資格結論。請稍後重試，或直接前往官方網站確認。");
     } finally {
@@ -164,7 +224,17 @@ export function RentSubsidyPrecheck() {
           不需要姓名、身分證字號、詳細地址或證明文件。所得只回答是否已依官方表格完成門檻核對；請勿上傳文件或輸入其他個資。
         </p>
       </aside>
-      <form className={styles.form} onSubmit={submit}>
+      <form
+        id="rent-subsidy-precheck-form"
+        className={styles.form}
+        onSubmit={submit}
+        onChange={() => {
+          setResult(null);
+          setError("");
+        }}
+        autoComplete="off"
+        aria-busy={isSubmitting}
+      >
         <Question number={1} title="申請時間與租屋地點">
           <label htmlFor="application-date">預計申請日期（不知道可留空）</label>
           <input
@@ -328,19 +398,38 @@ export function RentSubsidyPrecheck() {
           />
         </Question>
         <div className={styles.submitArea}>
-          <p>送出後由 Server 的版本化規則檢查；瀏覽器不會自行判斷資格。</p>
-          <button className="primary-button" type="submit" disabled={isSubmitting}>
+          <p id="precheck-submit-status" aria-live="polite">
+            {isSubmitting
+              ? "正在檢查 15 項申請條件，請稍候。"
+              : "送出後由系統依目前年度規則檢查；頁面不會自行推測資格。"}
+          </p>
+          <button
+            className="primary-button"
+            type="submit"
+            disabled={isSubmitting}
+            aria-describedby="precheck-submit-status"
+          >
             {isSubmitting ? "正在檢查…" : "查看預檢結果"}
           </button>
         </div>
       </form>
       {error ? (
         <section className={styles.error} role="alert">
-          <h2>預檢未完成</h2>
+          <h2 ref={errorHeadingRef} tabIndex={-1}>
+            預檢未完成
+          </h2>
           <p>{error}</p>
+          <button
+            className="primary-button"
+            type="submit"
+            form="rent-subsidy-precheck-form"
+            disabled={isSubmitting}
+          >
+            重新檢查
+          </button>
         </section>
       ) : null}
-      {result ? <PrecheckResult result={result} /> : null}
+      {result ? <PrecheckResult ref={resultHeadingRef} result={result} /> : null}
       <section className={styles.statusGuide} aria-labelledby="status-guide-title">
         <h2 id="status-guide-title">結果怎麼看</h2>
         <dl>
@@ -408,17 +497,32 @@ function TriStateField({ label, name }: Readonly<{ label: string; name: string }
     </fieldset>
   );
 }
-function PrecheckResult({ result }: { result: SubsidyPrecheckResult }) {
+function PrecheckResult({
+  ref,
+  result,
+}: {
+  ref: React.RefObject<HTMLHeadingElement | null>;
+  result: PrecheckView;
+}) {
   return (
-    <section className={styles.result} aria-labelledby="precheck-result-title" aria-live="polite">
+    <section
+      className={styles.result}
+      data-status={result.overallStatus}
+      aria-labelledby="precheck-result-title"
+    >
+      <p className={styles.visuallyHidden} role="status">
+        預檢完成：{statusLabels[result.overallStatus]}
+      </p>
+      <h2 id="precheck-result-title" ref={ref} tabIndex={-1}>
+        申請條件預檢結果
+      </h2>
       <p className={styles.resultLabel}>{statusLabels[result.overallStatus]}</p>
-      <h2 id="precheck-result-title">申請條件預檢結果</h2>
       <p>
         {result.program}・規則版本 {result.rulesVersion}
       </p>
       <ul className={styles.checkList}>
         {result.checks.map((check) => (
-          <li key={check.criterion}>
+          <li key={check.criterion} data-status={check.status}>
             <strong>{criterionLabels[check.criterion]}</strong>
             <span>
               {statusLabels[check.status]}・官方問題 {check.officialQuestionReference}
@@ -447,17 +551,128 @@ function textValue(form: FormData, name: string): string {
   const value = form.get(name);
   return typeof value === "string" ? value : "";
 }
-function numberOrUnknown(form: FormData, name: string): number | "unknown" {
+function numberOrUnknown(form: FormData, name: string): number | "unknown" | null {
   const value = textValue(form, name);
-  return value === "" ? "unknown" : Number(value);
+  if (value === "") return "unknown";
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 && parsed <= 100_000_000 ? parsed : null;
 }
 
-function thresholdLabel(
-  criterion: SubsidyPrecheckResult["checks"][number]["criterion"],
-  thresholdTwd: number,
-): string {
+function thresholdLabel(criterion: PrecheckCriterion, thresholdTwd: number): string {
   const formatted = new Intl.NumberFormat("zh-TW").format(thresholdTwd);
   return criterion === "income"
     ? `此次預檢採用的家庭成員平均每月所得門檻：低於 NT$ ${formatted}`
     : `此次預檢採用的每月租金上限：NT$ ${formatted}`;
+}
+
+function parsePrecheckView(value: unknown): PrecheckView | null {
+  if (!isRecord(value)) return null;
+  if (
+    value["schema"] !== "rentproof.rental-subsidy-precheck.v1" ||
+    value["officialDeterminationRequired"] !== true ||
+    value["humanReviewRequired"] !== true ||
+    value["sensitiveDocumentsRequested"] !== false ||
+    value["program"] !== "115年度300億元中央擴大租金補貼" ||
+    value["rulesVersion"] !== "115.2026-09-04.1" ||
+    !isPrecheckStatus(value["overallStatus"])
+  ) {
+    return null;
+  }
+  const checksValue = value["checks"];
+  const sourcesValue = value["officialSources"];
+  if (!Array.isArray(checksValue) || checksValue.length !== 15 || !Array.isArray(sourcesValue)) {
+    return null;
+  }
+
+  const checks: Array<PrecheckView["checks"][number]> = [];
+  const seenCriteria = new Set<PrecheckCriterion>();
+  for (const item of checksValue) {
+    if (!isRecord(item)) return null;
+    const criterion = item["criterion"];
+    const status = item["status"];
+    const reference = item["officialQuestionReference"];
+    const threshold = item["thresholdTwd"];
+    if (
+      !isPrecheckCriterion(criterion) ||
+      seenCriteria.has(criterion) ||
+      !isPrecheckStatus(status) ||
+      typeof reference !== "string" ||
+      reference.length < 1 ||
+      reference.length > 80 ||
+      (threshold !== undefined &&
+        (!Number.isSafeInteger(threshold) ||
+          Number(threshold) <= 0 ||
+          Number(threshold) > 100_000_000))
+    ) {
+      return null;
+    }
+    seenCriteria.add(criterion);
+    checks.push({
+      criterion,
+      status,
+      officialQuestionReference: reference,
+      ...(threshold === undefined ? {} : { thresholdTwd: Number(threshold) }),
+    });
+  }
+
+  if (sourcesValue.length !== 2) return null;
+  const officialSources: Array<PrecheckView["officialSources"][number]> = [];
+  const seenSourceIds = new Set<string>();
+  for (const item of sourcesValue) {
+    if (!isRecord(item)) return null;
+    const sourceId = item["sourceId"];
+    const title = item["title"];
+    const url = item["url"];
+    if (
+      !isOfficialSourceId(sourceId) ||
+      seenSourceIds.has(sourceId) ||
+      typeof title !== "string" ||
+      title.length < 1 ||
+      title.length > 160 ||
+      typeof url !== "string" ||
+      url !== officialSourceUrls[sourceId]
+    ) {
+      return null;
+    }
+    seenSourceIds.add(sourceId);
+    officialSources.push({ sourceId, title, url });
+  }
+
+  return {
+    program: value["program"],
+    rulesVersion: value["rulesVersion"],
+    overallStatus: value["overallStatus"],
+    checks,
+    officialSources,
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isPrecheckStatus(value: unknown): value is PrecheckStatus {
+  return (
+    value === "preliminary_match" ||
+    value === "needs_review" ||
+    value === "insufficient_information"
+  );
+}
+
+function isPrecheckCriterion(value: unknown): value is PrecheckCriterion {
+  return typeof value === "string" && criterionValues.some((criterion) => criterion === value);
+}
+
+function isOfficialSourceId(value: unknown): value is OfficialSourceId {
+  return value === "MOI_115_CONDITIONS" || value === "MOI_115_FAQ";
+}
+
+function isSourceGovernanceError(value: unknown): boolean {
+  if (!isRecord(value) || !isRecord(value["error"])) return false;
+  const code = value["error"]["code"];
+  return (
+    code === "SUBSIDY_SOURCE_DATE_INVALID" ||
+    code === "SUBSIDY_SOURCE_VERIFICATION_IN_FUTURE" ||
+    code === "SUBSIDY_SOURCE_STALE"
+  );
 }

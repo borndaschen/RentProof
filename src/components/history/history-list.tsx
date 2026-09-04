@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { CaseHistorySummary } from "@/application/history";
+import { formatHistoryTimestamp, historyStatusLabel } from "./history-presentation";
 
 export function HistoryList({ cases }: { cases: readonly CaseHistorySummary[] }) {
   return (
@@ -26,9 +27,9 @@ export function HistoryList({ cases }: { cases: readonly CaseHistorySummary[] })
               <Link href={`/history/${encodeURIComponent(rentalCase.caseId)}`}>
                 <span>
                   <strong>{rentalCase.displayName}</strong>
-                  <small>更新：{formatTimestamp(rentalCase.updatedAt)}</small>
+                  <small>更新：{formatHistoryTimestamp(rentalCase.updatedAt)}</small>
                 </span>
-                <span className="status-pill">{statusLabel(rentalCase.status)}</span>
+                <span className="status-pill">{historyStatusLabel(rentalCase.status)}</span>
               </Link>
             </li>
           ))}
@@ -36,19 +37,4 @@ export function HistoryList({ cases }: { cases: readonly CaseHistorySummary[] })
       )}
     </main>
   );
-}
-
-function formatTimestamp(value: string): string {
-  return new Intl.DateTimeFormat("zh-TW", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Asia/Taipei",
-  }).format(new Date(value));
-}
-
-function statusLabel(status: CaseHistorySummary["status"]): string {
-  if (status === "draft") return "草稿";
-  if (status === "analyzing") return "分析中";
-  if (status === "needs_attention") return "待確認";
-  return "可查看";
 }

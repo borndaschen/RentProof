@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   ConsumePiiAcknowledgementSchema,
   InMemoryPiiAcknowledgementStore,
+  PiiAcknowledgementStoreCapacityError,
   PiiAcknowledgementRecordSchema,
 } from "./pii-acknowledgement";
 
@@ -94,6 +95,40 @@ describe("InMemoryPiiAcknowledgementStore", () => {
     expect(
       store.consume({ ...command(acknowledgement.acknowledgementId), unexpected: true }, 1),
     ).toEqual({ ok: false, code: "PII_ACK_STALE" });
+  });
+
+  it("fails closed at capacity without evicting a live acknowledgement", () => {
+    const store = new InMemoryPiiAcknowledgementStore({ maxRecords: 1 });
+    const acknowledgement = issue(store);
+
+    expect(() => issue(store, 1)).toThrow(PiiAcknowledgementStoreCapacityError);
+    expect(store.consume(command(acknowledgement.acknowledgementId), 2)).toEqual({ ok: true });
+  });
+
+  it("prunes terminal records after one additional TTL and recovers capacity", () => {
+    const store = new InMemoryPiiAcknowledgementStore({ maxRecords: 1 });
+    const acknowledgement = issue(store, 100);
+
+    expect(store.consume(command(acknowledgement.acknowledgementId), 600_100)).toEqual({
+      ok: false,
+      code: "PII_ACK_EXPIRED",
+    });
+    expect(() => issue(store, 1_200_099)).toThrow(PiiAcknowledgementStoreCapacityError);
+    const replacement = issue(store, 1_200_100);
+    expect(replacement.acknowledgementId).not.toBe(acknowledgement.acknowledgementId);
+    expect(store.consume(command(acknowledgement.acknowledgementId), 1_200_101)).toEqual({
+      ok: false,
+      code: "PII_ACK_STALE",
+    });
+  });
+
+  it("validates capacity, retention, and caller-supplied time", () => {
+    expect(() => new InMemoryPiiAcknowledgementStore({ maxRecords: 0 })).toThrow(RangeError);
+    expect(() => new InMemoryPiiAcknowledgementStore({ maxRecords: 1.5 })).toThrow(RangeError);
+    expect(() => new InMemoryPiiAcknowledgementStore({ terminalRetentionMs: -1 })).toThrow(
+      RangeError,
+    );
+    expect(() => issue(new InMemoryPiiAcknowledgementStore(), Number.NaN)).toThrow(RangeError);
   });
 });
 

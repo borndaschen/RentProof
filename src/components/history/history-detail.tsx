@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { CaseHistoryDetail as CaseHistoryDetailModel } from "@/application/history";
+import { formatHistoryTimestamp, historyStatusLabel } from "./history-presentation";
 
 export function HistoryDetail({ rentalCase }: { rentalCase: CaseHistoryDetailModel }) {
   return (
@@ -14,23 +15,23 @@ export function HistoryDetail({ rentalCase }: { rentalCase: CaseHistoryDetailMod
         <dl>
           <div>
             <dt>案件狀態</dt>
-            <dd>{rentalCase.status}</dd>
+            <dd>{historyStatusLabel(rentalCase.status)}</dd>
           </div>
           <div>
-            <dt>資料版本</dt>
+            <dt>內容版本</dt>
             <dd>{rentalCase.revision}</dd>
           </div>
           <div>
-            <dt>分析來源</dt>
-            <dd>{rentalCase.sourceMode === "fixture" ? "已整理的資料" : "OpenAI 雲端分析"}</dd>
+            <dt>整理方式</dt>
+            <dd>{rentalCase.sourceMode === "fixture" ? "預先整理結果" : "OpenAI 雲端分析"}</dd>
           </div>
           <div>
             <dt>建立時間</dt>
-            <dd>{rentalCase.createdAt}</dd>
+            <dd>{formatHistoryTimestamp(rentalCase.createdAt)}</dd>
           </div>
           <div>
             <dt>更新時間</dt>
-            <dd>{rentalCase.updatedAt}</dd>
+            <dd>{formatHistoryTimestamp(rentalCase.updatedAt)}</dd>
           </div>
         </dl>
       </article>

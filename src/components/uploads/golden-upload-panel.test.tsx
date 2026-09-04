@@ -59,8 +59,8 @@ describe("GoldenUploadPanel", () => {
   it("renders only four controlled Synthetic actions and no real-data input", () => {
     const { container } = render(<GoldenUploadPanel />);
     expect(screen.getAllByRole("button", { name: "載入此虛構素材" })).toHaveLength(4);
-    expect(screen.getByText(/HTTP 開發模式只允許/u)).toBeVisible();
-    expect(screen.getByText(/僅限 Synthetic 開發資料/u)).toBeVisible();
+    expect(screen.getByText(/這個展示只接受下列已封存的虛構資料/u)).toBeVisible();
+    expect(screen.getByText(/僅限虛構範例資料/u)).toBeVisible();
     expect(container.querySelector("input")).toBeNull();
     expect(container.querySelector("[type='file']")).toBeNull();
     expect(container.querySelector("textarea")).toBeNull();
@@ -180,7 +180,7 @@ describe("GoldenUploadPanel", () => {
     render(<GoldenUploadPanel />);
     await user.click(uploadButton(0));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("載入失敗；未建立任何素材收據。");
+    expect(await screen.findByRole("alert")).toHaveTextContent("載入失敗；沒有加入任何資料。");
     expect(screen.getByRole("button", { name: "重新載入" })).toBeEnabled();
     expect(document.body.textContent).not.toContain("DEMO_ARTIFACT_TAMPERED");
     expect(document.body.textContent).not.toContain("private path");
@@ -229,7 +229,7 @@ describe("GoldenUploadPanel", () => {
       throw new Error("UPLOAD_BUTTON_FIXTURE_MISSING");
     }
     await user.click(firstButton);
-    expect(await screen.findByText("正在取得並驗證 sealed bytes。")).toBeVisible();
+    expect(await screen.findByText("正在取得檔案並確認內容完整。")).toBeVisible();
     expect(secondButton).toBeDisabled();
     await user.click(secondButton);
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -304,7 +304,7 @@ describe("GoldenUploadPanel", () => {
     }
     expect(analysisButton).toBeEnabled();
     await user.click(analysisButton);
-    expect(await screen.findByText("claim-washing-machine：證據不足")).toBeVisible();
+    expect(await screen.findByText("洗衣機承諾：證據不足")).toBeVisible();
     expect(screen.getByRole("link", { name: "查看完整簽約前報告" })).toHaveAttribute(
       "href",
       "/reports/golden-v1",
@@ -403,7 +403,7 @@ describe("GoldenUploadPanel", () => {
       await user.click(within(item).getByRole("button", { name: "載入此虛構素材" }));
     }
     await user.click(screen.getByRole("button", { name: "分析已載入素材" }));
-    expect(await screen.findByText(/已建立 Fixture Snapshot/u)).toBeVisible();
+    expect(await screen.findByText("已載入預先整理結果")).toBeVisible();
     const followUpItem = screen.getByText("虛構牆面補拍 PNG").closest("li");
     if (followUpItem === null) throw new Error("FOLLOW_UP_ITEM_MISSING");
     await user.click(within(followUpItem).getByRole("button", { name: "載入此虛構素材" }));

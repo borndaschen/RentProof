@@ -7,6 +7,7 @@ import { guardSingleUploadRequest } from "@/application/uploads";
 import { resolveCurrentCaseActor } from "@/server/auth/current-actor";
 import { validateSelfHostedAuthBinaryMutation } from "@/server/auth/request-guard";
 import { getServerEnvironment } from "@/server/env";
+import { privateNoStoreHeaders } from "@/server/http/private-response";
 import { getRealDemoRuntime } from "@/server/real-demo";
 
 export const runtime = "nodejs";
@@ -106,7 +107,7 @@ export async function POST(
         kind: headers.data.kind,
         mime: verified.upload.actualMime,
       },
-      { status: 201, headers: privateHeaders() },
+      { status: 201, headers: privateNoStoreHeaders() },
     );
   } catch (error) {
     return mapError(error);
@@ -124,11 +125,7 @@ function mapError(error: unknown): Response {
 }
 
 function errorResponse(status: number, code: string): Response {
-  return Response.json({ error: { code } }, { status, headers: privateHeaders() });
-}
-
-function privateHeaders(): HeadersInit {
-  return { "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" };
+  return Response.json({ error: { code } }, { status, headers: privateNoStoreHeaders() });
 }
 
 async function* requestBody(body: ReadableStream<Uint8Array> | null): AsyncIterable<unknown> {

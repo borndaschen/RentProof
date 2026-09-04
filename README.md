@@ -21,7 +21,7 @@ RentProof 提供資訊整理，不是法律意見，也不會直接判定詐騙�
 
 ```mermaid
 flowchart LR
-  USER[瀏覽器<br/>對話與證據工作區] --> ROUTES[Next.js Route Handlers<br/>身分、權限與輸入安全]
+  USER[瀏覽器<br>對話與證據工作區] --> ROUTES[Next.js Route Handlers<br>身分、權限與輸入安全]
   ROUTES --> APP[Application<br/>固定 Stage DAG]
   APP --> DOMAIN[Domain<br/>比較、規則、風險訊號與報告]
   APP --> PORTS[Typed Ports]
@@ -107,8 +107,9 @@ pnpm test:e2e
 ## 團隊成員
 
 | 姓名 | 分工 |
-| ---- | ---- |
-|      |      |
+| 陳銘寬 | 技術發想 |
+| 陳致鈺 | 程式撰寫 |
+| 劉惠怡 | 影像產出 |
 
 ## License
 

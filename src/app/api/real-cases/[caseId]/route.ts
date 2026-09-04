@@ -1,6 +1,7 @@
 import { resolveCurrentCaseActor } from "@/server/auth/current-actor";
 import { validateSelfHostedAuthMutation } from "@/server/auth/request-guard";
 import { getServerEnvironment } from "@/server/env";
+import { privateNoStoreHeaders } from "@/server/http/private-response";
 import { getRealDemoRuntime } from "@/server/real-demo";
 
 export const runtime = "nodejs";
@@ -20,7 +21,7 @@ export async function DELETE(
     const actor = await resolveCurrentCaseActor(request);
     const { caseId } = await context.params;
     await (await getRealDemoRuntime()).service.deleteCase(actor, caseId);
-    return new Response(null, { status: 204, headers: privateHeaders() });
+    return new Response(null, { status: 204, headers: privateNoStoreHeaders() });
   } catch (error) {
     const code = error instanceof Error ? error.message : "";
     if (code === "REAL_DEMO_AUTH_REQUIRED") return errorResponse(401, code);
@@ -30,9 +31,5 @@ export async function DELETE(
 }
 
 function errorResponse(status: number, code: string): Response {
-  return Response.json({ error: { code } }, { status, headers: privateHeaders() });
-}
-
-function privateHeaders(): HeadersInit {
-  return { "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" };
+  return Response.json({ error: { code } }, { status, headers: privateNoStoreHeaders() });
 }

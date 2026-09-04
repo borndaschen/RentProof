@@ -3,6 +3,7 @@ import { readBoundedAuthJson } from "@/server/auth/http";
 import { resolveCurrentTransferActors } from "@/server/auth/current-actor";
 import { validateSelfHostedAuthMutation } from "@/server/auth/request-guard";
 import { getServerEnvironment } from "@/server/env";
+import { privateNoStoreHeaders } from "@/server/http/private-response";
 import { getRealDemoRuntime } from "@/server/real-demo";
 
 export const runtime = "nodejs";
@@ -38,7 +39,7 @@ export async function POST(
     ).service.transferGuestCase(actors.guest, actors.user, caseId, body.confirmation);
     return Response.json(
       { schemaVersion: "rentproof.guest-case-transfer.v1", status: "transferred", caseId },
-      { status: 200, headers: privateHeaders() },
+      { status: 200, headers: privateNoStoreHeaders() },
     );
   } catch (error) {
     const code = error instanceof Error ? error.message : "";
@@ -49,9 +50,5 @@ export async function POST(
 }
 
 function errorResponse(status: number, code: string): Response {
-  return Response.json({ error: { code } }, { status, headers: privateHeaders() });
-}
-
-function privateHeaders(): HeadersInit {
-  return { "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" };
+  return Response.json({ error: { code } }, { status, headers: privateNoStoreHeaders() });
 }

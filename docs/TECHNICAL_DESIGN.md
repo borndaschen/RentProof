@@ -302,6 +302,8 @@ type ExtractedField<T> =
 | `GET`   | `/api/cases/:caseId/fraud-signals`                  | 讀取訊號、locator、缺少資料與查證行動                             |
 | `GET`   | `/api/cases/:caseId/artifacts/:artifactId/content`  | 驗證 case association 後串流 sanitized preview                    |
 
+補貼預檢的Client bundle不import Zod或Domain runtime；表單只組裝受控欄位，Server仍以完整strict schema作唯一權威。Client只驗證呈現所需的最小response projection、固定年度／版本、15個不重複criterion及兩個官方HTTPS來源，任何不完整、重複或非官方URL均fail closed。此邊界降低首載JavaScript且不把判定移到瀏覽器。
+
 Golden回歸仍支援固定案例與一次補拍；私有素材流程另使用`/api/real-cases`、owner-scoped uploads與analysis route。API錯誤回傳穩定`error_code`，UI不直接顯示provider原始錯誤。
 
 Analysis是foreground execution；不使用`202`暗示durable background work。四個view endpoints都回同一`snapshotId`／case revision／execution mode，避免混讀不同世代。Self-hosted Auth、固定24小時guest session、7天sliding account session、owner-scoped history、private artifacts與刪除route已接入Secure LAN流程。

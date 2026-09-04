@@ -37,7 +37,7 @@ test("material candidate changes only after a one-time server confirmation", asy
 }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium", "single deterministic case mutation");
   await page.goto("/");
-  await page.getByRole("button", { name: "產生確認卡" }).click();
+  await page.getByRole("button", { name: "檢查後加入" }).click();
   const confirm = page.getByRole("button", { name: "確認並加入案件" });
   await expect(confirm).toBeVisible();
   const consumeRequestPromise = page.waitForRequest(
@@ -48,7 +48,7 @@ test("material candidate changes only after a one-time server confirmation", asy
   await confirm.click();
   const consumeRequest = await consumeRequestPromise;
   expect(consumeRequest.headers()["x-csrf-token"]).toBeTruthy();
-  await expect(page.getByText(/已確認並寫入案件修訂 \d+/u)).toBeVisible();
+  await expect(page.getByText("已確認並更新案件。")).toBeVisible();
   await expect(confirm).toBeHidden();
 });
 
@@ -64,8 +64,8 @@ test("sealed uploads create a Fixture snapshot and open the report", async ({ pa
   const analyze = panel.getByRole("button", { name: "分析已載入素材" });
   await expect(analyze).toBeEnabled();
   await analyze.click();
-  await expect(panel.getByRole("region", { name: "Golden 分析結果" })).toContainText(
-    "claim-washing-machine：證據不足",
+  await expect(panel.getByRole("region", { name: "範例分析結果" })).toContainText(
+    "洗衣機承諾：證據不足",
   );
   await panel.getByRole("link", { name: "查看完整簽約前報告" }).click();
   await expect(page).toHaveURL(/\/reports\/golden-v1$/u);
@@ -268,7 +268,7 @@ test("conversation-first shell is readable and keyboard operable", async ({ page
   await expect(send).toBeEnabled();
   await expect(page.getByText(/^\d+ \/ 2,000$/u)).toBeVisible();
   await send.click();
-  await expect(page.getByText("RentProof・Fixture 回覆")).toBeVisible();
+  await expect(page.getByText("RentProof・範例說明")).toBeVisible();
   await expect(page.getByText("洗衣機承諾：證據不足")).toBeVisible();
 
   const overflow = await page.evaluate(
