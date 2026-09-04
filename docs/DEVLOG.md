@@ -40,7 +40,7 @@
 - 新增版本化DRAFT規則檔、官方來源／年度更新規格與D-098；跨年度不得fallback。2026-09-04五個官方頁面已建立本機受控快照，manifest記錄URL、bytes、內容驗證與SHA-256；兩個primary hash隨預檢結果保存。Server在查核日位於未來、時鐘無效或超過31日時fail closed。
 - 完成工程／產品內部法律、隱私與規則治理審閱矩陣，逐項記錄政府資格誤認、資料最小化、告知、目的限制、權利、保存、安全、第三方、來源及年度更新控制；明確保留獨立台灣法律／隱私專業簽核，不將內部審閱冒充法律意見。
 - 新增`subsidy:sources:check`離線／Live唯讀來源檢查，以及`subsidy:year:scaffold`未來年度草案工具。Live檢查對固定官方host驗HTTP、MIME、1 MiB、sentinel與hash；年度草案以exclusive create建立空來源、空threshold、空rules且`productionReady: false`，不複製115年值。
-- Codex目前task已建立每4週執行的「補貼來源與年度查核」heartbeat；來源未變時保持安靜，只在來源異動、31日到期、查核失敗、下一年度資料完整發布或需要人工審閱時通知。Heartbeat不自動修改verified date、hash或規則。
+- 依repository擁有者要求，補貼查核排程不保存在ChatGPT／Codex task。先前建立的heartbeat已刪除；repository只提供可由外部OS／CI scheduler呼叫的唯讀指令，實際排程器與執行身分須由部署環境另行設定。
 
 ### 驗證
 

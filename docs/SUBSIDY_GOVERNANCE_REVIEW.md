@@ -49,3 +49,4 @@ pnpm subsidy:year:scaffold -- --roc-year 116 --gregorian-year 2027
 - Live check只讀取固定官方URL，不寫檔；HTTP、MIME、大小、sentinel或hash不同即失敗並要求人工審閱。
 - 年度scaffold使用exclusive create，不覆寫既有草案；新檔沒有來源、threshold或rules，不能從115年自動帶值。
 - 查核成功不等於規則內容自動核准；更新verified date、hash或規則值仍須人工比較與DEVLOG紀錄。
+- 定期執行不得依賴ChatGPT／Codex task heartbeat；由正式部署環境的OS／CI scheduler以最小權限呼叫上述指令，並把失敗送往營運告警管道。Repository不保存特定雲端排程器credential。

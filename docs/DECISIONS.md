@@ -711,6 +711,14 @@ Server templates、deterministic policy、Fixture adapter、validation failure�
 - 理由／證據：RP-010只能核對契約有無限制補貼的文字，無法回答申請人應準備與確認哪些條件。115年度官方條件涉及年度、縣市、家庭範圍、所得門檻、住宅持有、其他協助與租賃房屋條件，適合由可版本化、可回歸的確定性規則提供保守預檢。
 - 影響與遷移：新增獨立`/rent-subsidy`頁面與same-origin、no-store API，不新增第五個Evidence Workspace tab。2026-09-04官方頁面已建立本機受控快照、manifest與SHA-256，Server以31日freshness Gate fail closed；規則仍維持DRAFT且`production_ready: false`，直到台灣法律／治理審閱完成。跨年度不得fallback。
 
+### D-099：補貼來源排程不依賴ChatGPT／Codex task
+
+- 日期：2026-09-04
+- 狀態：accepted
+- 決策：定期官方來源查核與年度更新提醒不得保存在ChatGPT／Codex task automation；repository只提供可重現的唯讀檢查與fail-closed年度scaffold指令，實際週期由正式部署環境的OS／CI scheduler管理。
+- 理由／證據：產品治理工作不應依賴單一對話是否存在、登入狀態或桌面App執行；排程需要可觀測、可告警、具最小權限且與部署生命週期一致的執行環境。
+- 影響與遷移：刪除先前建立的task heartbeat。`pnpm subsidy:sources:check:live`仍可供外部scheduler呼叫；scheduler credentials不得寫入repository，來源異動只通知人工審閱，不自動修改verified date、hash或規則。
+
 ## 尚待決定
 
 | 問題                                | 決定時機                         | 決策證據                                                             |
