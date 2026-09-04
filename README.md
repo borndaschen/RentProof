@@ -88,7 +88,7 @@ pnpm test:e2e
 ## 作品展示
 
 - 作品展示網址：目前未提供公開展示；僅支援本機 loopback 與受信任私人 LAN 的 HTTPS 展示。
-- 評選影片：待補。
+- 評選影片：[Youtube](https://youtu.be/-m9WGyJiOYA)
 - 原始碼：[GitHub repository](https://github.com/borndaschen/RentProof)
 
 ## 限制與未來工作
