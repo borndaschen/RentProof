@@ -1,73 +1,70 @@
 # 租得明白 RentProof
 
-RentProof 協助租屋者在付訂金或簽約前，把廣告、看屋照片、租約與官方資料放在一起核對。它會指出已有證據支持、內容互相矛盾，以及仍需補充證據的事項。
+## 問題與目標
 
-> RentProof 提供資訊整理與待確認事項，不是法律意見，也不會直接判定詐騙、違法、漏水、結構安全或責任歸屬。
+租屋資訊分散在廣告、看屋現場、租約與付款互動中，同一項設備、費用或承諾可能在不同來源出現落差。RentProof 協助準備付訂金或簽約的租屋者，把這些資料整理成可追溯的證據差異與待確認事項，讓尚未取得的證據也能在付款前被看見。
 
-## 為什麼需要 RentProof
+RentProof 提供資訊整理，不是法律意見，也不會直接判定詐騙、違法、漏水、結構安全或責任歸屬。
 
-租屋資訊通常散落在不同地方：廣告寫了設備與費用，看屋時看到的是另一部分，最後租約又可能使用不同文字。RentProof 讓每項承諾都能連回來源，並在付款前提醒使用者應詢問、補拍、補件或寫入附件的內容。
+## 核心功能
 
-## 主要功能
-
-- 整理廣告中的租金、費用、設備與承諾。
-- 分析 JPEG／PNG 看屋照片與文字型 PDF 租約。
-- 以「支持、矛盾、證據不足」呈現廣告、現場與租約的差異。
-- 依內政部等官方來源提供中立的條款差異檢查。
-- 整理固定月費、用量費用與一次性費用。
-- 顯示付款前風險訊號與非自然死亡揭露的待確認事項。
-- 以對話方式引導操作，並提供證據工作區與可列印報告。
-- 可選擇註冊／登入，以保存及查詢自己的案件；未登入也能使用。
-
-## 使用與保存
-
-使用者不必先註冊或登入。第一次進入時，Server會建立只屬於該瀏覽器的訪客工作階段，讓使用者直接建立案件、加入資料並進行分析。訪客工作階段自建立起固定保留24小時，不會因持續操作而延長，也不會出現在歷史案件清單。
-
-需要日後查詢案件時，可以選擇註冊或登入。帳戶工作階段採7天滑動期限；符合條件的主動操作會安全延長期限。每個案件、素材與分析結果仍會在Server逐次確認擁有者，不能只靠案件網址或ID取得。
+- 以對話引導加入廣告、JPEG／PNG 看屋照片、文字型 PDF 租約與付款互動資料。
+- 將廣告承諾比對現場與契約證據，只輸出「支持、矛盾、證據不足」，並保留來源定位。
+- 依版本化官方來源顯示「未發現差異、疑似差異、資料不足」，不作合法／違法判定。
+- 區分固定月費、依用量計費與一次性費用；沒有用量時不虛構單一月總額。
+- 顯示付款前風險訊號與具體查證行動，不輸出詐騙 verdict、機率或安全分數。
+- 提供 115 年度租金補貼申請條件預檢；結果不等同主管機關正式資格或金額核定。
+- 以四區證據工作區呈現物件摘要、證據矩陣、契約檢查與可列印的簽約前報告。
+- 支援訪客直接使用；選用帳戶可保存、查詢及刪除自己的歷史案件。
 
 ## 系統架構
 
-```text
-瀏覽器（Next.js／React）
-        │
-        ▼
-Server Routes ── 身分驗證、權限、上傳與安全檢查
-        │
-        ▼
-Application ── 固定分析流程與案件狀態
-        │
-        ├── Domain ── 證據、三態結果、規則與報告
-        └── Adapters ── OpenAI、PDF.js、Sharp、PostgreSQL、私有檔案儲存
+```mermaid
+flowchart LR
+  USER[瀏覽器<br/>對話與證據工作區] --> ROUTES[Next.js Route Handlers<br/>身分、權限與輸入安全]
+  ROUTES --> APP[Application<br/>固定 Stage DAG]
+  APP --> DOMAIN[Domain<br/>比較、規則、風險訊號與報告]
+  APP --> PORTS[Typed Ports]
+  PORTS --> OPENAI[OpenAI Responses API<br/>Luna／Terra]
+  PORTS --> FILES[PDF.js／Sharp<br/>解析與淨化]
+  PORTS --> DATA[(JSON Runtime／PostgreSQL<br/>私有加密素材)]
+  DOMAIN --> SOURCES[(版本化官方規則<br/>來源快照與 SHA-256)]
 ```
 
-Listing、Viewing、Evidence、Contract 四個 Agent 名稱代表固定處理階段，不是可自行操作外部系統的自治服務。模型只負責抽取候選資料及解釋已驗證的內容；分類、規則、金額與優先順序由伺服器程式決定。
+RentProof 採 TypeScript 模組化單體。Listing、Viewing、Evidence、Contract 等名稱代表固定、可追蹤的分析階段，不是自治微服務。模型只抽取非結構化候選資料與解釋已驗證內容；三態結果、官方規則、金額、風險訊號、優先序與報告皆由 Server 驗證或決定。完整設計見[系統架構](docs/SYSTEM_ARCHITECTURE.md)、[技術設計](docs/TECHNICAL_DESIGN.md)與[安全與隱私](docs/SECURITY_PRIVACY.md)。
 
-## 技術
+## 使用技術
 
-- Node.js 24 LTS、pnpm、TypeScript 6
-- Next.js 16 App Router、React 19、Zod
-- OpenAI Responses API
-- Mozilla PDF.js、Sharp
-- PostgreSQL、Kysely、node-postgres、Argon2id
-- Vitest、Testing Library、axe、Playwright
+| 類型         | 技術／服務                                                        | 用途                                                              |
+| ------------ | ----------------------------------------------------------------- | ----------------------------------------------------------------- |
+| AI 模型      | `gpt-5.6-luna`、`gpt-5.6-terra`                                   | 對話意圖／唯讀說明，以及廣告、影像、契約與互動資料的結構化抽取    |
+| 前端         | Next.js 16 App Router、React 19、Tailwind CSS 4、Radix Primitives | Conversation-first、mobile-first RWD、證據工作區與列印報告        |
+| 後端         | Node.js 24、TypeScript 6、Zod、Kysely、PostgreSQL                 | Route Handlers、typed use cases、owner-scoped 儲存、規則與報告    |
+| 文件／影像   | Mozilla PDF.js、Sharp                                             | 文字型 PDF 逐頁抽取、圖片方向校正、縮放、重新編碼與 metadata 移除 |
+| Sponsor 技術 | OpenAI Responses API、Structured Outputs                          | Server-side 雲端模型呼叫、strict schema 輸出與 usage provenance   |
+| 測試         | Vitest、Testing Library、axe、Playwright                          | Domain、API、元件、accessibility、RWD 與端對端驗證                |
 
-目前資料庫包含四個依序執行的版本化migration：基礎案件資料、自建帳戶、私有案件素材，以及固定24小時的訪客工作階段。Migration由獨立維運指令執行，不會由Web request自動套用。
+## 安裝與執行
 
-完整設計見[系統架構](docs/SYSTEM_ARCHITECTURE.md)、[安全與隱私](docs/SECURITY_PRIVACY.md)及[Server 配置](docs/SERVER_CONFIGURATION.md)。
-
-## 開始使用
-
-需求：Node.js 24.20.0 與 pnpm 11.25.0。
+需求：Windows、Node.js `24.20.0`、pnpm `11.25.0`。
 
 ```powershell
+git clone https://github.com/borndaschen/RentProof.git
+Set-Location RentProof
 pnpm install --frozen-lockfile
 pnpm env:check
 pnpm dev
 ```
 
-本機開發網址為 `http://127.0.0.1:3000`。HTTP 只綁定本機；區域網路使用獨立的 HTTPS 設定，不提供 HTTP LAN 模式。
+本機開發網址為 `http://127.0.0.1:3000`，HTTP 只綁定 loopback。Fixture 模式不需要 OpenAI API key；Live 模式需將 Server-only `OPENAI_API_KEY` 放在不提交的 `.env.local`，並完成明確的 Cloud 與 Project Gate。請勿使用 `NEXT_PUBLIC_*` 金鑰。
 
-執行品質檢查：
+Demo 素材不在 repository 內。執行 Golden flow 前，需先在 `%USERPROFILE%\RentProof-Demo` 準備已封存素材，或以 `RENTPROOF_DEMO_DIR` 指向符合規格的既有目錄，再執行：
+
+```powershell
+pnpm demo:check
+```
+
+常用品質檢查：
 
 ```powershell
 pnpm format:check
@@ -76,60 +73,43 @@ pnpm typecheck
 pnpm test
 pnpm test:coverage
 pnpm security:check
-pnpm subsidy:sources:check
 pnpm build
 pnpm test:e2e
 ```
 
-`pnpm test:e2e` 前必須先完成 `pnpm build`。OpenAI 付費測試不會由一般啟動或 CI 自動執行；只有明確設定 Live 模式後，才會由 Server 呼叫 OpenAI。
+`pnpm test:e2e` 前須先完成 `pnpm build`。私人區域網路展示僅使用 `lan_secure_demo` HTTPS；完整憑證、Firewall、PostgreSQL與啟停步驟見 [Server 配置](docs/SERVER_CONFIGURATION.md)。
 
-### 區域網路 HTTPS
+## 作品展示
 
-區域網路展示使用`lan_secure_demo`，預設網址格式為`https://<私人IP>:3443`，內部Next.js只監聽`127.0.0.1:3100`。它需要受信任的本機CA／Server憑證、精確Host／Origin、Private-profile Firewall、loopback PostgreSQL、訪客或自建帳戶工作階段，以及受保護的私有資料目錄；不必先登入即可建立訪客案件。
+- 作品展示網址：目前未提供公開展示；僅支援本機 loopback 與受信任私人 LAN 的 HTTPS 展示。
+- 評選影片：待補。
+- 原始碼：https://github.com/borndaschen/RentProof
 
-```powershell
-pnpm secure-lan:firewall:verify
-pnpm start:secure-lan
-```
+## 限制與未來工作
 
-完整建立、憑證信任、Firewall 啟停與結束清理步驟見 [Server 配置](docs/SERVER_CONFIGURATION.md)。請勿設定 `0.0.0.0`、Router Port Forwarding、UPnP、DMZ 或公開 Tunnel。
+- 目前契約只支援清楚的文字型 PDF；掃描 OCR、影片與通用工作佇列尚未納入。
+- 防詐目前只實作 `FRS-001`「首次實地看屋前要求付款」；其餘訊號仍待加入 typed evaluator 與測試。
+- 租金補貼功能是 115 年度申請條件預檢，不試算核定金額或加碼倍數，且仍需主管機關正式審查。
+- `lan_secure_demo` 不是正式公開服務；Production 仍需完成正式網域與憑證、Transactional Email 營運控制、排程式清除、異地加密備份、事件處理與部署驗證。
+- 隱私政策、使用條款與 Cookie 政策均為 `DRAFT`；營運者資料、聯絡方式、處理地區、未成年人規則與爭議條款尚待補齊，並需台灣法務／隱私專業審閱。
 
-## 設定 OpenAI
+## 第三方服務、資料與素材
 
-將 `OPENAI_API_KEY` 放在未提交的 `.env.local`，不要使用 `NEXT_PUBLIC_*` 變數。模型固定由 Server 設定：對話使用 `gpt-5.6-luna`，證據抽取使用 `gpt-5.6-terra`。每次請求使用 `store: false`，但這不等同 OpenAI 的 Zero Data Retention。
+- [OpenAI API](https://developers.openai.com/api/docs/)：依 OpenAI 適用條款使用 Responses API；每次 request 設定 `store: false`，但不宣稱等同 Zero Data Retention。
+- [Next.js](https://nextjs.org/)／[React](https://react.dev/)：MIT License。
+- [Mozilla PDF.js](https://mozilla.github.io/pdf.js/)：Apache License 2.0。
+- [Sharp](https://sharp.pixelplumbing.com/)：Apache License 2.0；其相依元件依各自授權。
+- [PostgreSQL](https://www.postgresql.org/)：PostgreSQL License；[Kysely](https://kysely.dev/) 與 [node-postgres](https://node-postgres.com/)：MIT License。
+- 官方規則與補貼資料來自版本化政府來源；完整連結、查核日期與授權／引用說明見[來源與揭露](docs/SOURCES_AND_ATTRIBUTIONS.md)及[官方規則](docs/OFFICIAL_RULES.md)。
+- Golden Demo 素材為完全虛構內容，存放於 repository 外，不隨原始碼發布。
+- 完整第三方套件授權盤點見[第三方授權](docs/THIRD_PARTY_LICENSES.md)。Repository 不包含金鑰、Token、TLS 私鑰、真實租約或其他個人資料。
 
-範例環境變數見 [.env.example](.env.example)，詳細限制見 [OpenAI 整合](docs/OPENAI_INTEGRATION.md)。
+## 團隊成員
 
-## 資料與安全限制
+| 姓名 | 分工 |
+| ---- | ---- |
+|      |      |
 
-- 上傳原檔不放在 `public/`，並驗證 MIME、大小、檔名、雜湊及來源定位。
-- 圖片會重新編碼並移除 EXIF、GPS 等中繼資料。
-- PDF 只接受清楚的文字型文件；掃描 OCR 與影片尚未納入目前版本。
-- 密碼、OTP、API key、Session token、完整金融帳號、私人金鑰與 QR／data URL 會被阻擋。
-- OpenAI 輸出必須通過 schema 與來源定位驗證，不能直接修改案件事實。
-- 政策文件目前仍是草案；缺少營運者法定資訊與法務／隱私審閱前，不代表正式服務條款。
+## License
 
-目前已具備Guest-to-user案件轉移、可重試資料清除worker及通過連線實寄的個人Gmail API低量寄送adapter。正式上線仍須建立Gmail配額／退信監控、把清除worker部署到排程器、建立異地加密備份、正式網域與憑證，以及台灣法務與隱私審閱。現有隱私政策、使用條款與Cookie政策均維持`DRAFT`，不得視為已完成法務審查或已正式生效。
-
-## 資料與授權
-
-Repository 不包含真實租約、地址、身分證件、私人照片、密碼、API key、資料庫內容或 TLS 私鑰。展示素材存放在 repository 外，不隨原始碼發布。
-
-- 原始碼授權：[Apache License 2.0](LICENSE)
-- 必要聲明：[NOTICE](NOTICE)
-- 第三方套件：[第三方授權盤點](docs/THIRD_PARTY_LICENSES.md)
-- 模型、官方資料與素材：[來源與揭露](docs/SOURCES_AND_ATTRIBUTIONS.md)
-- 公開儲存庫檢查：[交付檢查表](docs/PUBLIC_REPOSITORY_CHECKLIST.md)
-
-## 文件
-
-- [產品規格](docs/PRODUCT_SPEC.md)
-- [系統架構](docs/SYSTEM_ARCHITECTURE.md)
-- [UI／RWD 設計](docs/UI_DESIGN.md)
-- [帳戶與歷史資料](docs/AUTH_AND_HISTORY.md)
-- [官方規則與資料來源](docs/OFFICIAL_RULES.md)
-- [租金補貼預檢與治理審閱](docs/SUBSIDY_GOVERNANCE_REVIEW.md)
-- [Demo 與測試計畫](docs/DEMO_TEST_PLAN.md)
-- [隱私政策草案](docs/PRIVACY_POLICY_DRAFT.md)
-- [使用條款草案](docs/TERMS_OF_USE_DRAFT.md)
-- [Cookie 政策草案](docs/COOKIE_POLICY_DRAFT.md)
+本專案原創程式碼與文件採 [Apache License 2.0](LICENSE) 授權，並保留 [NOTICE](NOTICE)。第三方套件、官方來源與 repository 外素材仍依各自授權或使用條件。
