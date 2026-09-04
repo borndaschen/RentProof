@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { REAL_DEMO_CLOUD_CONSENT_TEXT } from "@/application/real-demo/contracts";
 
 type Session =
@@ -11,8 +11,8 @@ type Session =
 
 type Receipt = Readonly<{
   artifactId: string;
-  kind: "listing_image" | "viewing_image" | "contract_pdf" | "follow_up_image";
-  mime: "image/jpeg" | "image/png" | "application/pdf";
+  kind: "listing_image" | "viewing_image" | "contract_pdf" | "follow_up_image" | "viewing_video";
+  mime: "image/jpeg" | "image/png" | "application/pdf" | "video/mp4";
 }>;
 
 type AnalysisSummary = Readonly<{
@@ -25,6 +25,7 @@ const kindLabels = {
   viewing_image: "看屋照片",
   contract_pdf: "租約",
   follow_up_image: "補拍照片",
+  viewing_video: "看屋影片",
 } as const;
 
 export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: boolean }) {
@@ -42,6 +43,8 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
   const [analysis, setAnalysis] = useState<AnalysisSummary | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [accountSession, setAccountSession] = useState<{ csrfToken: string } | null>(null);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -86,6 +89,36 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
       controller.abort();
     };
   }, []);
+
+  useEffect(() => {
+    if (session.status !== "guest" || caseId === null) {
+      return;
+    }
+    let active = true;
+    async function refreshAccountSession() {
+      try {
+        const response = await request("/api/auth/session", {
+          cache: "no-store",
+          credentials: "same-origin",
+        });
+        const data: unknown = await response.json();
+        if (!active || !response.ok || !isSessionResponse(data)) return;
+        setSession((current) =>
+          current.status === "guest" ? { ...current, csrfToken: data.csrfToken } : current,
+        );
+        setAccountSession(data.status === "authenticated" ? { csrfToken: data.csrfToken } : null);
+      } catch {
+        if (active) setAccountSession(null);
+      }
+    }
+    const handleFocus = () => void refreshAccountSession();
+    window.addEventListener("focus", handleFocus);
+    void refreshAccountSession();
+    return () => {
+      active = false;
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [caseId, request, session.status]);
 
   async function createCase(displayName: string) {
     if (!hasCaseSession(session) || !displayName.trim() || !cloudAcknowledged || busy) return;
@@ -137,24 +170,35 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
       );
       return;
     }
-    const kind = step.kind;
-    const extension = mime === "application/pdf" ? "pdf" : mime === "image/png" ? "png" : "jpg";
+    const kind = mime === "video/mp4" ? "viewing_video" : step.kind;
+    const extension =
+      mime === "application/pdf"
+        ? "pdf"
+        : mime === "video/mp4"
+          ? "mp4"
+          : mime === "image/png"
+            ? "png"
+            : "jpg";
     setBusy(true);
     setMessage("正在安全處理檔案…");
     try {
-      const response = await request(`/api/real-cases/${encodeURIComponent(caseId)}/uploads`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/octet-stream",
-          "X-RentProof-CSRF": session.csrfToken,
-          "X-RentProof-Upload-Filename": `upload.${extension}`,
-          "X-RentProof-Upload-Mime": mime,
-          "X-RentProof-Upload-Kind": kind,
-          "Idempotency-Key": crypto.randomUUID(),
-          ...(piiAcknowledgement ? { "PII-Acknowledgement": piiAcknowledgement } : {}),
+      const response = await request(
+        `/api/real-cases/${encodeURIComponent(caseId)}/uploads`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/octet-stream",
+            "X-RentProof-CSRF": session.csrfToken,
+            "X-RentProof-Upload-Filename": `upload.${extension}`,
+            "X-RentProof-Upload-Mime": mime,
+            "X-RentProof-Upload-Kind": kind,
+            "Idempotency-Key": crypto.randomUUID(),
+            ...(piiAcknowledgement ? { "PII-Acknowledgement": piiAcknowledgement } : {}),
+          },
+          body: file,
         },
-        body: file,
-      });
+        mime === "video/mp4" ? 240_000 : 60_000,
+      );
       const data = (await response.json()) as unknown;
       if (!response.ok || !isReceipt(data)) throw new Error("UPLOAD_FAILED");
       setReceipts((current) => [...current, data]);
@@ -189,9 +233,44 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
       setReceipts([]);
       setAnalysis(null);
       setListingUrlAdded(false);
+      setAccountSession(null);
       setMessage("案件已刪除並停止存取。");
     } catch {
       setMessage("目前無法刪除案件，請稍後重試。");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function logout() {
+    if (session.status !== "authenticated" || busy) return;
+    setBusy(true);
+    try {
+      const response = await request("/api/auth/logout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-RentProof-CSRF": session.csrfToken,
+        },
+        body: "{}",
+      });
+      if (!response.ok) throw new Error("LOGOUT_FAILED");
+      const guest = await request("/api/guest/session", {
+        cache: "no-store",
+        credentials: "same-origin",
+      });
+      if (!guest.ok) throw new Error("GUEST_SESSION_FAILED");
+      setSession({ status: "guest", csrfToken: session.csrfToken });
+      setCaseId(null);
+      setCaseName("");
+      setReceipts([]);
+      setAnalysis(null);
+      setListingUrlAdded(false);
+      setSelectedFile(null);
+      setAccountSession(null);
+      setMessage("");
+    } catch {
+      setMessage("目前無法安全登出，請稍後再試。");
     } finally {
       setBusy(false);
     }
@@ -295,39 +374,40 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
   }
 
   async function saveGuestCaseToAccount() {
-    if (session.status !== "guest" || !caseId || busy) return;
+    if (session.status !== "guest" || !accountSession || !caseId || busy) return;
     setBusy(true);
     setMessage("正在確認帳戶並保存案件…");
     try {
-      const sessionResponse = await request("/api/auth/session", {
-        cache: "no-store",
-        credentials: "same-origin",
-      });
-      const sessionData = (await sessionResponse.json()) as unknown;
-      if (
-        !sessionResponse.ok ||
-        !isSessionResponse(sessionData) ||
-        sessionData.status !== "authenticated"
-      ) {
-        throw new Error("ACCOUNT_REQUIRED");
-      }
       const response = await request(`/api/real-cases/${encodeURIComponent(caseId)}/transfer`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-RentProof-CSRF": sessionData.csrfToken,
+          "X-RentProof-CSRF": accountSession.csrfToken,
         },
         body: JSON.stringify({ confirmation: "SAVE_GUEST_CASE_TO_ACCOUNT" }),
       });
       if (!response.ok) throw new Error("TRANSFER_FAILED");
-      setSession({ status: "authenticated", csrfToken: sessionData.csrfToken });
+      setSession({ status: "authenticated", csrfToken: accountSession.csrfToken });
+      setAccountSession(null);
       setMessage(
         "案件已保存到你的帳戶，之後可從「我的案件」查看。未來刪除前會依帳戶保存政策處理。",
       );
     } catch {
-      setMessage("尚未完成保存。請先在新分頁登入，並於登入後 15 分鐘內再按一次保存。");
+      setAccountSession(null);
+      setMessage("尚未完成保存。你仍可刪除案件；若要再試，請重新確認登入狀態。");
     } finally {
       setBusy(false);
+    }
+  }
+
+  function handleFileDrop(event: DragEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsDraggingFile(false);
+    if (!caseId || busy) return;
+    const file = event.dataTransfer.files[0];
+    if (file) {
+      setSelectedFile(file);
+      setPiiAcknowledgement(null);
     }
   }
 
@@ -340,43 +420,53 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
           <p className="subtitle">跟著對話加入資料，我們會一步一步整理需要確認的地方。</p>
         </div>
         <nav aria-label="帳戶功能">
-          <Link href="/rent-subsidy">租屋補助預檢</Link>
-          {session.status === "authenticated" ? <Link href="/history">我的案件</Link> : null}
-          <Link className="header-login-button" href="/auth">
-            {session.status === "guest" ? "登入" : "帳戶"}
+          <Link className="header-nav-button" href="/rent-subsidy">
+            租屋補助預檢
           </Link>
+          {session.status === "authenticated" ? (
+            <>
+              <Link className="header-nav-button" href="/history">
+                我的案件
+              </Link>
+              <button className="header-nav-button" type="button" onClick={logout} disabled={busy}>
+                登出
+              </button>
+            </>
+          ) : (
+            <Link className="header-nav-button" href="/auth">
+              登入
+            </Link>
+          )}
         </nav>
       </header>
 
-      <section className="real-conversation" aria-label="租屋資料對話" aria-live="polite">
+      <section className="real-conversation" aria-label="租屋資料對話">
         <div className="real-message assistant">
           <p className="message-label">RentProof</p>
-          <p>你好。直接輸入物件名稱、貼上租屋連結，或加入廣告、看屋照片與租約。</p>
+          <p>
+            你好。先告訴我這間房子怎麼稱呼，也可以直接貼上公開的租屋網站連結；建立案件後再加入廣告、看屋照片或影片與租約。
+          </p>
+          {session.status === "guest" ? (
+            <p className="guest-save-reminder">
+              目前以訪客模式使用，資料只會在這次訪客使用期間保留。若要日後查詢，請
+              <Link href="/auth" target="_blank" rel="noreferrer">
+                在新分頁登入後保存
+              </Link>
+              。
+            </p>
+          ) : null}
         </div>
 
         {session.status === "loading" ? (
           <div className="real-message assistant">
+            <p className="message-label">RentProof</p>
             <p role="status">正在準備資料整理功能…</p>
           </div>
         ) : null}
         {session.status === "unavailable" ? (
           <div className="real-message assistant">
+            <p className="message-label">RentProof</p>
             <p role="alert">目前無法開始，請稍後再試。</p>
-          </div>
-        ) : null}
-
-        {session.status === "guest" ? (
-          <div className="real-message assistant guest-save-reminder">
-            <p>
-              目前以訪客模式使用，資料只會在這次訪客使用期間保留。若要日後查詢，請
-              <Link href="/auth">登入後保存案件</Link>。
-            </p>
-          </div>
-        ) : null}
-
-        {hasCaseSession(session) && !caseId ? (
-          <div className="real-message assistant">
-            <p>先告訴我這間房子怎麼稱呼，也可以直接貼上公開的租屋網站連結。</p>
           </div>
         ) : null}
 
@@ -403,12 +493,14 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
 
         {message ? (
           <div className="real-message assistant real-status-message">
+            <p className="message-label">RentProof</p>
             <p role="status">{message}</p>
           </div>
         ) : null}
 
         {hasCaseSession(session) && caseId && !hasRequiredArtifacts(receipts, listingUrlAdded) ? (
           <div className="real-message assistant">
+            <p className="message-label">RentProof</p>
             <p>{nextConversationReply(receipts, listingUrlAdded)}</p>
           </div>
         ) : null}
@@ -418,6 +510,7 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
         hasRequiredArtifacts(receipts, listingUrlAdded) &&
         !analysis ? (
           <div className="real-message assistant">
+            <p className="message-label">RentProof</p>
             <p>
               {analysisEnabled
                 ? "資料已備妥。輸入「開始分析」，我會核對廣告、現場照片與租約。"
@@ -429,7 +522,18 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
         {analysis ? <AnalysisMessage analysis={analysis} /> : null}
 
         {hasCaseSession(session) ? (
-          <form className="real-composer" onSubmit={submitComposer}>
+          <form
+            className="real-composer"
+            data-dragging={isDraggingFile || undefined}
+            onSubmit={submitComposer}
+            onDragOver={(event) => {
+              if (!caseId) return;
+              event.preventDefault();
+              setIsDraggingFile(true);
+            }}
+            onDragLeave={() => setIsDraggingFile(false)}
+            onDrop={handleFileDrop}
+          >
             {!caseId ? (
               <label className="real-composer-consent">
                 <input
@@ -445,10 +549,15 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
             <div className="real-composer-row">
               {caseId ? (
                 <label className="real-attachment-button">
-                  <span>加入附件</span>
+                  <span className="real-attachment-label">拖曳或選擇附件</span>
+                  <span className="real-attachment-plus" aria-hidden="true">
+                    ＋
+                  </span>
+                  <span className="sr-only">加入附件</span>
                   <input
                     key={nextUploadStep(receipts, listingUrlAdded).kind}
                     type="file"
+                    aria-label="加入附件"
                     accept={nextUploadStep(receipts, listingUrlAdded).accepts.join(",")}
                     onChange={(event) => {
                       setSelectedFile(event.currentTarget.files?.[0] ?? null);
@@ -500,23 +609,23 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
             <p>{receipts.length + (listingUrlAdded ? 1 : 0)} 份資料已加入</p>
           </div>
           <div className="real-case-actions">
-            {session.status === "guest" ? (
-              <>
-                <Link className="secondary-button" href="/auth" target="_blank" rel="noreferrer">
-                  在新分頁登入
-                </Link>
-                <button
-                  className="primary-button"
-                  type="button"
-                  onClick={saveGuestCaseToAccount}
-                  disabled={busy}
-                >
-                  已登入，保存此案件
-                </button>
-              </>
+            {session.status === "guest" && accountSession === null ? (
+              <Link className="secondary-button" href="/auth" target="_blank" rel="noreferrer">
+                在新分頁登入
+              </Link>
+            ) : null}
+            {session.status === "guest" && accountSession !== null ? (
+              <button
+                className="primary-button"
+                type="button"
+                onClick={saveGuestCaseToAccount}
+                disabled={busy}
+              >
+                保存
+              </button>
             ) : null}
             <button className="secondary-button" type="button" onClick={deleteCase} disabled={busy}>
-              刪除這個案件
+              刪除
             </button>
           </div>
         </aside>
@@ -536,7 +645,7 @@ type UploadStep = Readonly<{
 function AnalysisMessage({ analysis }: { analysis: AnalysisSummary }) {
   return (
     <article className="real-message assistant" aria-labelledby="analysis-summary-title">
-      <p className="message-label">整理完成</p>
+      <p className="message-label">RentProof｜整理完成</p>
       <h2 id="analysis-summary-title">這些是目前的比對結果</h2>
       <dl className="summary-grid real-result-grid">
         <div>
@@ -565,7 +674,10 @@ function AnalysisMessage({ analysis }: { analysis: AnalysisSummary }) {
 }
 
 function acceptedMime(value: string): Receipt["mime"] | null {
-  return value === "image/jpeg" || value === "image/png" || value === "application/pdf"
+  return value === "image/jpeg" ||
+    value === "image/png" ||
+    value === "application/pdf" ||
+    value === "video/mp4"
     ? value
     : null;
 }
@@ -679,13 +791,13 @@ function nextUploadStep(receipts: readonly Receipt[], listingUrlAdded = false): 
       accepts: ["image/jpeg", "image/png"],
     };
   }
-  if (!receipts.some((item) => item.kind === "viewing_image")) {
+  if (!receipts.some((item) => item.kind === "viewing_image" || item.kind === "viewing_video")) {
     return {
       kind: "viewing_image",
       title: "接著加入看屋照片",
-      prompt: "選擇一張能看清楚屋況或設備的照片。完成後仍可再補充照片。",
-      inputLabel: "選擇看屋照片",
-      accepts: ["image/jpeg", "image/png"],
+      prompt: "選擇能看清楚屋況或設備的照片，也可以加入30秒內的MP4看屋影片。",
+      inputLabel: "選擇看屋照片或影片",
+      accepts: ["image/jpeg", "image/png", "video/mp4"],
     };
   }
   if (!receipts.some((item) => item.kind === "contract_pdf")) {
@@ -714,7 +826,12 @@ function hasRequiredArtifacts(receipts: readonly Receipt[], listingUrlAdded = fa
   return (
     receipts.filter((item) => item.kind === "listing_image").length + (listingUrlAdded ? 1 : 0) ===
       1 &&
-    receipts.some((item) => item.kind === "viewing_image" || item.kind === "follow_up_image") &&
+    receipts.some(
+      (item) =>
+        item.kind === "viewing_image" ||
+        item.kind === "follow_up_image" ||
+        item.kind === "viewing_video",
+    ) &&
     receipts.filter((item) => item.kind === "contract_pdf").length === 1
   );
 }
@@ -739,7 +856,13 @@ function countStatus(
   return analysis.findings.filter((finding) => finding.status === status).length;
 }
 
-const RealKinds = ["listing_image", "viewing_image", "contract_pdf", "follow_up_image"];
+const RealKinds = [
+  "listing_image",
+  "viewing_image",
+  "contract_pdf",
+  "follow_up_image",
+  "viewing_video",
+];
 
 function useAbortableFetch() {
   const activeControllers = useRef(new Set<AbortController>());
@@ -755,25 +878,28 @@ function useAbortableFetch() {
     };
   }, []);
 
-  return useCallback(async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    if (!mounted.current) throw new DOMException("Page unmounted", "AbortError");
-    const controller = new AbortController();
-    const controllers = activeControllers.current;
-    controllers.add(controller);
-    const timeout = setTimeout(() => controller.abort(), 60_000);
-    controller.signal.addEventListener(
-      "abort",
-      () => {
+  return useCallback(
+    async (input: RequestInfo | URL, init?: RequestInit, timeoutMs = 60_000): Promise<Response> => {
+      if (!mounted.current) throw new DOMException("Page unmounted", "AbortError");
+      const controller = new AbortController();
+      const controllers = activeControllers.current;
+      controllers.add(controller);
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+      controller.signal.addEventListener(
+        "abort",
+        () => {
+          clearTimeout(timeout);
+          controllers.delete(controller);
+        },
+        { once: true },
+      );
+      try {
+        return await fetch(input, { ...init, signal: controller.signal });
+      } finally {
         clearTimeout(timeout);
         controllers.delete(controller);
-      },
-      { once: true },
-    );
-    try {
-      return await fetch(input, { ...init, signal: controller.signal });
-    } finally {
-      clearTimeout(timeout);
-      controllers.delete(controller);
-    }
-  }, []);
+      }
+    },
+    [],
+  );
 }

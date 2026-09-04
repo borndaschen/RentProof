@@ -8,4 +8,9 @@ export const UPLOAD_LIMITS = Object.freeze({
   caseOriginalImageBytes: 400 * 1024 * 1024,
 } as const);
 
-export const UPLOAD_ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "application/pdf"] as const;
+export const UPLOAD_ALLOWED_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "application/pdf",
+  "video/mp4",
+] as const;

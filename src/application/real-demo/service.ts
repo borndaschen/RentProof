@@ -17,6 +17,7 @@ import {
   type RealArtifactMime,
 } from "./contracts";
 import type { EncryptedRealArtifactStorePort, RealDemoRepositoryPort } from "./ports";
+import { unpackVerifiedVideoFrames } from "@/application/video";
 
 export class RealDemoService {
   constructor(
@@ -67,21 +68,36 @@ export class RealDemoService {
       ? Sha256Schema.safeParse(input.derivative.sha256)
       : null;
     const isContract = input.kind === "contract_pdf";
+    const isVideo = input.kind === "viewing_video";
+    let videoBundleValid = !isVideo;
+    if (isVideo && input.derivative !== undefined) {
+      try {
+        videoBundleValid = unpackVerifiedVideoFrames(input.derivative.bytes).length > 0;
+      } catch {
+        videoBundleValid = false;
+      }
+    }
     const shapeIsValid = isContract
       ? input.mime === "application/pdf" &&
         input.extractedText !== undefined &&
         input.derivative === undefined &&
         [...input.extractedText].length <= 300_000
-      : input.mime !== "application/pdf" &&
-        input.derivative !== undefined &&
-        input.extractedText === undefined;
+      : isVideo
+        ? input.mime === "video/mp4" &&
+          input.derivative !== undefined &&
+          input.extractedText === undefined &&
+          videoBundleValid
+        : input.mime !== "application/pdf" &&
+          input.mime !== "video/mp4" &&
+          input.derivative !== undefined &&
+          input.extractedText === undefined;
     if (
       !caseId.success ||
       !kind.success ||
       !mime.success ||
       !originalSha256.success ||
       input.originalBytes.byteLength === 0 ||
-      input.originalBytes.byteLength > 25 * 1024 * 1024 ||
+      input.originalBytes.byteLength > (isVideo ? 50 : 25) * 1024 * 1024 ||
       (isContract && input.originalBytes.byteLength > 15 * 1024 * 1024) ||
       !shapeIsValid ||
       (input.derivative !== undefined &&
@@ -239,7 +255,10 @@ export class RealDemoService {
     ]);
     const listingCount = artifacts.filter((item) => item.kind === "listing_image").length;
     const viewingCount = artifacts.filter(
-      (item) => item.kind === "viewing_image" || item.kind === "follow_up_image",
+      (item) =>
+        item.kind === "viewing_image" ||
+        item.kind === "follow_up_image" ||
+        item.kind === "viewing_video",
     ).length;
     const contractCount = artifacts.filter((item) => item.kind === "contract_pdf").length;
     if (
@@ -266,22 +285,42 @@ export class RealDemoService {
       }
       return { artifact, selectedPath };
     });
-    const payloads = await Promise.all(
-      selections.map(async ({ artifact, selectedPath }) => {
+    const payloadGroups = await Promise.all(
+      selections.map(async ({ artifact, selectedPath }): Promise<RealArtifactAnalysisPayload[]> => {
         let bytes: Uint8Array;
         try {
           bytes = await this.store.read(selectedPath);
         } catch {
           throw new RealDemoAccessError("REAL_DEMO_STORAGE_FAILED");
         }
-        return {
-          artifactId: artifact.artifactId,
-          kind: artifact.kind,
-          mime: artifact.mime,
-          bytes,
-        };
+        if (artifact.kind === "viewing_video") {
+          try {
+            return unpackVerifiedVideoFrames(bytes).map((frame): RealArtifactAnalysisPayload => ({
+              artifactId: artifact.artifactId,
+              kind: artifact.kind,
+              mime: frame.mime,
+              bytes: frame.bytes,
+              timestampMs: frame.timestampMs,
+              frameNo: frame.frameNo,
+            }));
+          } catch {
+            throw new RealDemoAccessError("REAL_DEMO_STORAGE_FAILED");
+          }
+        }
+        if (artifact.mime === "video/mp4") {
+          throw new RealDemoAccessError("REAL_DEMO_STORAGE_FAILED");
+        }
+        return [
+          {
+            artifactId: artifact.artifactId,
+            kind: artifact.kind,
+            mime: artifact.mime,
+            bytes,
+          },
+        ];
       }),
     );
+    const payloads = payloadGroups.flat();
     return listingUrl
       ? [
           ...payloads,

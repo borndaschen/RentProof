@@ -11,8 +11,14 @@ export const RealArtifactKindSchema = z.enum([
   "viewing_image",
   "contract_pdf",
   "follow_up_image",
+  "viewing_video",
 ]);
-export const RealArtifactMimeSchema = z.enum(["image/jpeg", "image/png", "application/pdf"]);
+export const RealArtifactMimeSchema = z.enum([
+  "image/jpeg",
+  "image/png",
+  "application/pdf",
+  "video/mp4",
+]);
 export const Sha256Schema = z.string().regex(/^[a-f0-9]{64}$/u);
 export const SafeRelativeStoragePathSchema = z
   .string()
@@ -30,16 +36,23 @@ export const RealArtifactReservationSchema = z
       .number()
       .int()
       .positive()
-      .max(25 * 1024 * 1024),
+      .max(50 * 1024 * 1024),
   })
   .strict()
   .superRefine((value, context) => {
     const isContract = value.kind === "contract_pdf";
-    if (isContract !== (value.mime === "application/pdf")) {
+    const isVideo = value.kind === "viewing_video";
+    if (
+      isContract !== (value.mime === "application/pdf") ||
+      isVideo !== (value.mime === "video/mp4")
+    ) {
       context.addIssue({ code: "custom", message: "ARTIFACT_KIND_MIME_MISMATCH" });
     }
     if (isContract && value.originalBytes > 15 * 1024 * 1024) {
       context.addIssue({ code: "custom", message: "CONTRACT_BYTES_EXCEEDED" });
+    }
+    if (!isContract && !isVideo && value.originalBytes > 25 * 1024 * 1024) {
+      context.addIssue({ code: "custom", message: "IMAGE_BYTES_EXCEEDED" });
     }
   });
 
@@ -70,8 +83,10 @@ export type AvailableRealArtifact = Readonly<{
 export type RealArtifactAnalysisPayload = Readonly<{
   artifactId: string;
   kind: RealArtifactKind | "listing_text";
-  mime: RealArtifactMime | "text/plain";
+  mime: "image/jpeg" | "image/png" | "application/pdf" | "text/plain";
   bytes: Uint8Array;
+  timestampMs?: number;
+  frameNo?: number;
 }>;
 
 export const RealAnalysisSnapshotSchema = z

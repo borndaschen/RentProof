@@ -7,6 +7,9 @@ import { guardSingleUploadRequest } from "./stream-guard";
 const PNG = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2]);
 const JPEG = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 1, 2]);
 const PDF = new TextEncoder().encode("%PDF-1.7\nfixture");
+const MP4 = Uint8Array.from([
+  0, 0, 0, 20, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d, 0, 0, 0, 0, 0, 0, 0, 0,
+]);
 
 function streamOf(...chunks: unknown[]): AsyncIterable<unknown> {
   return {
@@ -74,6 +77,15 @@ describe("guardSingleUploadRequest", () => {
         context,
       ),
     ).resolves.toMatchObject({ ok: true, upload: { actualMime: "application/pdf" } });
+    await expect(
+      guardSingleUploadRequest(
+        request(
+          { filename: "walkthrough.mp4", declaredMime: "video/mp4", kind: "viewing_video" },
+          streamOf(MP4),
+        ),
+        context,
+      ),
+    ).resolves.toMatchObject({ ok: true, upload: { actualMime: "video/mp4" } });
   });
 
   it("requires exactly one file", async () => {
@@ -114,6 +126,27 @@ describe("guardSingleUploadRequest", () => {
     );
     expect(result).toEqual({ ok: false, code: "UPLOAD_FILE_TOO_LARGE" });
     expect(readAfterOverflow).toBe(false);
+  });
+
+  it("rejects a fake MP4 declaration and video filename mismatch", async () => {
+    await expect(
+      guardSingleUploadRequest(
+        request(
+          { filename: "walkthrough.mp4", declaredMime: "video/mp4", kind: "viewing_video" },
+          streamOf(JPEG),
+        ),
+        context,
+      ),
+    ).resolves.toEqual({ ok: false, code: "UPLOAD_MIME_MISMATCH" });
+    await expect(
+      guardSingleUploadRequest(
+        request(
+          { filename: "walkthrough.mov", declaredMime: "video/mp4", kind: "viewing_video" },
+          streamOf(MP4),
+        ),
+        context,
+      ),
+    ).resolves.toEqual({ ok: false, code: "UPLOAD_FILENAME_INVALID" });
   });
 
   it("rejects fake MIME and unknown magic", async () => {

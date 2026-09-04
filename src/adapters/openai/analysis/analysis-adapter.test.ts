@@ -159,6 +159,16 @@ const outputs = {
         },
       },
     ],
+    fraudCandidates: {
+      remoteViewingArrangement: { status: "not_present" },
+      unfamiliarLinkOrCredentialRequest: { status: "not_present" },
+      paymentRequest: { status: "not_present" },
+      paymentPartyRelationship: { status: "unknown" },
+      lettingAuthorityVerification: { status: "unknown" },
+      pressureLanguage: { status: "not_present" },
+      paymentMethod: { status: "unknown" },
+      redirectedAccountVerification: { status: "not_present" },
+    },
   },
 } satisfies Record<string, TerraAnalysisOutput>;
 
@@ -261,6 +271,36 @@ describe("buildTerraAnalysisRequest", () => {
     expect(serialized).not.toContain("C:\\");
   });
 
+  it("carries bounded video-frame metadata and rejects partial metadata", () => {
+    const frameInput = {
+      ...inputs.evidence,
+      images: [
+        {
+          artifactId: evidenceArtifactId,
+          mime: "image/jpeg" as const,
+          base64: "AA==",
+          timestampMs: 2_000,
+          frameNo: 1,
+        },
+      ],
+    };
+    const request = buildTerraAnalysisRequest(frameInput);
+    expect(JSON.stringify(request.input)).toContain('\\"timestampMs\\":2000,\\"frameNo\\":1');
+    expect(request.instructions).toContain("Return a video locator");
+    expect(() =>
+      buildTerraAnalysisRequest({
+        ...inputs.evidence,
+        images: [{ ...inputs.evidence.images[0], timestampMs: 2_000 }],
+      }),
+    ).toThrow();
+    expect(() =>
+      buildTerraAnalysisRequest({
+        ...inputs.evidence,
+        images: [{ ...inputs.evidence.images[0], timestampMs: 30_000, frameNo: 15 }],
+      }),
+    ).toThrow();
+  });
+
   it("rejects paths, URLs, secrets, and chat history as context fields", () => {
     for (const extra of [
       { rawPath: "C:\\secret\\lease.pdf" },
@@ -285,6 +325,104 @@ describe("buildTerraAnalysisRequest", () => {
 });
 
 describe("OpenAITerraAnalysisAdapter", () => {
+  it("normalizes located interaction facts without allowing provider signals or actions", async () => {
+    const providerOutput = structuredClone(toProviderOutput(outputs.interaction)) as {
+      fraudCandidates: Record<string, unknown>;
+    };
+    providerOutput.fraudCandidates["pressureLanguage"] = {
+      status: "present",
+      value: "pay_now_to_reserve",
+      locators: [
+        {
+          type: "text",
+          locatorId: "interaction_pressure_locator_01",
+          artifactId: interactionArtifactId,
+          start: 3,
+          end: 12,
+          excerpt: "看屋前先支付預約金",
+        },
+      ],
+    };
+    const client = new FakeClient(async () => ({
+      response: providerResponse(providerOutput),
+      attempts: 1,
+    }));
+    const result = await new OpenAITerraAnalysisAdapter(client).analyze(inputs.interaction);
+    expect(result.output).toMatchObject({
+      stage: "interaction.extract",
+      fraudCandidates: {
+        pressureLanguage: {
+          status: "present",
+          value: "pay_now_to_reserve",
+          locatorIds: ["interaction_pressure_locator_01"],
+        },
+      },
+    });
+    expect(result.sourceLocators).toContainEqual(
+      expect.objectContaining({ locatorId: "interaction_pressure_locator_01" }),
+    );
+
+    const pressureCandidate = providerOutput.fraudCandidates["pressureLanguage"] as Record<
+      string,
+      unknown
+    >;
+    pressureCandidate["signalId"] = "FRS-006";
+    const signalClient = new FakeClient(async () => ({
+      response: providerResponse(providerOutput),
+      attempts: 1,
+    }));
+    await expect(
+      new OpenAITerraAnalysisAdapter(signalClient).analyze(inputs.interaction),
+    ).rejects.toMatchObject({ code: "ANALYSIS_PROVIDER_SCHEMA_INVALID" });
+  });
+
+  it("requires video-frame observations to preserve the server timestamp and frame number", async () => {
+    const frameInput: TerraAnalysisInput = {
+      ...inputs.evidence,
+      images: [
+        {
+          artifactId: evidenceArtifactId,
+          mime: "image/jpeg",
+          base64: "AA==",
+          timestampMs: 2_000,
+          frameNo: 1,
+        },
+      ],
+    };
+    const providerOutput = toProviderOutput(outputs.evidence) as {
+      observations: Array<{ locator: Record<string, unknown> }>;
+    };
+    const observation = providerOutput.observations[0];
+    if (observation === undefined) throw new Error("test observation missing");
+    observation.locator = {
+      type: "video",
+      locatorId: "evidence_locator_analysis_01",
+      artifactId: evidenceArtifactId,
+      timestampMs: 2_000,
+      frameNo: 1,
+    };
+    const validClient = new FakeClient(async () => ({
+      response: providerResponse(providerOutput),
+      attempts: 1,
+    }));
+    await expect(
+      new OpenAITerraAnalysisAdapter(validClient).analyze(frameInput),
+    ).resolves.toMatchObject({
+      output: {
+        observations: [{ locator: { type: "video", timestampMs: 2_000, frameNo: 1 } }],
+      },
+    });
+
+    observation.locator["timestampMs"] = 2_001;
+    const invalidClient = new FakeClient(async () => ({
+      response: providerResponse(providerOutput),
+      attempts: 1,
+    }));
+    await expect(
+      new OpenAITerraAnalysisAdapter(invalidClient).analyze(frameInput),
+    ).rejects.toMatchObject({ code: "ANALYSIS_LOCATOR_INVALID" });
+  });
+
   it.each([
     [inputs.listing, outputs.listing],
     [inputs.evidence, outputs.evidence],

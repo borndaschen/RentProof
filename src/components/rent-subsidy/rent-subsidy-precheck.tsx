@@ -24,6 +24,7 @@ const styles = {
   resultLabel: rawStyles["resultLabel"],
   checkList: rawStyles["checkList"],
   sourceLinks: rawStyles["sourceLinks"],
+  resultActions: rawStyles["resultActions"],
   visuallyHidden: rawStyles["visuallyHidden"],
 } as const;
 
@@ -429,24 +430,28 @@ export function RentSubsidyPrecheck() {
           </button>
         </section>
       ) : null}
-      {result ? <PrecheckResult ref={resultHeadingRef} result={result} /> : null}
-      <section className={styles.statusGuide} aria-labelledby="status-guide-title">
-        <h2 id="status-guide-title">結果怎麼看</h2>
-        <dl>
-          <div>
-            <dt>初步相符</dt>
-            <dd>目前自述資料與預檢規則相符；仍須由主管機關正式審查。</dd>
-          </div>
-          <div>
-            <dt>有待確認</dt>
-            <dd>至少一項情況需要向官方或承辦單位確認。</dd>
-          </div>
-          <div>
-            <dt>資料不足</dt>
-            <dd>目前回答不足以完成部分檢核，需先補齊資料。</dd>
-          </div>
-        </dl>
-      </section>
+      {result ? (
+        <>
+          <PrecheckResult ref={resultHeadingRef} result={result} />
+          <section className={styles.statusGuide} aria-labelledby="status-guide-title">
+            <h2 id="status-guide-title">結果怎麼看</h2>
+            <dl>
+              <div>
+                <dt>初步相符</dt>
+                <dd>目前自述資料與預檢規則相符；仍須由主管機關正式審查。</dd>
+              </div>
+              <div>
+                <dt>有待確認</dt>
+                <dd>至少一項情況需要向官方或承辦單位確認。</dd>
+              </div>
+              <div>
+                <dt>資料不足</dt>
+                <dd>目前回答不足以完成部分檢核，需先補齊資料。</dd>
+              </div>
+            </dl>
+          </section>
+        </>
+      ) : null}
     </main>
   );
 }
@@ -541,9 +546,19 @@ function PrecheckResult({
           </a>
         ))}
       </div>
-      <a className="primary-button" href={officialApplicationUrl} target="_blank" rel="noreferrer">
-        前往政府官方申請專區
-      </a>
+      <div className={styles.resultActions}>
+        <a
+          className="primary-button"
+          href={officialApplicationUrl}
+          target="_blank"
+          rel="noreferrer"
+        >
+          前往政府官方申請專區
+        </a>
+        <Link className="secondary-button" href="/">
+          返回租屋資料整理
+        </Link>
+      </div>
     </section>
   );
 }

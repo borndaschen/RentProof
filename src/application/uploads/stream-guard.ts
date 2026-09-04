@@ -8,6 +8,7 @@ import {
   type UploadFileMetadata,
   type UploadMimeType,
 } from "@/domain/uploads";
+import { VIDEO_LIMITS, hasMp4FileSignature } from "@/domain/video";
 
 const UploadServerContextSchema = z
   .object({
@@ -70,7 +71,11 @@ export async function guardSingleUploadRequest(
     return compatibility;
   }
   const maxBytes =
-    metadata.value.kind === "contract_pdf" ? UPLOAD_LIMITS.pdfBytes : UPLOAD_LIMITS.imageBytes;
+    metadata.value.kind === "contract_pdf"
+      ? UPLOAD_LIMITS.pdfBytes
+      : metadata.value.kind === "viewing_video"
+        ? VIDEO_LIMITS.maxBytes
+        : UPLOAD_LIMITS.imageBytes;
   const streamed = await readBoundedStream(file["stream"], maxBytes);
   if (!streamed.ok) {
     return streamed;
@@ -85,6 +90,7 @@ export async function guardSingleUploadRequest(
   }
   if (
     actualMime !== "application/pdf" &&
+    actualMime !== "video/mp4" &&
     context.data.currentCaseOriginalImageBytes + streamed.byteLength >
       UPLOAD_LIMITS.caseOriginalImageBytes
   ) {
@@ -134,16 +140,22 @@ function parseMetadata(untrustedMetadata: unknown): ParsedMetadata {
 
 function validateKindMimeAndFilename(metadata: UploadFileMetadata): UploadFailure | null {
   const isPdf = metadata.kind === "contract_pdf";
-  if (isPdf !== (metadata.declaredMime === "application/pdf")) {
+  const isVideo = metadata.kind === "viewing_video";
+  if (
+    isPdf !== (metadata.declaredMime === "application/pdf") ||
+    isVideo !== (metadata.declaredMime === "video/mp4")
+  ) {
     return { ok: false, code: "UPLOAD_MIME_MISMATCH" };
   }
   const filename = metadata.filename.toLowerCase();
   const extensionMatches =
     metadata.declaredMime === "application/pdf"
       ? filename.endsWith(".pdf")
-      : metadata.declaredMime === "image/png"
-        ? filename.endsWith(".png")
-        : filename.endsWith(".jpg") || filename.endsWith(".jpeg");
+      : metadata.declaredMime === "video/mp4"
+        ? filename.endsWith(".mp4")
+        : metadata.declaredMime === "image/png"
+          ? filename.endsWith(".png")
+          : filename.endsWith(".jpg") || filename.endsWith(".jpeg");
   return extensionMatches ? null : { ok: false, code: "UPLOAD_FILENAME_INVALID" };
 }
 
@@ -198,6 +210,9 @@ function detectMagicMime(bytes: Uint8Array): UploadMimeType | null {
   }
   if (startsWith(bytes, [0x25, 0x50, 0x44, 0x46, 0x2d])) {
     return "application/pdf";
+  }
+  if (hasMp4FileSignature(bytes)) {
+    return "video/mp4";
   }
   return null;
 }

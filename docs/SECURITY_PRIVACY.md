@@ -99,6 +99,9 @@ flowchart LR
 - 限制頁數、像素、單檔大小與案件總量；實際數值在實作時集中設定，不散落各 route。
 - 圖片固定每張25 MiB／50 MP、每案件原始圖片400 MiB、每request一張；Sharp derivative最長邊3200 px且不放大。Server端stream、decoder與repository均驗證，client宣告不具安全效力。
 - 契約PDF固定單份15 MiB、30頁、抽取文字300,000字元、每request一份；stream、PDF.js document與text aggregation分層限制。容量合格不代表內容安全，掃描／加密／active-content／無頁碼定位仍拒絕或要求補件。
+- 掃描PDF OCR不得繞過原PDF限制：PDF.js preflight仍拒絕加密、JavaScript／actions、附件、表單與外部連結。Terra只回逐頁candidate＋bbox／confidence；全部固定需人工確認，確認前不得建立Clause／Finding／三態／RuleCheck。
+- 影片契約固定MP4、50 MiB、30秒、4K、60fps、每2秒最多15幀；音訊不分析。Secure LAN只使用來源、授權、版本與SHA-256皆固定的FFmpeg／FFprobe，重新編碼後再以Sharp驗證；binary缺少或不符立即fail closed。
+- Background work只接受`contract.ocr／evidence.video_frames／analysis.pipeline`三種typed union。單機持久化queue固定10,000 records、concurrency 2、per-case 1、60秒lease及3 attempts；payload不得含bytes、OCR文字、prompt或secret，governed worker在handler前重新驗owner／revision／policy／Cloud Notice／budget，失敗不得存取素材或provider。
 - 解碼圖片後再產生新檔，移除不必要metadata；測試素材也遵循相同流程。
 - PDF 不執行內嵌 JavaScript、附件、表單動作或外部連結。
 - 不使用使用者檔名作 filesystem path；原始檔名只作經清理的顯示 metadata。

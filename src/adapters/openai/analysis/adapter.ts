@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { z } from "zod";
+import type { SourceLocator } from "@/domain/evidence-graph";
 import {
   ContractAnalysisEnvelopeSchema,
   EvidenceAnalysisEnvelopeSchema,
@@ -178,7 +179,30 @@ function entities(output: TerraAnalysisOutput) {
   }
 }
 
-function normalizeProviderLocator(locator: ProviderSourceLocator): unknown {
+function candidateLocators(
+  output: Extract<TerraAnalysisProviderOutput, { stage: "interaction.extract" }>,
+) {
+  return Object.values(output.fraudCandidates).flatMap((candidate) =>
+    candidate.status === "present" ? candidate.locators : [],
+  );
+}
+
+function normalizeFraudCandidate(candidate: {
+  status: "present" | "not_present" | "unknown";
+  value?: string;
+  locators?: readonly ProviderSourceLocator[];
+}) {
+  if (candidate.status !== "present" || candidate.value === undefined) {
+    return { status: candidate.status };
+  }
+  return {
+    status: "present" as const,
+    value: candidate.value,
+    locatorIds: (candidate.locators ?? []).map((locator) => locator.locatorId),
+  };
+}
+
+function normalizeProviderLocator(locator: ProviderSourceLocator): SourceLocator {
   if (locator.type !== "image") return locator;
   return {
     ...locator,
@@ -231,6 +255,12 @@ function normalizeProviderOutput(output: TerraAnalysisProviderOutput): unknown {
           ...cue,
           locator: normalizeProviderLocator(cue.locator),
         })),
+        fraudCandidates: Object.fromEntries(
+          Object.entries(output.fraudCandidates).map(([key, candidate]) => [
+            key,
+            normalizeFraudCandidate(candidate),
+          ]),
+        ),
       };
   }
 }
@@ -271,6 +301,25 @@ function validateListingTextLocators(
   );
 }
 
+function validateEvidenceMediaLocators(
+  input: TerraAnalysisInput,
+  output: TerraAnalysisProviderOutput,
+): boolean {
+  if (input.stage !== "evidence.extract" || output.stage !== "evidence.extract") return true;
+  return output.observations.every((observation) => {
+    const source = input.images.find((image) => image.artifactId === observation.artifactId);
+    if (source === undefined) return false;
+    if (source.timestampMs === undefined || source.frameNo === undefined) {
+      return observation.locator.type === "image";
+    }
+    return (
+      observation.locator.type === "video" &&
+      observation.locator.timestampMs === source.timestampMs &&
+      observation.locator.frameNo === source.frameNo
+    );
+  });
+}
+
 function exactPageExcerpt(
   pageText: string | undefined,
   start: number,
@@ -291,6 +340,11 @@ function outputLocators(output: TerraAnalysisOutput) {
         ),
       ]
     : base;
+}
+
+function providerOutputLocators(output: TerraAnalysisProviderOutput) {
+  if (output.stage !== "interaction.extract") return [];
+  return candidateLocators(output);
 }
 
 function validateLocatorOwnership(input: TerraAnalysisInput, output: TerraAnalysisOutput): boolean {
@@ -396,6 +450,21 @@ export class OpenAITerraAnalysisAdapter {
     if (!validateListingTextLocators(input, providerOutput)) {
       throw new OpenAIAnalysisError("ANALYSIS_LOCATOR_INVALID", clientResult.attempts, response.id);
     }
+    if (!validateEvidenceMediaLocators(input, providerOutput)) {
+      throw new OpenAIAnalysisError("ANALYSIS_LOCATOR_INVALID", clientResult.attempts, response.id);
+    }
+    if (
+      input.stage === "interaction.extract" &&
+      providerOutput.stage === "interaction.extract" &&
+      providerOutputLocators(providerOutput).some(
+        (locator) =>
+          locator.type !== "text" ||
+          locator.artifactId !== input.artifactId ||
+          !exactPageExcerpt(input.text, locator.start, locator.end, locator.excerpt),
+      )
+    ) {
+      throw new OpenAIAnalysisError("ANALYSIS_LOCATOR_INVALID", clientResult.attempts, response.id);
+    }
     const normalizedOutput = TerraAnalysisOutputSchema.safeParse(
       normalizeProviderOutput(providerOutput),
     );
@@ -431,7 +500,10 @@ export class OpenAITerraAnalysisAdapter {
 
     return {
       output,
-      sourceLocators: outputLocators(output),
+      sourceLocators: [
+        ...outputLocators(output),
+        ...providerOutputLocators(providerOutput).map(normalizeProviderLocator),
+      ],
       provenance,
     };
   }

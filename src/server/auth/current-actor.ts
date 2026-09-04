@@ -44,6 +44,20 @@ export async function resolveCurrentCaseActor(request: Request): Promise<ActorCo
   }
 }
 
+export async function resolveCurrentCaseActors(request: Request): Promise<{
+  account: (ActorContext & { kind: "user" }) | null;
+  guest: (ActorContext & { kind: "guest" }) | null;
+}> {
+  const account = await resolveCurrentAccountActor(request, true);
+  try {
+    const rawGuestToken = readUniqueCookie(request.headers.get("cookie"), GUEST_SESSION_COOKIE);
+    const guest = await (await getGuestSessionRuntime()).resolve(rawGuestToken ?? undefined);
+    return { account, guest };
+  } catch {
+    throw new CurrentActorResolutionError();
+  }
+}
+
 export async function resolveCurrentAccountActor(
   request: Request,
   touch: boolean,

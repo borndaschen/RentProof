@@ -26,6 +26,10 @@
 
 Playwright採Apache-2.0；TypeScript、ESLint、Prettier、Vitest、Testing Library與Axe相關套件依各上游package所附授權使用。PostgreSQL型別套件`@types/pg`鎖定`8.23.1`，其已安裝`package.json`與`LICENSE`均標示MIT。這些工具不代表RentProof採用相同專案授權。
 
+## Repository 外本機工具
+
+開發機另於 RentProof 私有 runtime 安裝 GyanD `FFmpeg 9.0.1 Essentials Build`，上游頁面標示該靜態build為GPLv3，發行物內含`LICENSE`與`README.txt`。壓縮檔與binary均不提交repository、不併入RentProof的Apache-2.0授權，也尚未形成對外散布物；若未來隨產品散布、打包或提供下載，必須先完成GPLv3義務與完整對應來源提供方式的法務／授權審閱。
+
 ## Transitive License Categories
 
 2026-09-03再次依鎖定的`package.json`、`pnpm-lock.yaml`與本機已安裝發行物核對新增的`argon2`、Kysely、`pg`及`@types/pg`；四者的package metadata與隨附License均標示MIT。`argon2`包含native prebuilt與vendored Argon2來源，安裝腳本及兩層License已人工核對。Production license inventory曾出現MIT、Apache-2.0、Apache-2.0 AND LGPL-3.0-or-later、ISC、BSD-3-Clause、0BSD與CC-BY-4.0等類別。部署或散布前仍須保留套件發行物中的原始License／Notice，並重新執行盤點以反映lockfile變更。

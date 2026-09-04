@@ -7,6 +7,7 @@ export {
 } from "./extract-text";
 export type { ExtractedPdfText } from "./extract-text";
 export { PdfJsEngineLoadError, PdfTextExtractionError } from "./errors";
+export { createScannedPdfPreflightAdapter, inspectScannedPdf } from "./inspect-scanned-pdf";
 export type { PdfJsEngineLoadErrorCode, PdfTextExtractionErrorCode } from "./errors";
 export type {
   PdfActiveContentInspection,

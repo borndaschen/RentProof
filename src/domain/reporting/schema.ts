@@ -13,6 +13,7 @@ import {
   NonNaturalDeathDisclosureStatementSchema,
 } from "../non-natural-death-disclosure";
 import { ActionCardSchema } from "./action-card";
+import { FRAUD_SIGNAL_IDS } from "../fraud/contracts";
 
 const ReferenceIdSchema = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u);
 const HashSchema = z.string().regex(/^[0-9a-f]{64}$/u);
@@ -38,20 +39,23 @@ export const VerifiedRuleCheckInputSchema = z
 
 export const VerifiedFraudSignalInputSchema = z
   .object({
-    signalId: z.literal("FRS-001"),
+    signalId: z.enum(FRAUD_SIGNAL_IDS),
     status: z.enum(["detected", "not_detected_in_provided_data", "insufficient_information"]),
-    action: z.enum(["review", "stop_and_verify"]),
-    reasonCode: z.enum([
-      "FRS_001_PAYMENT_BEFORE_VIEWING",
-      "FRS_001_PAYMENT_NOT_BEFORE_VIEWING",
-      "FRS_001_PAYMENT_EVIDENCE_MISSING",
-      "FRS_001_TIMELINE_INCOMPLETE",
-    ]),
+    action: z.enum(["review", "verify_before_payment", "stop_and_verify"]),
+    reasonCode: z.string().regex(/^FRS_0(?:0[1-9]|10)_[A-Z0-9_]{2,80}$/u),
     sourceRefIds: z.array(ReferenceIdSchema).min(1).max(20),
     missingInputs: z.array(z.string().min(1).max(128)).max(10),
     humanVerificationRequired: z.literal(true),
   })
-  .strict();
+  .strict()
+  .superRefine((signal, context) => {
+    if (signal.status === "detected" && signal.action === "review") {
+      context.addIssue({ code: "custom", message: "DETECTED_FRAUD_SIGNAL_ACTION_REQUIRED" });
+    }
+    if (signal.status !== "detected" && signal.action !== "review") {
+      context.addIssue({ code: "custom", message: "NON_DETECTED_FRAUD_SIGNAL_ACTION_INVALID" });
+    }
+  });
 
 const VariableCostSummarySchema = z
   .object({
@@ -167,6 +171,12 @@ export const PreSigningReportInputSchema = z
     input.fraudSignals.forEach((signal, index) =>
       requireRefs(signal.sourceRefIds, ["fraudSignals", index, "sourceRefIds"]),
     );
+    if (
+      new Set(input.fraudSignals.map((signal) => signal.signalId)).size !==
+      input.fraudSignals.length
+    ) {
+      context.addIssue({ code: "custom", message: "DUPLICATE_FRAUD_SIGNAL" });
+    }
     input.nonNaturalDeathDisclosureStatements.forEach((statement, index) => {
       if (statement.locator === undefined) return;
       const registered = sources.get(statement.locator.locatorId);
@@ -225,12 +235,13 @@ const RuleReportItemSchema = z
 
 const FraudReportItemSchema = z
   .object({
-    signalId: z.literal("FRS-001"),
+    signalId: z.enum(FRAUD_SIGNAL_IDS),
     status: z.enum([
       "payment_verification_required",
       "not_detected_in_provided_data",
       "insufficient_information",
     ]),
+    action: z.enum(["review", "verify_before_payment", "stop_and_verify"]),
     reasonCode: z.string().min(1).max(96),
     sourceRefs: z.array(ReferenceIdSchema).min(1).max(20),
   })

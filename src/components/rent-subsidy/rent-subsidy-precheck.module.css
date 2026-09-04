@@ -272,6 +272,12 @@
   text-underline-offset: 3px;
 }
 
+.resultActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 .error {
   border-color: #efc3c3;
   color: var(--danger);

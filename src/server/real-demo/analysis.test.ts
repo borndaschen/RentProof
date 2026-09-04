@@ -119,9 +119,11 @@ const artifacts: RealArtifactAnalysisPayload[] = [
 
 class FakeAnalyzer {
   readonly stages: string[] = [];
+  readonly inputs: TerraAnalysisInput[] = [];
   analyze(raw: unknown): Promise<TerraAnalysisSuccess> {
     const input = raw as TerraAnalysisInput;
     this.stages.push(input.stage);
+    this.inputs.push(input);
     if (input.stage === "interaction.extract") throw new Error("UNEXPECTED_INTERACTION_STAGE");
     return Promise.resolve({
       output: outputs[input.stage],
@@ -136,7 +138,7 @@ class FakeAnalyzer {
         requestedServiceTier: "default",
         resolvedServiceTier: "default",
         promptVersion: `${input.stage}.prompt.v1`,
-        schemaVersion: "rentproof.terra-analysis.v2",
+        schemaVersion: "rentproof.terra-analysis.v3",
         providerRequestId: `response_${input.stage}`,
         providerAttempts: 1,
         usage: {
@@ -206,6 +208,46 @@ describe("runRealCaseAnalysis", () => {
     ).rejects.toThrow("REAL_ANALYSIS_ARTIFACT_INVALID");
     expect(analyzer.stages).toHaveLength(0);
     expect(service.commitAnalysis).not.toHaveBeenCalled();
+  });
+
+  it("passes verified video frame time and frame number into the evidence contract", async () => {
+    const analyzer = new FakeAnalyzer();
+    const videoArtifacts = artifacts.map((artifact): RealArtifactAnalysisPayload =>
+      artifact.kind === "viewing_image"
+        ? {
+            artifactId: artifact.artifactId,
+            kind: "viewing_video",
+            mime: "image/jpeg",
+            bytes: artifact.bytes,
+            timestampMs: 2_000,
+            frameNo: 1,
+          }
+        : artifact,
+    );
+    let sequence = 0;
+    await runRealCaseAnalysis(
+      { actor, caseId },
+      {
+        service: {
+          loadAnalysisPayloads: vi.fn(async () => videoArtifacts),
+          commitAnalysis: vi.fn(async () => undefined),
+        },
+        analyzer,
+        budget: new InMemoryEvidenceBudgetRepository({ now: () => new Date() }),
+        nextId: () => (++sequence).toString(16).padStart(48, "0"),
+        now: () => new Date("2026-09-03T12:00:00.000Z"),
+      },
+    );
+    const evidenceInput = analyzer.inputs.find((input) => input.stage === "evidence.extract");
+    expect(evidenceInput).toMatchObject({
+      images: [
+        {
+          artifactId: ids.viewing,
+          timestampMs: 2_000,
+          frameNo: 1,
+        },
+      ],
+    });
   });
 
   it("stops before the provider when the budget reservation is refused", async () => {

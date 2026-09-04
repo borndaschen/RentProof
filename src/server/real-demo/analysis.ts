@@ -201,7 +201,10 @@ function buildInputs(
   );
   const contract = artifacts.find((artifact) => artifact.kind === "contract_pdf");
   const viewing = artifacts.filter(
-    (artifact) => artifact.kind === "viewing_image" || artifact.kind === "follow_up_image",
+    (artifact) =>
+      artifact.kind === "viewing_image" ||
+      artifact.kind === "follow_up_image" ||
+      artifact.kind === "viewing_video",
   );
   if (!listing || !contract || viewing.length === 0) {
     throw new Error("REAL_DEMO_ARTIFACT_SET_INCOMPLETE");
@@ -218,11 +221,16 @@ function buildInputs(
     if (artifact.mime !== "image/png" && artifact.mime !== "image/jpeg") {
       throw new Error("REAL_ANALYSIS_ARTIFACT_INVALID");
     }
-    return {
+    const base = {
       artifactId: artifact.artifactId,
       mime: artifact.mime,
       base64: Buffer.from(artifact.bytes).toString("base64"),
     };
+    if (artifact.kind !== "viewing_video") return base;
+    if (artifact.timestampMs === undefined || artifact.frameNo === undefined) {
+      throw new Error("REAL_ANALYSIS_ARTIFACT_INVALID");
+    }
+    return { ...base, timestampMs: artifact.timestampMs, frameNo: artifact.frameNo };
   };
   return {
     "listing.extract": {

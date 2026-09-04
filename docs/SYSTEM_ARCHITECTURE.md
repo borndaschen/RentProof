@@ -22,7 +22,7 @@
 ## 2. 目前的約束與非目標
 
 - 本機測試流程保留一個sealed測試案件；LAN HTTPS另提供owner-scoped私有案件。
-- 最多12張看屋照片、清楚文字PDF、廣告與補拍；影片與掃描OCR尚未支援。
+- 現行Secure LAN使用者入口支援最多12份看屋來源、清楚文字PDF、廣告、補拍，以及單份50 MiB／30秒內MP4；影片使用pinned FFmpeg確定性抽幀、加密frame bundle與video locator。掃描OCR的candidate與安全Gate已實作，但人工確認接線前UI維持停用。
 - 規則profile可啟用6或10個official-rule evaluators；防詐目前實作`FRS-001`。
 - 一個 Node process；不支援多 instance／水平擴展。
 - 本機測試使用filesystem＋JSON state；`lan_secure_demo`使用loopback PostgreSQL與AES-256-GCM私有檔案儲存。
@@ -747,7 +747,7 @@ flowchart LR
 - `paymentRequestedAt`／`firstInPersonViewingAt` 由 synthetic timeline／使用者確認。
 - 任一時間 unknown → `insufficient_information`。
 - Risk signal 不進 Claim matrix／OfficialRule engine，不合成分數。
-- 後續`FRS-002` 至 `FRS-010` 仍使用獨立 guidance registry，不混入契約法規。
+- `FRS-002` 至 `FRS-010` 使用獨立strict provider candidate／deterministic evaluator與guidance registry，不混入契約法規；report與Live snapshot已接線。Provider不能輸出signal／action／分數，Server不得補猜缺少的候選。
 
 ## 20. Report Architecture
 
@@ -842,21 +842,21 @@ Priority 是 reason-code mapping：`stop_and_verify` 最前，其次明確矛盾
 
 ## 23. Failure Modes
 
-| Failure                        | State                       | UI／行為                                        |
-| ------------------------------ | --------------------------- | ----------------------------------------------- |
-| Demo directory missing         | blocked／`DEMO_DIR_MISSING` | 顯示設定缺失，不生成資料                        |
-| Upload rejected                | failed／stable code         | 顯示格式／限制，不保存原檔                      |
-| PDF text unavailable           | blocked                     | 要求清楚文字 PDF；不啟用 OCR                    |
-| OpenAI auth                    | failed／non-retryable       | 顯示設定錯誤，不露 provider body                |
-| Rate／temporary server         | failed／retryable           | SDK bounded retry 後顯示失敗                    |
-| Refusal／incomplete            | failed                      | 不產生空 findings                               |
-| Schema／locator invalid        | failed                      | 不自由文字兜底                                  |
-| Rule source／evaluator missing | blocked                     | ruleset draft／configuration error              |
-| Timeline unknown               | completed with insufficient | FRS-001 顯示資料不足                            |
-| Fallback hash mismatch         | failed closed               | 拒絕載入，要求重建 snapshot                     |
-| Atomic save revision conflict  | retry use-case load／merge  | 不覆蓋較新 state                                |
-| Process crash during stage     | `abandoned`／`interrupted`  | 不更新 StageHead／active snapshot；需明確 retry |
-| Case changed during pipeline   | `CASE_REVISION_CHANGED`     | 保存可重用 stage cache，但拒絕混合世代 snapshot |
+| Failure                        | State                       | UI／行為                                                  |
+| ------------------------------ | --------------------------- | --------------------------------------------------------- |
+| Demo directory missing         | blocked／`DEMO_DIR_MISSING` | 顯示設定缺失，不生成資料                                  |
+| Upload rejected                | failed／stable code         | 顯示格式／限制，不保存原檔                                |
+| PDF text unavailable           | blocked／P1 OCR candidate   | 現行upload要求清楚文字PDF；OCR worker接線前不自動fallback |
+| OpenAI auth                    | failed／non-retryable       | 顯示設定錯誤，不露 provider body                          |
+| Rate／temporary server         | failed／retryable           | SDK bounded retry 後顯示失敗                              |
+| Refusal／incomplete            | failed                      | 不產生空 findings                                         |
+| Schema／locator invalid        | failed                      | 不自由文字兜底                                            |
+| Rule source／evaluator missing | blocked                     | ruleset draft／configuration error                        |
+| Timeline unknown               | completed with insufficient | FRS-001 顯示資料不足                                      |
+| Fallback hash mismatch         | failed closed               | 拒絕載入，要求重建 snapshot                               |
+| Atomic save revision conflict  | retry use-case load／merge  | 不覆蓋較新 state                                          |
+| Process crash during stage     | `abandoned`／`interrupted`  | 不更新 StageHead／active snapshot；需明確 retry           |
+| Case changed during pipeline   | `CASE_REVISION_CHANGED`     | 保存可重用 stage cache，但拒絕混合世代 snapshot           |
 
 ## 24. 後續Public Architecture
 

@@ -6,6 +6,7 @@ import {
   isCompleteOfficialRuleProfile,
   officialRuleIdsForProfile,
 } from "@/domain/official-rules";
+import { FRAUD_SIGNAL_IDS } from "@/domain/fraud/contracts";
 
 const OpaqueIdSchema = z.string().regex(/^[A-Za-z0-9_-]{20,128}$/u);
 const Sha256Schema = z.string().regex(/^[a-f0-9]{64}$/u);
@@ -30,7 +31,7 @@ export const LiveAnalysisStageRunSchema = z
     requestedServiceTier: z.literal("default"),
     resolvedServiceTier: z.string().min(1).max(64).nullable(),
     promptVersion: z.string().min(1).max(64),
-    schemaVersion: z.literal("rentproof.terra-analysis.v2"),
+    schemaVersion: z.literal("rentproof.terra-analysis.v3"),
     usage: z.discriminatedUnion("known", [
       z
         .object({
@@ -66,18 +67,24 @@ const RuleCheckSchema = z
 
 const FraudSignalSchema = z
   .object({
-    signalId: z.literal("FRS-001"),
+    signalId: z.enum(FRAUD_SIGNAL_IDS),
     status: z.enum(["detected", "not_detected_in_provided_data", "insufficient_information"]),
-    action: z.enum(["review", "stop_and_verify"]),
-    reasonCode: z.enum([
-      "FRS_001_PAYMENT_BEFORE_VIEWING",
-      "FRS_001_PAYMENT_NOT_BEFORE_VIEWING",
-      "FRS_001_PAYMENT_EVIDENCE_MISSING",
-      "FRS_001_TIMELINE_INCOMPLETE",
-    ]),
+    action: z.enum(["review", "verify_before_payment", "stop_and_verify"]),
+    reasonCode: z.string().regex(/^FRS_0(?:0[1-9]|10)_[A-Z0-9_]{2,80}$/u),
     sourceRefs: z.array(OpaqueIdSchema).max(8),
   })
-  .strict();
+  .strict()
+  .superRefine((signal, context) => {
+    if (signal.status === "detected" && signal.sourceRefs.length === 0) {
+      context.addIssue({ code: "custom", message: "DETECTED_FRAUD_SIGNAL_SOURCE_REQUIRED" });
+    }
+    if (signal.status === "detected" && signal.action === "review") {
+      context.addIssue({ code: "custom", message: "DETECTED_FRAUD_SIGNAL_ACTION_REQUIRED" });
+    }
+    if (signal.status !== "detected" && signal.action !== "review") {
+      context.addIssue({ code: "custom", message: "NON_DETECTED_FRAUD_SIGNAL_ACTION_INVALID" });
+    }
+  });
 
 const BudgetSchema = z
   .object({
@@ -104,7 +111,7 @@ export const PublicLiveAnalysisSnapshotSchema = z
     configurationWarnings: z.array(z.literal("OPENAI_PROJECT_LIMITS_UNVERIFIED")).max(1),
     findings: z.array(FindingSchema).max(100),
     ruleChecks: z.array(RuleCheckSchema).min(6).max(10),
-    fraudSignals: z.array(FraudSignalSchema).length(1),
+    fraudSignals: z.array(FraudSignalSchema).min(1).max(10),
     nonNaturalDeathDisclosure: NonNaturalDeathDisclosureResultSchema,
     nextActions: z.array(z.string().min(1).max(240)).min(1).max(10),
     reportHref: z.literal("/reports/golden-v1"),
@@ -122,6 +129,12 @@ export const PublicLiveAnalysisSnapshotSchema = z
     ) {
       context.addIssue({ code: "custom", message: "LIVE_RULE_PROFILE_INVALID" });
     }
+    if (
+      new Set(snapshot.fraudSignals.map((signal) => signal.signalId)).size !==
+      snapshot.fraudSignals.length
+    ) {
+      context.addIssue({ code: "custom", message: "DUPLICATE_FRAUD_SIGNAL" });
+    }
   });
 
 export type PublicLiveAnalysisSnapshot = z.infer<typeof PublicLiveAnalysisSnapshotSchema>;
@@ -131,6 +144,11 @@ export type SyntheticInteraction = Readonly<{
   text: string;
   paymentRequestedAt: string;
   firstInPersonViewingAt: string;
+}>;
+
+export type TrustedOfficialRentContext = Readonly<{
+  significantBelowThresholdMinor: number;
+  officialContextRefIds: readonly string[];
 }>;
 
 export type LiveAnalysisFailureCode =

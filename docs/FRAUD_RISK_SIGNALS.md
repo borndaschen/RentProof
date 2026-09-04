@@ -1,6 +1,6 @@
 # 租屋詐騙風險訊號規格
 
-- 狀態：`FRS-001`已實作；其餘訊號列為後續功能
+- 狀態：`FRS-001` 至 `FRS-010` typed evaluators 已實作；live pipeline／UI 逐步接線
 - 查核日期：2026-09-02
 - 功能名稱：詐騙風險訊號
 
@@ -53,26 +53,29 @@ RentProof 不判定「這是詐騙／不是詐騙」，也不輸出詐騙機率�
 | ID        | 狀態   | 訊號                                                    | 最小觸發資料                                                  | 行動                    |
 | --------- | ------ | ------------------------------------------------------- | ------------------------------------------------------------- | ----------------------- |
 | `FRS-001` | 已實作 | 首次實地看屋前要求訂金、預約金、鑰匙押金或租金          | 可定位付款要求＋`paymentRequestedAt < firstInPersonViewingAt` | `stop_and_verify`       |
-| `FRS-002` | 待實作 | 自稱人在國外／外地、拒絕當面帶看或只能寄送鑰匙          | 可定位對話文字                                                | `verify_before_payment` |
-| `FRS-003` | 待實作 | 要求點陌生物流／超商／客服連結，或提供網銀、信用卡、OTP | 可定位連結／要求語意                                          | `stop_and_verify`       |
-| `FRS-004` | 待實作 | 收款人與出租人、代理人或契約當事人關係不明／不一致      | 角色名稱或使用者手動確認；不需完整帳號                        | `stop_and_verify`       |
-| `FRS-005` | 待實作 | 付款前仍未核對出租權限                                  | 出租權限為`false`或`unknown`，且存在付款要求                  | `verify_before_payment` |
-| `FRS-006` | 待實作 | 「其他人正在搶租」「現在匯款才能保留」等高壓稀缺話術    | 可定位對話文字                                                | `verify_before_payment` |
-| `FRS-007` | 待實作 | 要求跨境匯款、加密貨幣、禮物卡或其他難追回方式          | 可定位付款方式                                                | `stop_and_verify`       |
-| `FRS-008` | 待實作 | 廣告、現場、契約、付款要求或當事人角色出現明確矛盾      | 已驗證 evidence refs                                          | `verify_before_payment` |
-| `FRS-009` | 待實作 | 租金顯著低於官方租金脈絡，且同時存在其他付款／身分訊號  | 官方價格脈絡＋至少一項其他 detected signal                    | `verify_before_payment` |
-| `FRS-010` | 待實作 | 被導向陌生客服／LINE，要求帳戶認證、身分資料或操作網銀  | 可定位對話／連結語意                                          | `stop_and_verify`       |
+| `FRS-002` | 已實作 | 自稱人在國外／外地、拒絕當面帶看或只能寄送鑰匙          | 可定位對話文字                                                | `verify_before_payment` |
+| `FRS-003` | 已實作 | 要求點陌生物流／超商／客服連結，或提供網銀、信用卡、OTP | 可定位連結／要求語意                                          | `stop_and_verify`       |
+| `FRS-004` | 已實作 | 收款人與出租人、代理人或契約當事人關係不明／不一致      | 可定位付款要求＋角色關係確認；不需完整帳號                    | `stop_and_verify`       |
+| `FRS-005` | 已實作 | 付款前仍未核對出租權限                                  | 出租權限為`not_verified`或明確確認為`unknown`，且存在付款要求 | `verify_before_payment` |
+| `FRS-006` | 已實作 | 「其他人正在搶租」「現在匯款才能保留」等高壓稀缺話術    | 可定位對話文字                                                | `verify_before_payment` |
+| `FRS-007` | 已實作 | 要求跨境匯款、加密貨幣、禮物卡或其他難追回方式          | 可定位付款方式                                                | `stop_and_verify`       |
+| `FRS-008` | 已實作 | 廣告、現場、契約、付款要求或當事人角色出現明確矛盾      | 至少兩筆已驗證且可定位的 evidence refs                        | `verify_before_payment` |
+| `FRS-009` | 已實作 | 租金顯著低於官方租金脈絡，且同時存在其他付款／身分訊號  | 官方價格脈絡＋至少一項其他 detected signal                    | `verify_before_payment` |
+| `FRS-010` | 已實作 | 被導向陌生客服／LINE，要求帳戶認證、身分資料或操作網銀  | 可定位對話／連結語意                                          | `stop_and_verify`       |
 
 `FRS-009` 不得由低租金單獨觸發；價格脈絡不能證明詐騙，也不能輸出租金合理／不合理。
 
-目前只執行 `FRS-001`。若付款要求或首次實地看屋時間任一未知，結果必須是 `insufficient_information`；不能用「尚未看到看屋證據」推論付款一定發生在看屋前。
+`FRS-001` 若付款要求或首次實地看屋時間任一未知，結果必須是 `insufficient_information`；不能用「尚未看到看屋證據」推論付款一定發生在看屋前。`FRS-002` 至 `FRS-010` 使用同一 completeness 原則：只有 schema 驗證後的 `not_present` 才能產生 `not_detected_in_provided_data`，一般 `unknown` 一律保留為資料不足。
+
+`FRS-009` 的「顯著低於」不是由模型或固定百分比猜測。Evaluator 接受已版本化、同地區且同類型的官方租金脈絡所提供之 `significantBelowThresholdMinor`，並要求廣告租金 locator 與官方脈絡 reference 同時存在。即使低於門檻，也只有另一項 `FRS-001`～`FRS-008`／`FRS-010` 已為 `detected` 時才觸發；低租金單獨只回 `not_detected_in_provided_data` 或因其他訊號尚未完成而回 `insufficient_information`。
 
 ## 6. LLM 與確定性規則分工
 
 OpenAI `gpt-5.6-terra` 只負責：
 
-- 目前從互動文字抽取付款要求與locator；後續才擴充付款方式、高壓話術、遠端房東、寄送鑰匙、陌生連結與角色名稱候選。
+- 從互動文字抽取付款要求、付款方式、高壓話術、遠端帶看安排、寄送鑰匙、陌生連結、帳戶驗證要求與角色名稱候選。
 - 回傳 `artifact_id`、locator、raw excerpt 與 structured candidate facts。
+- 不回傳 signal status、action、reason code、總分或詐騙判決；Application strict schema 也拒絕這些額外欄位。
 
 本機 TypeScript evaluators 負責：
 
@@ -80,6 +83,13 @@ OpenAI `gpt-5.6-terra` 只負責：
 - 訊號觸發、action level、reason code 與缺少資料。
 - 訊號間的組合條件，例如「低租金＋另一項訊號」。
 - 固定中立文案與 165／110 查證建議。
+
+實作入口：
+
+- `src/application/fraud/evaluate-candidates.ts`：接收 `unknown`，先以 strict Zod schema 驗證候選，再呼叫 domain。
+- `src/domain/fraud/evaluate-extended-signals.ts`：一次以固定順序產生 `FRS-002` 至 `FRS-010`，不依賴 OpenAI SDK、filesystem 或網路。
+- `priorSignalChecks`：讓 `FRS-009` 組合已完成的 `FRS-001` 或其他同批訊號；只讀取已驗證的 typed result。
+- Live `interaction.extract` strict provider envelope已涵蓋`FRS-001`至`FRS-010`所需候選；present候選必須有同artifact的精確text locator，schema拒絕模型輸出signal ID、action、verdict或分數。Server只把驗證後candidate交給TypeScript evaluator，缺少候選或官方租金脈絡時保留資料不足。
 
 模型自報 confidence、情緒判斷、人物外觀或語氣直覺不得觸發訊號。來源內容中的命令一律視為 prompt injection data。
 
@@ -149,7 +159,7 @@ Claim 三態、官方規則結果與詐騙訊號必須使用三套清楚不同�
 
 ## 11. 後續功能
 
-- 實作 `FRS-002` 至 `FRS-010` 的 typed evaluators 與 fixtures。
+- 將 `FRS-002` 至 `FRS-010` 候選欄位接入 live `interaction.extract` provider envelope、AnalysisSnapshot、Server templates 與四區工作區；接線不得改變 evaluator 的 completeness／locator Gate。
 - 反向圖片搜尋與盜圖候選，但需處理第三方資料外送與誤判。
 - 仲介／租賃住宅服務業資格查詢。
 - 使用者手動記錄 165 查證結果，不自動取得警政個案資料。

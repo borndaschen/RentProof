@@ -155,9 +155,10 @@ export interface CaseArtifactsTable {
   case_id: string;
   owner_type: "user" | "guest";
   owner_subject_id: string;
-  artifact_kind: "listing_image" | "viewing_image" | "contract_pdf" | "follow_up_image";
+  artifact_kind:
+    "listing_image" | "viewing_image" | "contract_pdf" | "follow_up_image" | "viewing_video";
   state: "quarantined" | "available" | "deletion_pending" | "purged";
-  mime: "image/jpeg" | "image/png" | "application/pdf";
+  mime: "image/jpeg" | "image/png" | "application/pdf" | "video/mp4";
   original_sha256: string;
   derivative_sha256: string | null;
   original_bytes: number;

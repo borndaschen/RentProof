@@ -1,5 +1,7 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import type { ActorContext } from "@/application/repositories";
+import { packVerifiedVideoFrames } from "@/application/video";
 import type { EncryptedRealArtifactStorePort, RealDemoRepositoryPort } from "./ports";
 import { RealDemoService } from "./service";
 
@@ -119,6 +121,76 @@ describe("RealDemoService", () => {
     expect(repository.reserveArtifact).toHaveBeenCalledOnce();
     expect(store.save).toHaveBeenCalledOnce();
     expect(repository.finalizeArtifact).toHaveBeenCalledOnce();
+  });
+
+  it("stores a verified video frame bundle and restores timestamped analysis inputs", async () => {
+    const { repository, store } = dependencies();
+    const frameBytes = Uint8Array.from([0xff, 0xd8, 0xff, 0xd9]);
+    const frame = {
+      mime: "image/jpeg" as const,
+      frameNo: 0,
+      timestampMs: 0,
+      width: 2,
+      height: 2,
+      byteLength: frameBytes.byteLength,
+      bytes: frameBytes,
+      sha256: sha256(frameBytes),
+      metadataStripped: true as const,
+    };
+    const bundle = packVerifiedVideoFrames([frame]);
+    const videoBytes = Uint8Array.from([0, 0, 0, 12, 0x66, 0x74, 0x79, 0x70, 1, 2, 3, 4]);
+    const service = new RealDemoService(repository, store);
+    await expect(
+      service.saveArtifact({
+        actor,
+        caseId: "case_abcdefghijklmnopqrstuvwxyz1234567890",
+        kind: "viewing_video",
+        mime: "video/mp4",
+        originalSha256: sha256(videoBytes),
+        originalBytes: videoBytes,
+        derivative: { bytes: bundle, sha256: sha256(bundle) },
+      }),
+    ).resolves.toMatchObject({ artifactId: expect.stringMatching(/^artifact_/u) });
+
+    vi.mocked(repository.getListingUrlSource).mockResolvedValueOnce({
+      sourceUrl: "https://rent.example/item/1",
+      text: "月租 12000 元",
+      contentHash: "a".repeat(64),
+    });
+    vi.mocked(repository.listAvailableArtifacts).mockResolvedValueOnce([
+      {
+        artifactId: "artifact_video_abcdefghijklmnopq",
+        caseId: "case_abcdefghijklmnopqrstuvwxyz1234567890",
+        kind: "viewing_video",
+        mime: "video/mp4",
+        derivativeRelativePath:
+          "case_abcdefghijklmnopqrstuvwxyz1234567890/artifact_video_abcdefghijklmnopq/derivative.enc",
+        extractedTextRelativePath: null,
+      },
+      {
+        artifactId: "artifact_contract_abcdefghijklmnop",
+        caseId: "case_abcdefghijklmnopqrstuvwxyz1234567890",
+        kind: "contract_pdf",
+        mime: "application/pdf",
+        derivativeRelativePath: null,
+        extractedTextRelativePath:
+          "case_abcdefghijklmnopqrstuvwxyz1234567890/artifact_contract_abcdefghijklmnop/extracted-text.enc",
+      },
+    ]);
+    vi.mocked(store.read).mockImplementation(async (path) =>
+      path.endsWith("derivative.enc") ? bundle : new TextEncoder().encode("contract"),
+    );
+    const payloads = await service.loadAnalysisPayloads(
+      actor,
+      "case_abcdefghijklmnopqrstuvwxyz1234567890",
+    );
+    expect(payloads.find((payload) => payload.kind === "viewing_video")).toMatchObject({
+      artifactId: "artifact_video_abcdefghijklmnopq",
+      mime: "image/jpeg",
+      timestampMs: 0,
+      frameNo: 0,
+      bytes: frameBytes,
+    });
   });
 
   it("fails closed and abandons the reservation when storage fails", async () => {
@@ -388,4 +460,3 @@ describe("RealDemoService", () => {
     expect(store.read).not.toHaveBeenCalled();
   });
 });
-import { createHash } from "node:crypto";

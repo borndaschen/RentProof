@@ -2,6 +2,42 @@
 
 本檔記錄已完成的事實與驗證，不把規劃中的工作寫成已完成。最新紀錄放最上方。
 
+## 2026-09-04 — 對話入口、FRS擴充、OCR／影片／佇列基礎與Real Data介面
+
+### 已完成
+
+- 115年度租金補貼預檢維持首頁header導覽入口；依最新畫面回饋不在訊息串插入大型卡片。預檢仍由獨立Server evaluator執行，不把使用者回答交給LLM，也不輸出主管機關資格或金額核定。
+- 新增`FRS-002`至`FRS-010`的typed candidates與確定性evaluators，並擴充報告與Live snapshot schema。FRS-008要求至少兩筆來源；FRS-009只有在官方租金脈絡與另一項已偵測訊號同時存在時才觸發。
+- 新增掃描PDF OCR的PDF.js預檢、逐頁bbox候選schema、Terra Responses adapter及人工確認邊界；OCR結果不能在確認前產生Clause、Finding或肯定結論。
+- 新增MP4影片的MIME／signature／bytes／duration／pixel／fps限制、確定性抽幀計畫、video locator、Sharp derivative驗證與pinned runtime Gate；Secure LAN上傳會實際呼叫受控FFprobe／FFmpeg、加密保存原檔與非base64 frame bundle，分析載入時重驗逐幀雜湊與timestamp／frameNo。不分析音訊、不做人臉辨識，也不從單幀推斷漏水、結構安全、違法、詐騙或責任。
+- 從FFmpeg官網列出的GyanD Windows build來源下載`9.0.1-essentials_build`到repository外的RentProof私有runtime；發布archive SHA-256驗證相符，並固定FFmpeg／FFprobe完整版本與各自binary SHA-256。Binary未加入全域PATH且依隨附GPLv3授權。
+- 新增allowlisted bounded工作佇列，只接受OCR、影片抽幀與分析三種typed work；除in-memory測試版外，已加入CAS Windows JSON持久化、原子替換、重啟復原、lease reclaim、cancel／delete／case purge、corruption fail-closed及`GovernedJobWorker`執行前owner／revision／policy／Cloud／budget Gate。固定10,000筆上限、全域concurrency 2、per-case 1、60秒lease、最多3次attempt、24小時terminal retention與hashed idempotency。
+- Live `interaction.extract` strict schema已擴充遠端帶看、陌生連結／認證、收款角色、出租權限、高壓話術、不可追回付款方式及導流驗證候選；candidate必須有精確text locator且不能帶signal／action。FRS-002至010全由TypeScript evaluator產生，FRS-008要求雙來源，FRS-009要求治理後官方租金脈絡加另一已偵測訊號。
+- 依畫面回饋調整Real Data首頁：只有偵測到帳戶登入才顯示「保存」、新分頁登入後回到原分頁即可保存、保存失敗仍可刪除、伺服器安全保留原訪客owner刪除路徑、對話區塊與起點更清楚、輸入區固定於底部、桌面可拖放附件、手機顯示48px加號，並調整品牌與主標尺寸。
+- 依最新畫面回饋移除Real Data訊息串中的大型租屋補貼卡片，保留header導覽入口；所有RentProof回覆、訪客提醒、狀態與下一步補上固定label、左側accent及淡色回覆背景，避免與使用者文字或一般說明混淆。
+- 初始狀態不再連續顯示三個相近的RentProof回覆；房源開始方式與訪客保存提醒合併為第一則，只有案件建立後的新事件才追加訊息。
+- 租屋補助頁的「結果怎麼看」與三種狀態圖例改為成功送出後才顯示；尚未按「查看預檢結果」時不預先呈現結果區塊。
+- 移除Real Data對話區塊上方重複的「對話整理／租屋資料對話」標題與引導句，頁面直接從第一則RentProof回覆開始。
+- 登入後header三個控制統一尺寸與外框，「帳戶」改為可實際撤銷session的「登出」；成功後清除目前案件projection並切換到新訪客session，避免登出後仍顯示帳戶案件。
+- README依目前專案狀態更新；團隊成員姓名與分工逐字保留，只調整Markdown表格排版。
+
+### 驗證
+
+- 影片／FRS／queue／Real Data聚焦整合測試10 files／94 tests通過；另完成真實FFmpeg合成MP4 smoke與approved pin測試。
+- 完整Coverage為171 files／1,509 passed、1個需顯式環境變數的真實FFmpeg測試預設skip；statements 85.66%、branches 80.82%、functions 90.25%、lines 88.59%。
+- Prettier、TypeScript、ESLint、676-file Security Gate及Next.js Production Build通過。
+- Playwright桌面／手機為25 passed／3個既有mobile singleton mutation案例依設計skip；涵蓋補貼入口、360px、axe、200% zoom、keyboard、報告與網路邊界。
+- LAN PostgreSQL Demo listener已恢復於loopback `127.0.0.1:55432`／`::1:55432`；最終Production Build已重新啟動HTTPS LAN。
+- `005_viewing_video_artifacts`已分別套用到開發與HTTPS LAN實際使用的`rentproof_secure_demo`資料庫。最終HTTPS smoke成功建立訪客案件、上傳完全虛構2秒MP4並取得`viewing_video／video/mp4` receipt，隨後刪除案件與暫存檔。
+
+### 尚未完成／風險
+
+- OCR的共用upload route、一次性人工確認與後續contract.extract尚未接線，使用者目前不能直接上傳掃描PDF完成OCR；已完成的governed worker可作為接線邊界，但不把候選自動寫成契約事實。
+- 影片上傳目前在HTTP request內同步完成抽幀後才回receipt；持久化queue與worker已具備，但尚未改為非同步job polling。多process／HA仍需具跨process transaction的queue adapter。
+- FRS-009只有呼叫端提供經治理且版本化的官方租金脈絡才會評估顯著低租金；沒有該脈絡固定回資料不足。
+
+---
+
 ## 2026-09-04 — 全域安全、效能、除錯、UI／UX與程式收斂
 
 ### 已完成

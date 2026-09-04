@@ -141,6 +141,7 @@ export function composePreSigningReport(input: unknown): PreSigningReport {
       signalId: signal.signalId,
       status:
         signal.status === "detected" ? ("payment_verification_required" as const) : signal.status,
+      action: signal.action,
       reasonCode: signal.reasonCode,
       sourceRefs: uniqueSorted(signal.sourceRefIds),
     }))

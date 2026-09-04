@@ -7,6 +7,7 @@ export const UploadKindSchema = z.enum([
   "follow_up_image",
   "interaction_image",
   "contract_pdf",
+  "viewing_video",
 ]);
 
 export const UploadMimeTypeSchema = z.enum(UPLOAD_ALLOWED_MIME_TYPES);

@@ -35,6 +35,7 @@ OpenAI 官方文件確認 Responses API 可接受文字、圖片或檔案輸入�
 | Viewing                          | 不呼叫                                                                                   | 依 claim type 套用問題與拍攝模板                                                |
 | Evidence                         | 從照片描述可觀察內容、confidence 與 locator                                              | 禁止負面推論、合併 observations                                                 |
 | Contract                         | 從本機已抽取、帶頁碼的最小必要文字產生 clauses，以及專有部分非自然死亡的明確文件揭露候選 | PDF文字／頁碼抽取、locator逐字驗證、來源allowlist、確定性揭露核對與規則輸入組裝 |
+| Contract OCR                     | 掃描PDF通過PDF.js preflight後產生逐頁文字／bbox／confidence候選                          | 頁集合、品質、長度與locator驗證；全部需人工確認，確認前不得產生肯定結果         |
 | Fraud facts                      | 目前從 synthetic 互動抽取付款要求與 locator；時間線由使用者確認                          | `FRS-001` evaluator、行動與中立模板；其他訊號 後續                              |
 | Conversation intent／explanation | Luna抽取strict intent candidates／source-bound read-only segments                        | policy、confirmation、cards、priority與所有material execution                   |
 | Comparison                       | 不呼叫                                                                                   | 三態 truth table                                                                |
@@ -47,7 +48,7 @@ OpenAI 官方文件確認 Responses API 可接受文字、圖片或檔案輸入�
 
 - Listing：一個 request，輸入廣告截圖／文字，輸出 `Claim[]`。
 - Evidence：12 張照片分成小批次，每張都帶不可混淆的 `artifact_id`；一般房間照片先用 `detail: low`，文字／牆面重點照片用 `detail: high`。若跨圖 locator 混淆則改成單張 request。
-- Contract：本機先從清楚文字 PDF 抽取帶頁碼文字，只把最小必要文字送入一個 request，產生`ContractClause[]`與獨立的`NonNaturalDeathDisclosureStatement[]`候選；掃描PDF／頁面影像列為後續功能。後者只允許`contract_clause`與`signed_status_confirmation`，且必須具備專有部分、兩個固定期間、yes／no／unknown、明示事件類型、簽署狀態及逐字吻合的PDF locator。廣告、傳聞、新聞、地址搜尋、文件沉默或模型推論無法進入此provider schema。
+- Contract：本機先從清楚文字 PDF 抽取帶頁碼文字，只把最小必要文字送入一個 request，產生`ContractClause[]`與獨立的`NonNaturalDeathDisclosureStatement[]`候選；掃描PDF OCR只產生逐頁bbox候選且需另行人工確認。非自然死亡揭露只允許`contract_clause`與`signed_status_confirmation`，且必須具備專有部分、兩個固定期間、yes／no／unknown、明示事件類型、簽署狀態及逐字吻合的PDF locator。廣告、傳聞、新聞、地址搜尋、文件沉默或模型推論無法進入此provider schema。
 - Fraud facts：一個 request，只接受 synthetic 互動文字／經遮蔽截圖，目前只輸出付款要求 candidate＋locator；付款／首次看屋時間由使用者確認。不得輸出詐騙 verdict、機率或 action。
 - 每個 stage 使用獨立 JSON Schema，不做一個包含整案的巨大 schema。
 - Orchestrator在每次送出前原子reserve case budget；provider完成後以usage校正。沒有usage時標`unknown`並阻止可能超過剩餘hard cap的新request，不填0。

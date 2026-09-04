@@ -9,6 +9,7 @@ import type { EvidenceBudgetRepository } from "@/application/analysis-budget";
 import { compareClaim } from "@/domain/evidence/claim-comparison";
 import type { Claim, ContractClause, NormalizedValue, Observation } from "@/domain/evidence-graph";
 import { evaluateFrs001 } from "@/domain/fraud/frs-001";
+import { evaluateExtendedFraudSignals } from "@/domain/fraud/evaluate-extended-signals";
 import { evaluateNonNaturalDeathDisclosure } from "@/domain/non-natural-death-disclosure";
 import type { PrivateUploadRecord } from "@/server/uploads/contracts";
 import { officialRuleIdsForProfile, type OfficialRuleProfile } from "@/domain/official-rules";
@@ -18,6 +19,7 @@ import {
   type LiveAnalysisFailureCode,
   type PublicLiveAnalysisSnapshot,
   type SyntheticInteraction,
+  type TrustedOfficialRentContext,
 } from "./contracts";
 
 export interface TerraAnalyzer {
@@ -58,6 +60,7 @@ export class LiveAnalysisService {
     manifestHash: string;
     receipts: readonly PrivateUploadRecord[];
     interaction: SyntheticInteraction;
+    officialRentContext?: TrustedOfficialRentContext;
     ruleProfile?: OfficialRuleProfile;
   }): Promise<RunLiveAnalysisResult> {
     const modelInputs = buildModelInputs(input);
@@ -174,7 +177,12 @@ export class LiveAnalysisService {
       const budget = await this.dependencies.budget.get(budgetCaseId);
       if (budget === null) throw new Error("BUDGET_MISSING");
       const ruleProfile = input.ruleProfile ?? "p0";
-      const composed = composeDeterministic(outputs, input.interaction, ruleProfile);
+      const composed = composeDeterministic(
+        outputs,
+        input.interaction,
+        ruleProfile,
+        input.officialRentContext,
+      );
       const snapshot = PublicLiveAnalysisSnapshotSchema.parse({
         schemaVersion: "rentproof.live-analysis-snapshot.v1",
         snapshotId: `snapshot_live_${sha256({ stageRuns, manifestHash: input.manifestHash }).slice(0, 24)}`,
@@ -288,6 +296,7 @@ function composeDeterministic(
   outputs: ReadonlyMap<(typeof LIVE_TERRA_STAGE_ORDER)[number], TerraAnalysisOutput>,
   interaction: SyntheticInteraction,
   ruleProfile: OfficialRuleProfile,
+  officialRentContext?: TrustedOfficialRentContext,
 ) {
   const listing = outputFor(outputs, "listing.extract");
   const evidence = outputFor(outputs, "evidence.extract");
@@ -332,27 +341,78 @@ function composeDeterministic(
     paymentRequestedAt: { status: "known", value: interaction.paymentRequestedAt },
     firstInPersonViewingAt: { status: "known", value: interaction.firstInPersonViewingAt },
   });
+  const contradicted = findings.find(
+    (finding) => finding.status === "contradicted" && finding.sourceRefs.length >= 1,
+  );
+  const contradictedClaim =
+    contradicted === undefined
+      ? undefined
+      : listing.claims.find((claim) => claim.id === contradicted.claimId);
+  const contradictionRefs =
+    contradicted === undefined || contradictedClaim === undefined
+      ? []
+      : [...new Set([contradictedClaim.locator.locatorId, ...contradicted.sourceRefs])];
+  const rentClaim = listing.claims.find(
+    (claim) =>
+      claim.key === "monthly_rent" &&
+      claim.normalizedValue.type === "money" &&
+      claim.normalizedValue.currency === "TWD" &&
+      claim.normalizedValue.period === "month",
+  );
+  const extendedFraud = evaluateExtendedFraudSignals({
+    candidates: {
+      ...interactionOutput.fraudCandidates,
+      paymentRequest:
+        cue === undefined
+          ? interactionOutput.fraudCandidates.paymentRequest
+          : {
+              status: "present",
+              value: "payment_requested",
+              locatorIds: [cue.locator.locatorId],
+            },
+      verifiedCrossSourceContradiction:
+        contradictionRefs.length < 2
+          ? { status: "not_present" }
+          : {
+              status: "present",
+              value: "other_verified_pair",
+              locatorIds: contradictionRefs,
+            },
+      officialRentContext:
+        officialRentContext === undefined ||
+        rentClaim === undefined ||
+        rentClaim.normalizedValue.type !== "money"
+          ? { status: "unknown" }
+          : {
+              status: "present",
+              advertisedMonthlyRentMinor: rentClaim.normalizedValue.amountMinor,
+              significantBelowThresholdMinor: officialRentContext.significantBelowThresholdMinor,
+              advertisedRentLocatorIds: [rentClaim.locator.locatorId],
+              officialContextRefIds: officialRentContext.officialContextRefIds,
+            },
+    },
+    priorSignalChecks: [fraud],
+  });
+  const fraudSignals = [fraud, ...extendedFraud].map((signal) => ({
+    signalId: signal.signalId,
+    status: signal.status,
+    action: signal.action,
+    reasonCode: signal.reasonCode,
+    sourceRefs: signal.evidenceRefs,
+  }));
   const nextActions = [
     ...findings
       .filter((finding) => finding.status !== "supported")
       .slice(0, 3)
       .map((finding) => `簽約前確認 ${finding.claimId}，並把結果寫入契約附件。`),
-    fraud.status === "detected"
+    fraudSignals.some((signal) => signal.status === "detected")
       ? "付款前停止並查證付款要求、出租方身分與首次實地看屋安排。"
       : "付款前再次核對付款要求與實地看屋時間線。",
   ];
   return {
     findings,
     ruleChecks,
-    fraudSignals: [
-      {
-        signalId: fraud.signalId,
-        status: fraud.status,
-        action: fraud.action,
-        reasonCode: fraud.reasonCode,
-        sourceRefs: fraud.evidenceRefs,
-      },
-    ],
+    fraudSignals,
     nonNaturalDeathDisclosure: evaluateNonNaturalDeathDisclosure({
       statements: contract.nonNaturalDeathDisclosureStatements,
     }),

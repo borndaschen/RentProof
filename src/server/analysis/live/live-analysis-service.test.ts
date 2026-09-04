@@ -212,6 +212,20 @@ const outputs: Record<(typeof LIVE_TERRA_STAGE_ORDER)[number], TerraAnalysisOutp
         locator: locator("text", artifactIds.interaction, "payment"),
       },
     ],
+    fraudCandidates: {
+      remoteViewingArrangement: { status: "not_present" },
+      unfamiliarLinkOrCredentialRequest: { status: "not_present" },
+      paymentRequest: {
+        status: "present",
+        value: "payment_requested",
+        locatorIds: ["locator_payment_000000000001"],
+      },
+      paymentPartyRelationship: { status: "unknown" },
+      lettingAuthorityVerification: { status: "unknown" },
+      pressureLanguage: { status: "not_present" },
+      paymentMethod: { status: "unknown" },
+      redirectedAccountVerification: { status: "not_present" },
+    },
   },
 };
 
@@ -222,6 +236,10 @@ class FakeAnalyzer implements TerraAnalyzer {
   constructor(
     private readonly failure?: { stage: string; code: AnalysisProviderReasonCode },
     private readonly knownUsage = true,
+    private readonly stageOutputs: Record<
+      (typeof LIVE_TERRA_STAGE_ORDER)[number],
+      TerraAnalysisOutput
+    > = outputs,
   ) {}
 
   analyze(raw: unknown): Promise<TerraAnalysisSuccess> {
@@ -232,7 +250,7 @@ class FakeAnalyzer implements TerraAnalyzer {
       throw new OpenAIAnalysisError(this.failure.code, 1, `response_${input.stage}`);
     }
     return Promise.resolve({
-      output: outputs[input.stage],
+      output: this.stageOutputs[input.stage],
       sourceLocators: [],
       provenance: {
         provider: "openai",
@@ -244,7 +262,7 @@ class FakeAnalyzer implements TerraAnalyzer {
         requestedServiceTier: "default",
         resolvedServiceTier: "default",
         promptVersion: `${input.stage}.prompt.v1`,
-        schemaVersion: "rentproof.terra-analysis.v2",
+        schemaVersion: "rentproof.terra-analysis.v3",
         providerRequestId: `response_${input.stage}`,
         providerAttempts: 1,
         usage: this.knownUsage
@@ -382,6 +400,13 @@ describe("LiveAnalysisService", () => {
       "possible_difference",
     );
     expect(result.snapshot.fraudSignals[0]?.status).toBe("detected");
+    expect(result.snapshot.fraudSignals).toHaveLength(10);
+    expect(
+      result.snapshot.fraudSignals.find((signal) => signal.signalId === "FRS-008"),
+    ).toMatchObject({ status: "detected", action: "verify_before_payment" });
+    expect(
+      result.snapshot.fraudSignals.find((signal) => signal.signalId === "FRS-009"),
+    ).toMatchObject({ status: "insufficient_information", action: "review" });
     expect(result.snapshot.nonNaturalDeathDisclosure.checks).toMatchObject([
       { period: "during_owner_holding", status: "supported", disclosedAnswer: "no" },
       {
@@ -394,6 +419,54 @@ describe("LiveAnalysisService", () => {
     expect(snapshots.get(caseId)).toEqual(result.snapshot);
     expect(JSON.stringify(result.snapshot)).not.toContain("C:\\");
     expect(JSON.stringify(result.snapshot)).not.toContain("OPENAI_API_KEY");
+  });
+
+  it("combines trusted official rent context with another deterministic signal for FRS-009", async () => {
+    const { service } = harness(new FakeAnalyzer());
+    const result = await service.run({
+      caseId,
+      manifestHash: "f".repeat(64),
+      receipts: receipts(),
+      interaction: interaction(),
+      officialRentContext: {
+        significantBelowThresholdMinor: 13_000,
+        officialContextRefIds: ["official_rent_context_2026_01"],
+      },
+    });
+    if (!result.ok) throw new Error(result.code);
+    expect(
+      result.snapshot.fraudSignals.find((signal) => signal.signalId === "FRS-009"),
+    ).toMatchObject({
+      status: "detected",
+      action: "verify_before_payment",
+      reasonCode: "FRS_009_LOW_RENT_WITH_OTHER_SIGNAL",
+    });
+  });
+
+  it("feeds located provider candidate facts into the extended TypeScript evaluators", async () => {
+    const stageOutputs = structuredClone(outputs);
+    const interactionOutput = stageOutputs["interaction.extract"];
+    if (interactionOutput.stage !== "interaction.extract") throw new Error("stage mismatch");
+    interactionOutput.fraudCandidates.pressureLanguage = {
+      status: "present",
+      value: "pay_now_to_reserve",
+      locatorIds: ["locator_payment_000000000001"],
+    };
+    const { service } = harness(new FakeAnalyzer(undefined, true, stageOutputs));
+    const result = await service.run({
+      caseId,
+      manifestHash: "f".repeat(64),
+      receipts: receipts(),
+      interaction: interaction(),
+    });
+    if (!result.ok) throw new Error(result.code);
+    expect(result.snapshot.fraudSignals.find((signal) => signal.signalId === "FRS-006")).toEqual({
+      signalId: "FRS-006",
+      status: "detected",
+      action: "verify_before_payment",
+      reasonCode: "FRS_006_URGENT_SCARCITY_LANGUAGE",
+      sourceRefs: ["locator_payment_000000000001"],
+    });
   });
 
   it.each([

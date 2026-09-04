@@ -719,6 +719,38 @@ Server templates、deterministic policy、Fixture adapter、validation failure�
 - 理由／證據：產品治理工作不應依賴單一對話是否存在、登入狀態或桌面App執行；排程需要可觀測、可告警、具最小權限且與部署生命週期一致的執行環境。
 - 影響與遷移：刪除先前建立的task heartbeat。`pnpm subsidy:sources:check:live`仍可供外部scheduler呼叫；scheduler credentials不得寫入repository，來源異動只通知人工審閱，不自動修改verified date、hash或規則。
 
+### D-100：掃描PDF OCR只產生需確認候選
+
+- 日期：2026-09-04
+- 狀態：accepted
+- 決策：掃描PDF以PDF.js做active-content／頁數預檢後，可由Terra OCR建立逐頁文字與bbox候選；所有結果固定`humanVerificationRequired: true`且`mayProduceAffirmativeFindings: false`，確認前不得建立Clause、Finding、三態或規則結果。
+- 理由／證據：掃描租約沒有可靠文字層，但OCR錯字可能改變金額、否定詞與責任文字；保留頁碼、bbox、confidence與人工確認能提供可追溯輸入而不越過證據界線。
+- 影響與遷移：新增OCR domain／application／OpenAI adapter與PDF preflight；共用upload route、owner-scoped worker、confirmation與後續contract.extract接線完成前不得在UI宣稱可用。
+
+### D-101：MP4影片採pinned FFmpeg確定性抽幀
+
+- 日期：2026-09-04
+- 狀態：accepted
+- 決策：影片只接受MP4、50 MiB、30秒、4K、60fps；固定每2秒抽一張、最多15張JPEG，保留artifact／timestamp／frame number locator。音訊不分析，不做人臉辨識或安全／漏水／責任判定。
+- 理由／證據：影片必須先轉為可重現、可定位且經metadata stripping驗證的影格，才能沿用影像證據流程；瀏覽器端抽幀不具可信、跨裝置一致性。
+- 影響與遷移：開發機已從FFmpeg官網列出的GyanD來源下載`9.0.1-essentials_build`，驗證archive hash並固定FFmpeg／FFprobe版本與binary SHA-256；binary位於repository外且依GPLv3授權。實際probe／extractor、timeout／output／workspace cleanup、加密frame bundle、Secure LAN upload與video locator接線已完成；任一runtime或frame驗證失敗仍fail closed。
+
+### D-102：Allowlisted bounded工作佇列
+
+- 日期：2026-09-04
+- 狀態：accepted
+- 決策：共用工作佇列只接受`contract.ocr／evidence.video_frames／analysis.pipeline`三種typed work，payload不含bytes或文字；採10,000 records、concurrency 2、per-case 1、60秒lease、3 attempts、24小時terminal retention及hashed idempotency。
+- 理由／證據：OCR與影片可能超過單一HTTP request合理時間，但任意task runner會擴大命令注入、owner bypass與資源耗盡面；固定work union與bounded lease queue可先驗證工作語意。
+- 影響與遷移：保留in-memory implementation供確定性測試，並加入application compare-and-swap port、validated Windows runtime JSON adapter與`GovernedJobWorker`；snapshot原子替換、restart recovery、expired lease reclaim、cancel／delete／case purge、corruption fail-closed與handler前owner／revision／policy／Cloud／budget Gate已完成。此adapter只保證單機單process；正式營運仍需handler composition、graceful shutdown、dead-letter與metrics，多process部署必須改用具transaction／locking的typed adapter。
+
+### D-103：FRS-002至FRS-010採typed candidates＋deterministic evaluators
+
+- 日期：2026-09-04
+- 狀態：accepted
+- 決策：模型只能抽取帶locator的遠端帶看、陌生連結／認證要求、付款角色、出租權限、高壓話術、付款方式、跨來源矛盾及導流候選；TypeScript evaluator固定決定FRS-002至010。FRS-008至少兩筆locator；FRS-009須官方租金脈絡＋另一項detected signal，低租金不得單獨觸發。
+- 理由／證據：上述訊號需要來源完整性、組合條件與保守unknown語意，不能由LLM自由判斷或合成詐騙分數。
+- 影響與遷移：Domain／Application evaluator、strict provider candidate envelope、精確locator驗證、Live snapshot與report已完成。FRS-009仍只接受runtime提供的經治理官方租金脈絡；未提供時輸出資料不足，不硬編或虛構門檻。
+
 ## 尚待決定
 
 | 問題                                | 決定時機                         | 決策證據                                                             |

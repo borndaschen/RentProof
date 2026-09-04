@@ -1,4 +1,4 @@
-import { resolveCurrentCaseActor } from "@/server/auth/current-actor";
+import { resolveCurrentCaseActors } from "@/server/auth/current-actor";
 import { validateSelfHostedAuthMutation } from "@/server/auth/request-guard";
 import { getServerEnvironment } from "@/server/env";
 import { privateNoStoreHeaders } from "@/server/http/private-response";
@@ -18,10 +18,24 @@ export async function DELETE(
     return errorResponse(404, "REAL_DEMO_ROUTE_UNAVAILABLE");
   }
   try {
-    const actor = await resolveCurrentCaseActor(request);
     const { caseId } = await context.params;
-    await (await getRealDemoRuntime()).service.deleteCase(actor, caseId);
-    return new Response(null, { status: 204, headers: privateNoStoreHeaders() });
+    const actors = await resolveCurrentCaseActors(request);
+    const service = (await getRealDemoRuntime()).service;
+    for (const actor of [actors.account, actors.guest]) {
+      if (actor === null) continue;
+      try {
+        await service.deleteCase(actor, caseId);
+        return new Response(null, { status: 204, headers: privateNoStoreHeaders() });
+      } catch (error) {
+        if (
+          !(error instanceof Error) ||
+          error.message !== "REAL_DEMO_CASE_NOT_FOUND_OR_FORBIDDEN"
+        ) {
+          throw error;
+        }
+      }
+    }
+    return errorResponse(404, "REAL_DEMO_CASE_NOT_FOUND_OR_FORBIDDEN");
   } catch (error) {
     const code = error instanceof Error ? error.message : "";
     if (code === "REAL_DEMO_AUTH_REQUIRED") return errorResponse(401, code);

@@ -429,6 +429,50 @@ describe("composePreSigningReport", () => {
     ]);
   });
 
+  it("reports verify-before-payment and stop-and-verify signals in stable order", () => {
+    const input = validInput();
+    input.findings = [];
+    input.ruleChecks = [];
+    input.fraudSignals = [
+      {
+        signalId: "FRS-010",
+        status: "detected",
+        action: "stop_and_verify",
+        reasonCode: "FRS_010_REDIRECTED_ACCOUNT_OR_BANK_VERIFICATION",
+        sourceRefIds: [ids.locatorD],
+        missingInputs: [],
+        humanVerificationRequired: true,
+      },
+      {
+        signalId: "FRS-002",
+        status: "detected",
+        action: "verify_before_payment",
+        reasonCode: "FRS_002_REMOTE_OR_NO_IN_PERSON_VIEWING",
+        sourceRefIds: [ids.locatorA],
+        missingInputs: [],
+        humanVerificationRequired: true,
+      },
+    ];
+
+    const report = composePreSigningReport(input);
+    expect(report.paymentVerification).toMatchObject([
+      {
+        signalId: "FRS-002",
+        status: "payment_verification_required",
+        action: "verify_before_payment",
+        sourceRefs: [ids.locatorA],
+      },
+      {
+        signalId: "FRS-010",
+        status: "payment_verification_required",
+        action: "stop_and_verify",
+        sourceRefs: [ids.locatorD],
+      },
+    ]);
+    expect(report.actions.map((action) => action.target.refId)).toEqual(["FRS-002", "FRS-010"]);
+    expect(JSON.stringify(report)).not.toMatch(/確定詐騙|詐騙機率|安全分數|黑名單/u);
+  });
+
   it("stably sorts every printable section with multiple entries", () => {
     const input = validInput();
     input.findings = [
@@ -453,10 +497,10 @@ describe("composePreSigningReport", () => {
     input.fraudSignals = [
       ...input.fraudSignals,
       {
-        signalId: "FRS-001",
+        signalId: "FRS-002",
         status: "not_detected_in_provided_data",
         action: "review",
-        reasonCode: "FRS_001_PAYMENT_NOT_BEFORE_VIEWING",
+        reasonCode: "FRS_002_NO_REMOTE_VIEWING_CUE",
         sourceRefIds: [ids.locatorD],
         missingInputs: [],
         humanVerificationRequired: true,
@@ -561,6 +605,37 @@ describe("composePreSigningReport", () => {
     if (source === undefined) throw new Error("test fixture missing source");
     sourceIdMismatch.sourceLocators[0] = { ...source, refId: "different-reference-001" };
     expect(PreSigningReportInputSchema.safeParse(sourceIdMismatch).success).toBe(false);
+
+    const missingFraudSource = validInput();
+    const missingSourceSignal = missingFraudSource.fraudSignals[0];
+    if (missingSourceSignal === undefined) throw new Error("test fixture missing fraud signal");
+    missingFraudSource.fraudSignals[0] = {
+      ...missingSourceSignal,
+      sourceRefIds: ["unregistered-fraud-locator"],
+    };
+    expect(PreSigningReportInputSchema.safeParse(missingFraudSource).success).toBe(false);
+
+    const duplicateFraudSignal = validInput();
+    const fraudSignal = duplicateFraudSignal.fraudSignals[0];
+    if (fraudSignal === undefined) throw new Error("test fixture missing fraud signal");
+    duplicateFraudSignal.fraudSignals.push({ ...fraudSignal });
+    expect(PreSigningReportInputSchema.safeParse(duplicateFraudSignal).success).toBe(false);
+
+    const detectedWithoutAction = validInput();
+    const detectedSignal = detectedWithoutAction.fraudSignals[0];
+    if (detectedSignal === undefined) throw new Error("test fixture missing fraud signal");
+    detectedWithoutAction.fraudSignals[0] = { ...detectedSignal, action: "review" };
+    expect(PreSigningReportInputSchema.safeParse(detectedWithoutAction).success).toBe(false);
+
+    const negativeWithEscalatedAction = validInput();
+    const negativeSignal = negativeWithEscalatedAction.fraudSignals[0];
+    if (negativeSignal === undefined) throw new Error("test fixture missing fraud signal");
+    negativeWithEscalatedAction.fraudSignals[0] = {
+      ...negativeSignal,
+      status: "not_detected_in_provided_data",
+      action: "stop_and_verify",
+    };
+    expect(PreSigningReportInputSchema.safeParse(negativeWithEscalatedAction).success).toBe(false);
 
     const unregisteredDisclosureLocator = validInput();
     unregisteredDisclosureLocator.nonNaturalDeathDisclosureStatements = [

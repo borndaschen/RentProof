@@ -92,7 +92,7 @@ const LiveStageRunSchema = z
     requestedServiceTier: z.literal("default"),
     resolvedServiceTier: z.string().min(1).max(64).nullable(),
     promptVersion: z.string().min(1).max(64),
-    schemaVersion: z.literal("rentproof.terra-analysis.v2"),
+    schemaVersion: z.literal("rentproof.terra-analysis.v3"),
     usage: z.discriminatedUnion("known", [
       z
         .object({

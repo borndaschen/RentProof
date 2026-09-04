@@ -3,6 +3,7 @@ import { initialRealDataSchemaMigration } from "./migrations/001_initial_real_da
 import { selfHostedAuthMigration } from "./migrations/002_self_hosted_auth.ts";
 import { privateCaseArtifactsMigration } from "./migrations/003_private_case_artifacts.ts";
 import { guestSessionsMigration } from "./migrations/004_guest_sessions.ts";
+import { viewingVideoArtifactsMigration } from "./migrations/005_viewing_video_artifacts.ts";
 
 export class FrozenPostgresMigrationProvider implements MigrationProvider {
   async getMigrations(): Promise<Record<string, Migration>> {
@@ -11,6 +12,7 @@ export class FrozenPostgresMigrationProvider implements MigrationProvider {
       "002_self_hosted_auth": selfHostedAuthMigration,
       "003_private_case_artifacts": privateCaseArtifactsMigration,
       "004_guest_sessions": guestSessionsMigration,
+      "005_viewing_video_artifacts": viewingVideoArtifactsMigration,
     };
   }
 }

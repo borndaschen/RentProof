@@ -4,6 +4,8 @@ import { expect, test } from "@playwright/test";
 test("runs the server-side subsidy precheck and remains accessible", async ({ page }) => {
   await page.goto("/rent-subsidy");
   await expect(page.getByRole("heading", { level: 1, name: "租屋補助申請條件預檢" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "結果怎麼看" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "申請條件預檢結果" })).toHaveCount(0);
   await page.getByLabel("租屋處縣市").selectOption("臺北市");
 
   const responsePromise = page.waitForResponse(
@@ -27,6 +29,7 @@ test("runs the server-side subsidy precheck and remains accessible", async ({ pa
     "href",
     "https://pip.moi.gov.tw/v3/B/SCRB0102.aspx",
   );
+  await expect(page.getByRole("link", { name: "返回租屋資料整理" })).toHaveAttribute("href", "/");
 
   const dimensions = await page.evaluate(() => ({
     documentWidth: document.documentElement.scrollWidth,

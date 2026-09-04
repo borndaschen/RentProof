@@ -97,6 +97,7 @@ describe("RentSubsidyPrecheck", () => {
       "href",
       "https://pip.moi.gov.tw/v3/B/SCRB0102.aspx",
     );
+    expect(screen.getByRole("link", { name: "返回租屋資料整理" })).toHaveAttribute("href", "/");
     const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
     expect(body.schemaVersion).toBe("rentproof.rent-subsidy-precheck-input.v1");
     expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
@@ -234,9 +235,10 @@ describe("RentSubsidyPrecheck", () => {
     const { container } = render(<RentSubsidyPrecheck />);
     expect(screen.getByRole("heading", { name: "先保護你的資料" })).toBeVisible();
     expect(screen.getByText(/不需要姓名、身分證字號、詳細地址/u)).toBeVisible();
-    expect(screen.getByText("初步相符")).toBeVisible();
-    expect(screen.getByText("有待確認")).toBeVisible();
-    expect(screen.getByText("資料不足")).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "結果怎麼看" })).not.toBeInTheDocument();
+    expect(screen.queryByText("初步相符")).not.toBeInTheDocument();
+    expect(screen.queryByText("有待確認")).not.toBeInTheDocument();
+    expect(screen.queryByText("資料不足")).not.toBeInTheDocument();
     expect(container.textContent).not.toMatch(/保證符合|正式核准|合法|違法/u);
   });
 

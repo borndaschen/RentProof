@@ -38,8 +38,15 @@ const ImageInputSchema = z
     artifactId: EvidenceGraphIdSchema,
     mime: ImageMimeSchema,
     base64: Base64Schema,
+    timestampMs: z.number().int().min(0).max(29_999).optional(),
+    frameNo: z.number().int().min(0).max(14).optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((image, context) => {
+    if ((image.timestampMs === undefined) !== (image.frameNo === undefined)) {
+      context.addIssue({ code: "custom", message: "VIDEO_FRAME_METADATA_INCOMPLETE" });
+    }
+  });
 
 const ListingAnalysisInputSchema = z
   .object({
@@ -62,7 +69,7 @@ const EvidenceAnalysisInputSchema = z
   .object({
     stage: z.literal("evidence.extract"),
     caseId: EvidenceGraphIdSchema,
-    images: z.array(ImageInputSchema).min(1).max(12),
+    images: z.array(ImageInputSchema).min(1).max(15),
   })
   .strict();
 
@@ -295,6 +302,71 @@ const ProviderPaymentRequestCueSchema = z
   })
   .strict();
 
+function providerLocatedFraudCandidateSchema<const T extends readonly [string, ...string[]]>(
+  values: T,
+) {
+  return z.discriminatedUnion("status", [
+    z
+      .object({
+        status: z.literal("present"),
+        value: z.enum(values),
+        locators: z.array(ProviderSourceLocatorSchema).min(1).max(20),
+      })
+      .strict(),
+    z.object({ status: z.literal("not_present") }).strict(),
+    z.object({ status: z.literal("unknown") }).strict(),
+  ]);
+}
+
+const ProviderInteractionFraudCandidatesSchema = z
+  .object({
+    remoteViewingArrangement: providerLocatedFraudCandidateSchema([
+      "remote_location_claim",
+      "in_person_viewing_refused",
+      "keys_by_delivery_only",
+    ]),
+    unfamiliarLinkOrCredentialRequest: providerLocatedFraudCandidateSchema([
+      "unfamiliar_logistics_link",
+      "unfamiliar_convenience_store_link",
+      "unfamiliar_customer_service_link",
+      "online_banking_request",
+      "credit_card_request",
+      "otp_request",
+    ]),
+    paymentRequest: providerLocatedFraudCandidateSchema(["payment_requested"]),
+    paymentPartyRelationship: providerLocatedFraudCandidateSchema([
+      "verified_consistent",
+      "unverified",
+      "inconsistent",
+    ]),
+    lettingAuthorityVerification: providerLocatedFraudCandidateSchema([
+      "verified",
+      "not_verified",
+      "unknown",
+    ]),
+    pressureLanguage: providerLocatedFraudCandidateSchema([
+      "competing_renter",
+      "pay_now_to_reserve",
+      "other_urgent_scarcity",
+    ]),
+    paymentMethod: providerLocatedFraudCandidateSchema([
+      "ordinary_domestic",
+      "cross_border_transfer",
+      "cryptocurrency",
+      "gift_card",
+      "other_hard_to_recover",
+    ]),
+    redirectedAccountVerification: providerLocatedFraudCandidateSchema([
+      "unfamiliar_customer_service_account_verification",
+      "line_account_verification",
+      "unfamiliar_customer_service_personal_information",
+      "line_personal_information",
+      "unfamiliar_customer_service_online_banking_operation",
+      "line_online_banking_operation",
+    ]),
+  })
+  .strict();
+
 export const ListingAnalysisEnvelopeSchema = z
   .object({
     stage: z.literal("listing.extract"),
@@ -320,6 +392,7 @@ export const InteractionAnalysisEnvelopeSchema = z
   .object({
     stage: z.literal("interaction.extract"),
     paymentRequestCues: z.array(ProviderPaymentRequestCueSchema).max(50),
+    fraudCandidates: ProviderInteractionFraudCandidatesSchema,
   })
   .strict();
 
@@ -344,6 +417,69 @@ const PaymentRequestCueSchema = z
   })
   .strict();
 
+function locatedFraudCandidateSchema<const T extends readonly [string, ...string[]]>(values: T) {
+  return z.discriminatedUnion("status", [
+    z
+      .object({
+        status: z.literal("present"),
+        value: z.enum(values),
+        locatorIds: z.array(EvidenceGraphIdSchema).min(1).max(20),
+      })
+      .strict(),
+    z.object({ status: z.literal("not_present") }).strict(),
+    z.object({ status: z.literal("unknown") }).strict(),
+  ]);
+}
+
+export const InteractionFraudCandidatesSchema = z
+  .object({
+    remoteViewingArrangement: locatedFraudCandidateSchema([
+      "remote_location_claim",
+      "in_person_viewing_refused",
+      "keys_by_delivery_only",
+    ]),
+    unfamiliarLinkOrCredentialRequest: locatedFraudCandidateSchema([
+      "unfamiliar_logistics_link",
+      "unfamiliar_convenience_store_link",
+      "unfamiliar_customer_service_link",
+      "online_banking_request",
+      "credit_card_request",
+      "otp_request",
+    ]),
+    paymentRequest: locatedFraudCandidateSchema(["payment_requested"]),
+    paymentPartyRelationship: locatedFraudCandidateSchema([
+      "verified_consistent",
+      "unverified",
+      "inconsistent",
+    ]),
+    lettingAuthorityVerification: locatedFraudCandidateSchema([
+      "verified",
+      "not_verified",
+      "unknown",
+    ]),
+    pressureLanguage: locatedFraudCandidateSchema([
+      "competing_renter",
+      "pay_now_to_reserve",
+      "other_urgent_scarcity",
+    ]),
+    paymentMethod: locatedFraudCandidateSchema([
+      "ordinary_domestic",
+      "cross_border_transfer",
+      "cryptocurrency",
+      "gift_card",
+      "other_hard_to_recover",
+    ]),
+    redirectedAccountVerification: locatedFraudCandidateSchema([
+      "unfamiliar_customer_service_account_verification",
+      "line_account_verification",
+      "unfamiliar_customer_service_personal_information",
+      "line_personal_information",
+      "unfamiliar_customer_service_online_banking_operation",
+      "line_online_banking_operation",
+    ]),
+  })
+  .strict();
+
 export const TerraAnalysisOutputSchema = z.discriminatedUnion("stage", [
   z.object({ stage: z.literal("listing.extract"), claims: z.array(ClaimSchema).max(100) }).strict(),
   z
@@ -365,6 +501,7 @@ export const TerraAnalysisOutputSchema = z.discriminatedUnion("stage", [
     .object({
       stage: z.literal("interaction.extract"),
       paymentRequestCues: z.array(PaymentRequestCueSchema).max(50),
+      fraudCandidates: InteractionFraudCandidatesSchema,
     })
     .strict(),
 ]);
@@ -401,7 +538,7 @@ export type AnalysisProvenance = Readonly<{
   requestedServiceTier: "default";
   resolvedServiceTier: string | null;
   promptVersion: string;
-  schemaVersion: "rentproof.terra-analysis.v2";
+  schemaVersion: "rentproof.terra-analysis.v3";
   providerRequestId: string;
   providerAttempts: number;
   usage: AnalysisUsage;

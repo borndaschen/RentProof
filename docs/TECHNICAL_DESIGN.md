@@ -28,7 +28,7 @@ MVP採模組化單體Web App，讓conversation UI、workspace、上傳、分析�
 - OpenAI Responses API＋官方TypeScript SDK：Conversation使用`gpt-5.6-luna`／low；Evidence stages使用`gpt-5.6-terra`／medium；JSON Schema Structured Outputs
 - OpenAI `service_tier: default`明確鎖定標準價格／效能，requested／resolved tier進provenance
 - Evidence budget：16 Terra attempts、concurrency 2、500K input、50K output＋reasoning、US$2 alert；Conversation另用24h Luna 200 attempts／500K／100K、concurrency 1、US$0.50 alert
-- 目前支援最多12張照片；FFmpeg與30秒影片抽幀列為後續功能
+- Secure LAN入口支援最多12份看屋來源；30秒MP4使用核准FFmpeg binary、實際probe／extractor、frame verifier、加密bundle與timestamp／frame locator，任一Gate失敗都不保存成功receipt
 - Vitest + 一條 Playwright Golden smoke flow
 - UI component layer使用jsdom＋React Testing Library／user-event／jest-dom／axe；browser layer使用Playwright＋axe
 - HTML print stylesheet：MVP 報告輸出，不新增 PDF 服務
@@ -107,7 +107,7 @@ First real-data Production的Next.js App與PostgreSQL位於同一Server。Kysely
 | 模組                 | 責任                                                                       | 明確不負責                                              |
 | -------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------- |
 | Conversation         | 固定state machine、typed command candidates、確認與snapshot-bound blocks   | 直接修改domain結果、自治選stage、把raw model text當事實 |
-| Ingestion            | 外部資料目錄、MIME／大小／雜湊、私有補拍暫存、PDF頁碼                      | 判讀內容；目前不處理影片                                |
+| Ingestion            | 外部資料目錄、MIME／大小／雜湊、私有補拍暫存、PDF頁碼、MP4安全預檢契約     | 判讀內容；未通過pinned runtime Gate不得處理影片         |
 | Listing              | 抽取廣告 claim 與來源位置                                                  | 判斷承諾真假                                            |
 | Viewing              | 將 claim 轉成問題與指定拍攝清單                                            | 分析尚未上傳的影像                                      |
 | Evidence             | 描述可觀察內容、定位與不確定原因                                           | 從沒拍到推論不存在；診斷漏水／結構                      |
@@ -269,9 +269,9 @@ type ExtractedField<T> =
 1. `create_case`：建立案件與資料保存設定。
 2. `ingest_listing`：保存截圖／文字／URL metadata，以 OpenAI Responses API 抽取廣告 claims。
 3. `build_viewing_checklist`：為每項可現場驗證的 claim 產生具體問題與拍攝指示。
-4. `ingest_viewing_media`：目前直接分析最多12張照片；後續才加入影片每2秒取幀與最多15幀限制。
+4. `ingest_viewing_media`：直接分析最多12份看屋來源；影片以pinned runtime每2秒取幀、最多15幀，逐幀Sharp驗證後封裝成加密bundle，分析時重驗並傳入video locator。
 5. `analyze_observations`：照片以 OpenAI Responses API 只輸出可觀察內容、位置、信心與不確定原因。
-6. `ingest_contract`：目前只接受可可靠取得文字與頁碼的清楚PDF，先在本機抽取帶頁碼文字；掃描件與頁面影像OCR列為後續功能。
+6. `ingest_contract`：目前upload只接受可可靠取得文字與頁碼的清楚PDF。掃描件OCR已具PDF.js preflight、Terra strict candidate與人工確認Gate；owner-scoped worker／confirmation接線完成前不得進`contract.extract`。
 7. `extract_contract_clauses`：將最小必要文字送往 OpenAI Responses API，輸出費用、設備附件、補貼、修繕等 semantic keys；另以專用strict field抽取專有部分非自然死亡的明確契約／已簽現況確認書揭露。Server驗證case、artifact、page與逐字locator後才映射domain statement，傳聞、新聞、地址搜尋、文件沉默與模型推論不得成為肯定事實。
 8. `compare_claims`：正規化後執行三態 truth table。
 9. `compose_costs`：以廣告／契約費用產生固定月費、變動公式與一次性費用；沒有用量不產生完整月總額。

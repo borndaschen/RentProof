@@ -1,6 +1,10 @@
+import { createHash, randomBytes } from "node:crypto";
+import { resolve } from "node:path";
 import { z } from "zod";
 import { extractTextPdf, pdfJsEngine } from "@/adapters/documents/pdfjs";
+import { createApprovedWindowsFfmpegAdapters } from "@/adapters/ingestion/ffmpeg";
 import { SharpImageSanitizer } from "@/adapters/ingestion/sharp";
+import { packVerifiedVideoFrames, prepareVideoEvidence } from "@/application/video";
 import { RealArtifactKindSchema } from "@/application/real-demo";
 import { detectSensitiveConversationContent } from "@/application/conversation/security";
 import { guardSingleUploadRequest } from "@/application/uploads";
@@ -15,13 +19,16 @@ export const runtime = "nodejs";
 const HeaderSchema = z
   .object({
     filename: z.string().min(1).max(255),
-    mime: z.enum(["image/jpeg", "image/png", "application/pdf"]),
+    mime: z.enum(["image/jpeg", "image/png", "application/pdf", "video/mp4"]),
     kind: RealArtifactKindSchema,
     idempotencyKey: z.string().regex(/^[A-Za-z0-9_-]{20,128}$/u),
   })
   .strict()
   .superRefine((value, context) => {
-    if ((value.kind === "contract_pdf") !== (value.mime === "application/pdf")) {
+    if (
+      (value.kind === "contract_pdf") !== (value.mime === "application/pdf") ||
+      (value.kind === "viewing_video") !== (value.mime === "video/mp4")
+    ) {
       context.addIssue({ code: "custom", message: "UPLOAD_KIND_MIME_MISMATCH" });
     }
   });
@@ -80,6 +87,39 @@ export async function POST(
         originalSha256: verified.upload.sha256,
         originalBytes: verified.upload.bytes,
         extractedText: serialized,
+      });
+    } else if (verified.upload.actualMime === "video/mp4") {
+      const localAppData = process.env["LOCALAPPDATA"];
+      const configuredRoot = process.env["RENTPROOF_RUNTIME_DIR"]?.trim();
+      if (!localAppData && !configuredRoot) return errorResponse(503, "VIDEO_RUNTIME_UNAVAILABLE");
+      const runtimeRoot = configuredRoot || resolve(localAppData ?? "", "RentProof", "runtime");
+      const prepared = await prepareVideoEvidence(
+        {
+          artifactId: `video_pending_${randomBytes(16).toString("hex")}`,
+          declaredMime: "video/mp4",
+          byteLength: verified.upload.byteLength,
+        },
+        verified.upload.bytes,
+        createApprovedWindowsFfmpegAdapters({ runtimeRoot }),
+      );
+      if (!prepared.ok) return errorResponse(422, prepared.code);
+      let bundle: Uint8Array;
+      try {
+        bundle = packVerifiedVideoFrames(prepared.frames);
+      } catch {
+        return errorResponse(422, "VIDEO_FRAME_BUNDLE_INVALID");
+      }
+      saved = await service.saveArtifact({
+        actor,
+        caseId,
+        kind: "viewing_video",
+        mime: "video/mp4",
+        originalSha256: verified.upload.sha256,
+        originalBytes: verified.upload.bytes,
+        derivative: {
+          bytes: bundle,
+          sha256: createHash("sha256").update(bundle).digest("hex"),
+        },
       });
     } else {
       const sanitized = await new SharpImageSanitizer().sanitize(

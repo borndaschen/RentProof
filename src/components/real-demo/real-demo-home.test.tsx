@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
@@ -6,8 +6,22 @@ import type { ReactNode } from "react";
 import { RealDemoHome } from "./real-demo-home";
 
 vi.mock("next/link", () => ({
-  default: ({ href, children }: { href: string; children: ReactNode }) => (
-    <a href={href}>{children}</a>
+  default: ({
+    href,
+    children,
+    target,
+    rel,
+    className,
+  }: {
+    href: string;
+    children: ReactNode;
+    target?: string;
+    rel?: string;
+    className?: string;
+  }) => (
+    <a href={href} target={target} rel={rel} className={className}>
+      {children}
+    </a>
   ),
 }));
 
@@ -51,7 +65,13 @@ describe("RealDemoHome", () => {
     );
     const { container } = render(<RealDemoHome />);
     expect(await screen.findByText(/先告訴我這間房子怎麼稱呼/u)).toBeVisible();
+    expect(screen.getByRole("link", { name: "租屋補助預檢" })).toHaveAttribute(
+      "href",
+      "/rent-subsidy",
+    );
+    expect(screen.queryByRole("link", { name: "開始租屋補助預檢" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "登入" })).toHaveAttribute("href", "/auth");
+    expect(screen.queryByRole("button", { name: "保存" })).not.toBeInTheDocument();
     expect(screen.queryByText(/Demo|Fixture|Golden|P0|P1|Synthetic|虛構/u)).not.toBeInTheDocument();
     expect((await axe(container)).violations).toHaveLength(0);
   });
@@ -67,6 +87,10 @@ describe("RealDemoHome", () => {
     const user = userEvent.setup();
     const { container } = render(<RealDemoHome />);
     await user.type(await screen.findByLabelText("輸入訊息"), "民生東路套房");
+    expect(screen.queryByText(/目前以訪客模式使用/u)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "登出" })).toBeVisible();
+    expect(screen.queryByRole("link", { name: "帳戶" })).not.toBeInTheDocument();
+    expect(container.querySelectorAll(".header-nav-button")).toHaveLength(3);
     await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: "傳送" }));
     expect(await screen.findByText("我要整理「民生東路套房」。")).toBeVisible();
@@ -76,6 +100,23 @@ describe("RealDemoHome", () => {
     expect(request?.[1]).toMatchObject({ method: "POST", signal: expect.any(AbortSignal) });
     expect(String(request?.[1]?.body)).toContain('"cloudProcessingAcknowledged":true');
     expect((await axe(container)).violations).toHaveLength(0);
+  });
+
+  it("logs out through the server and clears the account projection before entering guest mode", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ status: "authenticated", csrfToken: "c".repeat(43) }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(Response.json({ status: "guest" }, { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<RealDemoHome />);
+    await user.click(await screen.findByRole("button", { name: "登出" }));
+    expect(await screen.findByText(/目前以訪客模式使用/u)).toBeVisible();
+    expect(screen.getByRole("link", { name: "登入" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "登出" })).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/auth/logout");
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ method: "POST", body: "{}" });
   });
 
   it("uses one free-text composer to create a guest case and keeps the login reminder visible", async () => {
@@ -89,12 +130,21 @@ describe("RealDemoHome", () => {
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
     render(<RealDemoHome />);
+    expect(await screen.findByText(/訪客模式使用/u)).toBeVisible();
+    expect(screen.getAllByText("RentProof")).toHaveLength(1);
     await user.type(await screen.findByLabelText("輸入訊息"), "我的新套房");
     await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: "傳送" }));
     expect(await screen.findByText("我要整理「我的新套房」。")).toBeVisible();
     expect(screen.getByText(/訪客模式使用/u)).toBeVisible();
-    expect(screen.getByRole("link", { name: "登入後保存案件" })).toHaveAttribute("href", "/auth");
+    expect(screen.getByRole("link", { name: "在新分頁登入後保存" })).toHaveAttribute(
+      "href",
+      "/auth",
+    );
+    expect(screen.getByRole("link", { name: "在新分頁登入後保存" })).toHaveAttribute(
+      "target",
+      "_blank",
+    );
   });
 
   it("recognizes text before uploading when a message and attachment are submitted together", async () => {
@@ -138,6 +188,27 @@ describe("RealDemoHome", () => {
     );
   });
 
+  it("accepts a desktop file drop on the fixed composer", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ status: "authenticated", csrfToken: "c".repeat(43) }))
+      .mockResolvedValueOnce(
+        Response.json({ caseId: "case_abcdefghijklmnopqrstuvwxyz1234567890" }, { status: 201 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    const { container } = render(<RealDemoHome />);
+    await user.type(await screen.findByLabelText("輸入訊息"), "拖曳測試");
+    await user.click(screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("button", { name: "傳送" }));
+    const composer = container.querySelector("form.real-composer");
+    if (!(composer instanceof HTMLFormElement)) throw new Error("COMPOSER_NOT_FOUND");
+    fireEvent.drop(composer, {
+      dataTransfer: { files: [new File(["png"], "listing.png", { type: "image/png" })] },
+    });
+    expect(screen.getByPlaceholderText("已選擇 listing.png")).toBeVisible();
+  });
+
   it("explicitly transfers a guest case after the same browser signs in", async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
@@ -160,7 +231,7 @@ describe("RealDemoHome", () => {
     await user.type(await screen.findByLabelText("輸入訊息"), "訪客案件");
     await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: "傳送" }));
-    await user.click(await screen.findByRole("button", { name: "已登入，保存此案件" }));
+    await user.click(await screen.findByRole("button", { name: "保存" }));
     expect(await screen.findByText(/案件已保存到你的帳戶/u)).toBeVisible();
     expect(fetchMock.mock.calls[4]?.[0]).toContain("/transfer");
     expect(fetchMock.mock.calls[4]?.[1]).toMatchObject({
@@ -168,6 +239,33 @@ describe("RealDemoHome", () => {
       body: JSON.stringify({ confirmation: "SAVE_GUEST_CASE_TO_ACCOUNT" }),
     });
     expect(screen.getByRole("link", { name: "我的案件" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "保存" })).not.toBeInTheDocument();
+  });
+
+  it("keeps deletion available after saving a guest case fails", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ status: "signed_out", csrfToken: "c".repeat(43) }))
+      .mockResolvedValueOnce(Response.json({ status: "guest" }, { status: 201 }))
+      .mockResolvedValueOnce(
+        Response.json({ caseId: "case_abcdefghijklmnopqrstuvwxyz1234567890" }, { status: 201 }),
+      )
+      .mockResolvedValueOnce(Response.json({ status: "authenticated", csrfToken: "n".repeat(43) }))
+      .mockResolvedValueOnce(Response.json({ error: { code: "TRANSFER_FAILED" } }, { status: 503 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<RealDemoHome />);
+    await user.type(await screen.findByLabelText("輸入訊息"), "可刪除案件");
+    await user.click(screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("button", { name: "傳送" }));
+    await user.click(await screen.findByRole("button", { name: "保存" }));
+    expect(await screen.findByText(/尚未完成保存/u)).toBeVisible();
+    const deleteButton = screen.getByRole("button", { name: "刪除" });
+    expect(deleteButton).toBeEnabled();
+    await user.click(deleteButton);
+    expect(await screen.findByText("案件已刪除並停止存取。")).toBeVisible();
+    expect(fetchMock.mock.calls[5]?.[1]).toMatchObject({ method: "DELETE" });
   });
 
   it("uploads the required sources, shows analysis results, and deletes the case", async () => {
@@ -235,11 +333,11 @@ describe("RealDemoHome", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
     await screen.findByText("租屋廣告已安全加入。");
 
-    expect(await screen.findByText(/選擇一張能看清楚屋況/u)).toBeVisible();
+    expect(await screen.findByText(/30秒內的MP4看屋影片/u)).toBeVisible();
     fileInput = await screen.findByLabelText("加入附件");
-    await user.upload(fileInput, new File(["jpg"], "viewing.jpg", { type: "image/jpeg" }));
+    await user.upload(fileInput, new File(["mp4"], "viewing.mp4", { type: "video/mp4" }));
     await user.click(screen.getByRole("button", { name: "傳送" }));
-    await screen.findByText("看屋照片已安全加入。");
+    await screen.findByText("看屋影片已安全加入。");
 
     expect(await screen.findByText(/文字清楚、未加密的 PDF/u)).toBeVisible();
     fileInput = await screen.findByLabelText("加入附件");
@@ -253,7 +351,7 @@ describe("RealDemoHome", () => {
     expect(screen.getByText("確認洗衣機是否寫入附件。")).toBeVisible();
     expect(screen.getAllByText("1 項")).toHaveLength(3);
 
-    await user.click(screen.getByRole("button", { name: "刪除這個案件" }));
+    await user.click(screen.getByRole("button", { name: "刪除" }));
     expect(await screen.findByText("案件已刪除並停止存取。")).toBeVisible();
     expect(screen.getByText(/先告訴我這間房子怎麼稱呼/u)).toBeVisible();
     expect((await axe(container)).violations).toHaveLength(0);

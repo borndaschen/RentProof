@@ -48,6 +48,12 @@ describe("ConversationShell", () => {
     const user = userEvent.setup();
     render(<ConversationShell runtimeStatus={runtimeStatus} />);
 
+    expect(screen.getByRole("link", { name: "租屋補助預檢" })).toHaveAttribute(
+      "href",
+      "/rent-subsidy",
+    );
+    expect(screen.queryByRole("link", { name: "開始租屋補助預檢" })).not.toBeInTheDocument();
+
     const input = screen.getByRole("textbox", { name: "輸入你的問題" });
     await user.type(input, "下一步是什麼？");
     await user.click(screen.getByRole("button", { name: /送出/u }));
