@@ -8,6 +8,20 @@ coverage/
 playwright-report/
 test-results/
 
+# Local demo recordings and generated review artifacts
+/artifacts/
+/recordings/
+/screenshots/
+/videos/
+*.webm
+*.mp4
+*.mov
+/scripts/record-demo*.mjs
+/scripts/record-*-demo.mjs
+
+# Local development journal; keep it on the workstation only
+/docs/DEVLOG.md
+
 # Secrets and local configuration
 AGENTS.md
 .env
