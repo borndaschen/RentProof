@@ -95,7 +95,7 @@ pnpm test:e2e
 
 - [掃描 PDF OCR](docs/OCR_DESIGN.md) 的安全預檢、候選文字與人工確認邊界已完成，但一次性人工確認與後續契約抽取尚未接入使用者流程；目前契約仍要求清楚文字型PDF。
 - [影片證據](docs/VIDEO_INGESTION_P1.md) 已在Secure LAN入口啟用：只接受50 MiB／30秒內MP4，使用已驗證鎖版FFmpeg探測與確定性抽幀，frame bundle加密保存並在分析時保留timestamp／frame locator；音訊不分析。
-- `FRS-002` 至 `FRS-010` 已接入Live strict candidate extraction、typed evaluator、snapshot與報告流程；模型不能輸出signal/action或分數。`FRS-009`未取得經治理的官方租金脈絡時會安全回資料不足。
+- 付款前風險檢查已涵蓋：拒絕當面帶看或只寄鑰匙、誘導點擊陌生連結或提供網銀／信用卡／驗證碼、收款人身分不明、尚未核對出租權限、高壓搶租話術、難以追回的付款方式、不同資料互相矛盾、異常低租金伴隨其他風險，以及導向陌生客服或LINE進行帳戶認證。系統只顯示風險訊號與查證建議，不判定詐騙或提供分數；沒有可靠的官方租金資料時，低租金項目會顯示資料不足。
 - OCR、影片與分析工作已有單機持久化bounded queue與受治理worker：具10,000筆容量、全域同時2件、同案件同時1件、lease、有限重試、idempotency、重啟復原、cancel／purge及執行前owner／revision／policy／Cloud／budget Gate。多process／HA部署仍須改用具跨process transaction的adapter。
 - 首頁導覽提供 115 年度租金補貼申請條件預檢；目前不試算核定金額或加碼倍數，且仍需主管機關正式審查。
 - `lan_secure_demo` 不是正式公開服務；Production 仍需完成正式網域與憑證、Transactional Email 營運控制、排程式清除、異地加密備份、事件處理與部署驗證。
