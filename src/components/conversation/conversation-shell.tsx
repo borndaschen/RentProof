@@ -222,11 +222,16 @@ export function ConversationShell({ runtimeStatus }: { runtimeStatus: RuntimeSta
     <main className="app-shell">
       <header className="topbar">
         <div className="brand">租得明白 RentProof</div>
-        {runtimeStatus.authMode === "self_hosted" ? (
-          <a href="/auth" className="auth-link">
-            登入／註冊
+        <nav aria-label="主要功能">
+          <a href="/rent-subsidy" className="auth-link">
+            租屋補助預檢
           </a>
-        ) : null}
+          {runtimeStatus.authMode === "self_hosted" ? (
+            <a href="/auth" className="auth-link">
+              登入／註冊
+            </a>
+          ) : null}
+        </nav>
       </header>
       {runtimeStatus.llmMode === "live" && runtimeStatus.projectLimits === "unverified" ? (
         <div className="project-limit-warning" role="alert">

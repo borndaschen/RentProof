@@ -1,0 +1,190 @@
+schema_version: "1.0"
+ruleset_id: rentproof-tw-rent-subsidy-precheck
+ruleset_version: 0.1.0-draft
+jurisdiction: TW
+plan_year_roc: 115
+plan_year_gregorian: 2026
+verified_at: "2026-09-04T00:00:00+08:00"
+production_ready: false
+production_blockers:
+  - LEGAL_AND_GOVERNANCE_REVIEW_NOT_COMPLETE
+disclaimer: >-
+  This ruleset supports a preliminary application-readiness precheck only. It is
+  not a government eligibility determination, benefit approval, or legal advice.
+
+allowed_results:
+  - preliminary_match
+  - needs_review
+  - insufficient_information
+
+evaluation_policy:
+  execution: evaluator_id must map to an allowlisted TypeScript function; never eval YAML text
+  unknown_required_input_result: insufficient_information
+  technical_or_source_failure: fail_closed_with_typed_configuration_error
+  overall_precedence: needs_review_then_insufficient_information_then_preliminary_match
+  positive_result_requires_all_required_checks: true
+  no_cross_year_fallback: true
+  source_freshness_max_days: 31
+  source_change_requires_human_review: true
+  llm_use: prohibited
+  amount_estimation: out_of_scope
+
+scope:
+  included: new applications for the ROC 115-year central expanded rent subsidy program
+  excluded_to_official_review:
+    - prior-year case carry-forward
+    - same-address legacy building exception
+    - address or lease changes during an approved subsidy period
+    - overpayment recovery or appeal
+
+application_window:
+  opens_at: "2026-01-01T09:00:00+08:00"
+  closes_at: "2026-12-31T17:00:00+08:00"
+  receipt_method_caveat: online, mail, and counter submissions use different official receipt rules
+
+evaluator:
+  evaluator_id: rental_subsidy_precheck_115_v1
+  evaluator_status: implemented
+  result_schema: rentproof.rental-subsidy-precheck.v1
+  rules_version: 115.2026-09-04.1
+  check_count: 15
+
+sources:
+  MOI_115_CONDITIONS:
+    title: 115年度300億元中央擴大租金補貼－申請條件、家庭年所得及財產限制
+    publisher: 內政部不動產資訊平台
+    url: https://pip.moi.gov.tw/Publicize/Info/B1020?n=%E7%94%B3%E8%AB%8B%E6%A2%9D%E4%BB%B6&y=115
+    retrieved_at: "2026-09-04"
+    snapshot_status: frozen
+    snapshot_path: rules/snapshots/2026-09-04/subsidy-115-conditions.html
+    snapshot_sha256: 41b83fe75141f1d2fddd61fa9742efcede93e28ab7b158493366d36c79c5b570
+  MOI_115_FAQ:
+    title: 115年度300億元中央擴大租金補貼－問與答
+    publisher: 內政部不動產資訊平台
+    url: https://pip.moi.gov.tw/Publicize/Info/B1020?n=%E5%95%8F%E8%88%87%E7%AD%94&y=115
+    retrieved_at: "2026-09-04"
+    snapshot_status: frozen
+    snapshot_path: rules/snapshots/2026-09-04/subsidy-115-faq.html
+    snapshot_sha256: 45a38bc895a5cc082b108065ce6b67563a83589a5b737e285ffc50f2fc1c2f78
+
+income_thresholds_twd_per_person_per_month:
+  comparison: strictly_less_than
+  income_tax_year_by_new_application_date:
+    "2026-01-01/2026-06-30": 2024
+    "2026-07-01/2026-12-31": 2025
+  ordinary_household:
+    taipei_city: 61137
+    new_taipei_city: 50700
+    taoyuan_city: 50304
+    taichung_city: 48231
+    tainan_city: 46545
+    kaohsiung_city: 48120
+    kinmen_or_lienchiang_county: 43023
+    all_other_counties_and_cities: 46545
+  newlywed_or_household_with_minor_child_or_fetus:
+    taipei_city: 71327
+    new_taipei_city: 59150
+    taoyuan_city: 58688
+    taichung_city: 56270
+    tainan_city: 54303
+    kaohsiung_city: 56140
+    kinmen_or_lienchiang_county: 50194
+    all_other_counties_and_cities: 54303
+  source_id: MOI_115_CONDITIONS
+  source_locator: 表2／問與答表4
+
+monthly_rent_caps_twd:
+  comparison: less_than_or_equal
+  taipei_city: 55000
+  new_taipei_taoyuan_taichung_hsinchu_city_or_county: 45000
+  tainan_or_kaohsiung_city: 40000
+  all_other_counties_and_cities: 39000
+  source_id: MOI_115_FAQ
+  source_locator: 第十六題表5
+
+rules:
+  - id: RSP-115-001
+    criterion: application_window
+    source_id: MOI_115_FAQ
+    required_inputs: [applicationDate]
+  - id: RSP-115-002
+    criterion: nationality_and_registration
+    source_id: MOI_115_FAQ
+    required_inputs: [nationalityAndRegistration]
+  - id: RSP-115-003
+    criterion: age_basis
+    source_id: MOI_115_FAQ
+    required_inputs: [ageBasis]
+    exception_policy: listed minor exceptions return needs_review
+  - id: RSP-115-004
+    criterion: home_ownership
+    source_id: MOI_115_CONDITIONS
+    required_inputs: [householdHomeOwnership]
+    exception_policy: coownership, demolition, danger, and severe-damage exceptions return needs_review
+  - id: RSP-115-005
+    criterion: income
+    source_id: MOI_115_CONDITIONS
+    required_inputs:
+      [rentalCountyCity, incomeThresholdBasis, averageMonthlyIncomePerHouseholdMemberTwd]
+    equality_result: needs_review
+  - id: RSP-115-006
+    criterion: other_housing_assistance
+    source_id: MOI_115_FAQ
+    required_inputs: [otherHousingAssistance]
+    exception_policy: waiver and program exceptions return needs_review
+  - id: RSP-115-007
+    criterion: lease_timing
+    source_id: MOI_115_FAQ
+    required_inputs: [leaseTiming]
+  - id: RSP-115-008
+    criterion: building_basis
+    source_id: MOI_115_FAQ
+    required_inputs: [buildingBasis]
+    exception_policy: prior-year same-address carryover returns needs_review
+  - id: RSP-115-009
+    criterion: named_leaseholder
+    source_id: MOI_115_FAQ
+    required_inputs: [applicantIsNamedLeaseholder]
+  - id: RSP-115-010
+    criterion: lease_genuineness
+    source_id: MOI_115_FAQ
+    required_inputs: [leaseIsGenuine]
+  - id: RSP-115-011
+    criterion: landlord_relationship
+    source_id: MOI_115_FAQ
+    required_inputs: [landlordOrOwnerIsHouseholdMemberOrLinealRelative]
+  - id: RSP-115-012
+    criterion: housing_program_type
+    source_id: MOI_115_FAQ
+    required_inputs: [housingProgramType]
+  - id: RSP-115-013
+    criterion: monthly_rent_cap
+    source_id: MOI_115_FAQ
+    required_inputs: [rentalCountyCity, monthlyRentTwd]
+    equality_result: preliminary_match
+  - id: RSP-115-014
+    criterion: residential_use
+    source_id: MOI_115_FAQ
+    required_inputs: [leaseUseIncludesResidence]
+  - id: RSP-115-015
+    criterion: care_institution
+    source_id: MOI_115_FAQ
+    required_inputs: [is24HourCareInstitution]
+
+privacy_policy:
+  openai_processing: prohibited
+  income_input: self_calculated_average_monthly_income_integer_or_unknown
+  standalone_request_persistence: prohibited
+  response_cache: private_no_store
+  default_location_granularity: county_or_city
+  prohibited_inputs:
+    - national_id_number
+    - full_birth_date
+    - household_registration_copy
+    - exact_home_address
+    - bank_account
+    - income_documents
+    - tax_documents
+    - property_deed
+    - vulnerability_or_medical_evidence
+  sensitive_bonus_categories: out_of_scope

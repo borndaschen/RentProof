@@ -119,6 +119,7 @@ First real-data Production的Next.js App與PostgreSQL位於同一Server。Kysely
 | Comparison           | 依 truth table 產生三態                                                    | 使用無 locator 或未驗證模型文字                         |
 | Costs                | 產生固定月費、變動公式與一次性費用                                         | 無用量時虛構完整月總額                                  |
 | Rule engine          | 以 allowlisted `evaluator_id` 執行版本化 TypeScript evaluator              | `eval` YAML 文字、產生／更新官方規則、宣告違法          |
+| Subsidy precheck     | 以年度、縣市與最小化typed answers執行版本化TypeScript evaluator            | 要求證明文件、呼叫LLM、宣告主管機關核定資格或金額       |
 | Report               | 依模板排序行動與引用                                                       | 生成新的未引用事實                                      |
 
 Conversation composer以free text為主。`ConversationIntentExtractor`接收已通過transport limits的turn與最小case context，輸出strict union：`read_only_intent`、`material_candidate`、`clarification_needed`或`rejected`。只有read-only intent可直接取得snapshot projection；material candidate需獨立confirmation event，client不得自行標示confirmed或提交domain result。Live adapter使用Structured Outputs且`tools: []`；Fixture adapter不得發網路。
@@ -283,22 +284,23 @@ type ExtractedField<T> =
 
 ## 7. API 草案
 
-| Method  | Path                                                | 用途                                                    |
-| ------- | --------------------------------------------------- | ------------------------------------------------------- |
-| `POST`  | `/api/cases`                                        | 建立案件                                                |
-| `POST`  | `/api/cases/:caseId/artifacts`                      | 上傳並標記素材種類                                      |
-| `PATCH` | `/api/cases/:caseId/profile`                        | 更新人工適用性資料，需 expected revision                |
-| `PUT`   | `/api/cases/:caseId/fraud-timeline`                 | 保存人工付款／首次實地看屋時間線                        |
-| `POST`  | `/api/cases/:caseId/analysis-runs`                  | 前景執行完整或allowlisted target pipeline               |
-| `GET`   | `/api/cases/:caseId/analysis-runs/:runId`           | 讀取指定 PipelineRun／StageRun 狀態                     |
-| `GET`   | `/api/cases/:caseId/summary`                        | 物件與成本摘要                                          |
-| `GET`   | `/api/cases/:caseId/matrix`                         | 證據矩陣與 locator                                      |
-| `GET`   | `/api/cases/:caseId/contract-review`                | 契約條款與 rule checks                                  |
-| `GET`   | `/api/cases/:caseId/report`                         | 報告 view model                                         |
-| `POST`  | `/api/cases/:caseId/findings/:findingId/follow-ups` | Case-scoped 補件與 target subgraph                      |
-| `POST`  | `/api/cases/:caseId/interactions`                   | 上傳 synthetic 互動／付款要求；分析由 analysis-run 觸發 |
-| `GET`   | `/api/cases/:caseId/fraud-signals`                  | 讀取訊號、locator、缺少資料與查證行動                   |
-| `GET`   | `/api/cases/:caseId/artifacts/:artifactId/content`  | 驗證 case association 後串流 sanitized preview          |
+| Method  | Path                                                | 用途                                                              |
+| ------- | --------------------------------------------------- | ----------------------------------------------------------------- |
+| `POST`  | `/api/cases`                                        | 建立案件                                                          |
+| `POST`  | `/api/cases/:caseId/artifacts`                      | 上傳並標記素材種類                                                |
+| `PATCH` | `/api/cases/:caseId/profile`                        | 更新人工適用性資料，需 expected revision                          |
+| `PUT`   | `/api/cases/:caseId/fraud-timeline`                 | 保存人工付款／首次實地看屋時間線                                  |
+| `POST`  | `/api/cases/:caseId/analysis-runs`                  | 前景執行完整或allowlisted target pipeline                         |
+| `GET`   | `/api/cases/:caseId/analysis-runs/:runId`           | 讀取指定 PipelineRun／StageRun 狀態                               |
+| `GET`   | `/api/cases/:caseId/summary`                        | 物件與成本摘要                                                    |
+| `GET`   | `/api/cases/:caseId/matrix`                         | 證據矩陣與 locator                                                |
+| `GET`   | `/api/cases/:caseId/contract-review`                | 契約條款與 rule checks                                            |
+| `POST`  | `/api/rent-subsidy/precheck`                        | Stateless 115年度申請條件預檢；strict JSON、same-origin、no-store |
+| `GET`   | `/api/cases/:caseId/report`                         | 報告 view model                                                   |
+| `POST`  | `/api/cases/:caseId/findings/:findingId/follow-ups` | Case-scoped 補件與 target subgraph                                |
+| `POST`  | `/api/cases/:caseId/interactions`                   | 上傳 synthetic 互動／付款要求；分析由 analysis-run 觸發           |
+| `GET`   | `/api/cases/:caseId/fraud-signals`                  | 讀取訊號、locator、缺少資料與查證行動                             |
+| `GET`   | `/api/cases/:caseId/artifacts/:artifactId/content`  | 驗證 case association 後串流 sanitized preview                    |
 
 Golden回歸仍支援固定案例與一次補拍；私有素材流程另使用`/api/real-cases`、owner-scoped uploads與analysis route。API錯誤回傳穩定`error_code`，UI不直接顯示provider原始錯誤。
 

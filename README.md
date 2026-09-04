@@ -76,6 +76,7 @@ pnpm typecheck
 pnpm test
 pnpm test:coverage
 pnpm security:check
+pnpm subsidy:sources:check
 pnpm build
 pnpm test:e2e
 ```
@@ -127,6 +128,7 @@ Repository 不包含真實租約、地址、身分證件、私人照片、密碼
 - [UI／RWD 設計](docs/UI_DESIGN.md)
 - [帳戶與歷史資料](docs/AUTH_AND_HISTORY.md)
 - [官方規則與資料來源](docs/OFFICIAL_RULES.md)
+- [租金補貼預檢與治理審閱](docs/SUBSIDY_GOVERNANCE_REVIEW.md)
 - [Demo 與測試計畫](docs/DEMO_TEST_PLAN.md)
 - [隱私政策草案](docs/PRIVACY_POLICY_DRAFT.md)
 - [使用條款草案](docs/TERMS_OF_USE_DRAFT.md)

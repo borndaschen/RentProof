@@ -703,6 +703,14 @@ Server templates、deterministic policy、Fixture adapter、validation failure�
 
 **影響：** P1 profile顯式啟用四條延伸規則，P0 active IDs與Golden expected results不變。所有輸入使用strict typed knowledge／presence states；適用性未知回`missing_information`，不適用建立null-result skipped check。只有含case locator的明確相反文字或數值可回`possible_difference`；文件不完整、欄位未知或無locator均fail closed。規則結果仍限`no_difference_found／possible_difference／missing_information`，不是合法性、責任或法律意見判決。規則庫仍為draft並須在Demo前重查來源。
 
+### D-098：115年度租金補貼申請條件預檢
+
+- 日期：2026-09-04
+- 狀態：accepted
+- 決策：新增獨立的租金補貼申請條件預檢，以Server端版本化TypeScript evaluator處理最小化typed answers；結果限`preliminary_match／needs_review／insufficient_information`，不宣稱政府資格認定、核定金額或法律意見。第一版不收身分、戶籍、所得、財產、權狀或弱勢證明，也不呼叫OpenAI。
+- 理由／證據：RP-010只能核對契約有無限制補貼的文字，無法回答申請人應準備與確認哪些條件。115年度官方條件涉及年度、縣市、家庭範圍、所得門檻、住宅持有、其他協助與租賃房屋條件，適合由可版本化、可回歸的確定性規則提供保守預檢。
+- 影響與遷移：新增獨立`/rent-subsidy`頁面與same-origin、no-store API，不新增第五個Evidence Workspace tab。2026-09-04官方頁面已建立本機受控快照、manifest與SHA-256，Server以31日freshness Gate fail closed；規則仍維持DRAFT且`production_ready: false`，直到台灣法律／治理審閱完成。跨年度不得fallback。
+
 ## 尚待決定
 
 | 問題                                | 決定時機                         | 決策證據                                                             |

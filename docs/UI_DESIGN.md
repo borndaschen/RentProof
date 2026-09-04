@@ -104,6 +104,7 @@
 - Case title、execution mode 與 analysis state 始終可見。
 - Workspace內四個tabs在Mobile可水平捲動，但conversation與內容本身不得產生全頁水平捲動。
 - 對話是案件預設主畫面；四區Evidence Workspace保留摘要、矩陣、契約、報告，不新增第五個workspace tab。Viewing checklist、現場觀察與付款前查證可在對話卡與對應workspace投影呈現。
+- 租金補貼申請條件預檢使用獨立`/rent-subsidy`頁面，由首頁提供明確入口；它不是第五個Evidence Workspace tab，也不得把RP-010契約限制與申請人條件混成單一結果。
 - 一般使用者畫面不顯示內部profile、Fixture、Golden或規則階段名稱；開發狀態只放在操作人員可見的診斷資訊。
 - 目前沒有公開HTTP展示profile；私人LAN只由`lan_secure_demo`以HTTPS提供，內部profile名稱不出現在一般使用者畫面。
 

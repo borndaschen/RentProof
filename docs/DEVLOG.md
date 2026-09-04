@@ -2,6 +2,31 @@
 
 本檔記錄已完成的事實與驗證，不把規劃中的工作寫成已完成。最新紀錄放最上方。
 
+## 2026-09-04 — 115年度租金補貼申請條件預檢
+
+### 已完成
+
+- 新增獨立`/rent-subsidy`頁面，以8組可鍵盤操作的問題涵蓋115年度新申請的15項條件檢核；兩種首頁均提供入口，不增加第五個Evidence Workspace分頁，也不把RP-010契約限制與申請人條件混成同一結果。
+- 新增strict Zod輸入／結果schema、22縣市門檻表及`evaluateRentalSubsidyPrecheck115`確定性evaluator。結果限`preliminary_match／needs_review／insufficient_information`，任一待確認優先，其次資料不足；不輸出合格／不合格或政府核定結論。
+- 新增same-origin、4 KiB bounded strict JSON、forwarded-header防護與`private, no-store`的`POST /api/rent-subsidy/precheck`。Client只驗證／呈現Server結果，不自行計算條件。
+- 最小資料設計不收精確所得，只收是否低於畫面所列門檻的自我確認；不要求姓名、身分證、詳細地址、戶籍／所得／財產／權狀或弱勢證明，不使用browser storage、OpenAI或其他外部provider。
+- 新增版本化DRAFT規則檔、官方來源／年度更新規格與D-098；跨年度不得fallback。2026-09-04五個官方頁面已建立本機受控快照，manifest記錄URL、bytes、內容驗證與SHA-256；兩個primary hash隨預檢結果保存。Server在查核日位於未來、時鐘無效或超過31日時fail closed。
+- 完成工程／產品內部法律、隱私與規則治理審閱矩陣，逐項記錄政府資格誤認、資料最小化、告知、目的限制、權利、保存、安全、第三方、來源及年度更新控制；明確保留獨立台灣法律／隱私專業簽核，不將內部審閱冒充法律意見。
+- 新增`subsidy:sources:check`離線／Live唯讀來源檢查，以及`subsidy:year:scaffold`未來年度草案工具。Live檢查對固定官方host驗HTTP、MIME、1 MiB、sentinel與hash；年度草案以exclusive create建立空來源、空threshold、空rules且`productionReady: false`，不複製115年值。
+- Codex目前task已建立每4週執行的「補貼來源與年度查核」heartbeat；來源未變時保持安靜，只在來源異動、31日到期、查核失敗、下一年度資料完整發布或需要人工審閱時通知。Heartbeat不自動修改verified date、hash或規則。
+
+### 驗證
+
+- 最終聚焦稽核包含UI／API 5 files／97 tests及來源／年度治理4 files／28 tests；涵蓋Subsidy門檻、unknown、例外、schema、禁止結論、source freshness、manifest semantic hash、bounded redirect、年度no-fallback與API／UI fail-closed。Live官方來源檢查5／5通過。
+- 完整Coverage：145 files／1,365 tests通過；statements 85.46%、branches 80.43%、functions 89.57%、lines 88.28%。首次並行執行有4個既有PowerShell／PostgreSQL／History測試逾時，單獨32 tests全數通過，將完整test timeout調為30秒後全數通過。
+- Prettier、TypeScript、ESLint、606-file Security Gate及Next.js Production Build通過。
+- Playwright desktop／mobile：23 passed／3個既有mobile singleton mutation案例依設計skip；新增預檢E2E兩種viewport均通過API、15項結果、no-store、無水平溢位與axe檢查。
+
+### 尚未完成／風險
+
+- 內部工程／產品／規則治理審閱已完成；仍需具名台灣法律／隱私專業簽核，以及正式營運者名稱、聯絡方式、利用地區、權利管道與實際處理依據，因此規則內容與介面維持DRAFT／預檢語意，不能標示正式資格認定或Production-ready。
+- 補貼級別、核定金額及加碼倍數不在第一版範圍；來源超過31日或hash異動時需重新人工查核、建立新snapshot並更新規則版本。
+
 ## 2026-09-03 — D-097 六位數字Email驗證碼與登入診斷
 
 ### 已完成

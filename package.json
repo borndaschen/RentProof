@@ -37,7 +37,10 @@
     "db:demo": "pwsh -NoProfile -File scripts/windows/Manage-RentProofPostgresDemo.ps1 -Action",
     "auth:demo": "pwsh -NoProfile -File scripts/windows/Manage-RentProofPostgresDemo.ps1 -Action",
     "retention:purge": "node scripts/retention-purge.mts",
-    "email:smoke": "node scripts/gmail-delivery-smoke.mts"
+    "email:smoke": "node scripts/gmail-delivery-smoke.mts",
+    "subsidy:sources:check": "node scripts/check-subsidy-sources.mts",
+    "subsidy:sources:check:live": "node scripts/check-subsidy-sources.mts --live",
+    "subsidy:year:scaffold": "node scripts/scaffold-subsidy-year.mts"
   },
   "dependencies": {
     "@next/env": "16.3.4",

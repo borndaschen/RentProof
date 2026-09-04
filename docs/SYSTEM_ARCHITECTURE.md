@@ -223,21 +223,22 @@ tests/
 
 ## 8. 模組責任
 
-| 模組         | 輸入                                   | 輸出                                          | 禁止事項                     |
-| ------------ | -------------------------------------- | --------------------------------------------- | ---------------------------- |
-| Case         | 使用者／Demo profile                   | `CaseState` shell                             | 法律或模型判定               |
-| Artifact     | upload／external storage ref           | validated artifact metadata                   | 公開 URL、使用者路徑         |
-| Listing      | 廣告圖片／文字                         | `Claim[]` candidates                          | 判定承諾真假                 |
-| Viewing      | validated claims                       | 拍攝／詢問 checklist                          | 額外 LLM call                |
-| Evidence     | 看屋照片                               | `Observation[]`                               | 未拍到＝不存在、漏水診斷     |
-| Contract     | local PDF page text                    | `ContractClause[]`                            | 法律結論                     |
-| Comparison   | claims＋observations＋clauses          | `claim_comparison` findings                   | 模型自由分類                 |
-| Costs        | normalized fees＋optional usage        | 固定月費、變動公式、一次性費用                | 無用量時虛構完整月總額       |
-| Rule         | contract facts＋case profile＋registry | `RuleCheck[]`                                 | `eval` YAML、合法／違法      |
-| Fraud Signal | interaction cue＋人工 timeline         | `FraudSignalCheck[]`                          | 詐騙 verdict／機率／黑名單   |
-| Follow-up    | finding＋新 artifact                   | dependency invalidation                       | 全案無條件重跑               |
-| Report       | findings＋checks＋signals              | action-card view model                        | 新事實、自由排序、責任結論   |
-| Analysis     | inputs＋versions                       | `PipelineRun`＋`StageRun`＋`AnalysisSnapshot` | 隱性 fallback、混合世代 view |
+| 模組             | 輸入                                             | 輸出                                          | 禁止事項                                                          |
+| ---------------- | ------------------------------------------------ | --------------------------------------------- | ----------------------------------------------------------------- |
+| Case             | 使用者／Demo profile                             | `CaseState` shell                             | 法律或模型判定                                                    |
+| Artifact         | upload／external storage ref                     | validated artifact metadata                   | 公開 URL、使用者路徑                                              |
+| Listing          | 廣告圖片／文字                                   | `Claim[]` candidates                          | 判定承諾真假                                                      |
+| Viewing          | validated claims                                 | 拍攝／詢問 checklist                          | 額外 LLM call                                                     |
+| Evidence         | 看屋照片                                         | `Observation[]`                               | 未拍到＝不存在、漏水診斷                                          |
+| Contract         | local PDF page text                              | `ContractClause[]`                            | 法律結論                                                          |
+| Comparison       | claims＋observations＋clauses                    | `claim_comparison` findings                   | 模型自由分類                                                      |
+| Costs            | normalized fees＋optional usage                  | 固定月費、變動公式、一次性費用                | 無用量時虛構完整月總額                                            |
+| Rule             | contract facts＋case profile＋registry           | `RuleCheck[]`                                 | `eval` YAML、合法／違法                                           |
+| Subsidy precheck | minimal declared answers＋year-specific registry | `SubsidyPrecheckResult`                       | government eligibility determination、LLM／client-side evaluation |
+| Fraud Signal     | interaction cue＋人工 timeline                   | `FraudSignalCheck[]`                          | 詐騙 verdict／機率／黑名單                                        |
+| Follow-up        | finding＋新 artifact                             | dependency invalidation                       | 全案無條件重跑                                                    |
+| Report           | findings＋checks＋signals                        | action-card view model                        | 新事實、自由排序、責任結論                                        |
+| Analysis         | inputs＋versions                                 | `PipelineRun`＋`StageRun`＋`AnalysisSnapshot` | 隱性 fallback、混合世代 view                                      |
 
 ## 9. Ports 與 Adapters
 

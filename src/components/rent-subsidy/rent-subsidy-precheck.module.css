@@ -1,0 +1,302 @@
+.shell {
+  width: min(760px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: clamp(28px, 6vw, 64px) 0 80px;
+}
+
+.header {
+  margin-bottom: 28px;
+}
+
+.backLink {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  margin-bottom: 24px;
+  color: var(--accent);
+  font-weight: 700;
+  text-underline-offset: 3px;
+}
+
+.eyebrow,
+.questionNumber,
+.resultLabel {
+  margin: 0 0 6px;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.header h1 {
+  margin-bottom: 12px;
+}
+
+.lead,
+.question p,
+.submitArea p,
+.statusGuide dd {
+  color: var(--text-muted);
+}
+
+.privacyNotice,
+.question,
+.result,
+.error,
+.statusGuide {
+  padding: clamp(20px, 5vw, 28px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.privacyNotice {
+  margin-bottom: 18px;
+  border-color: #e8d59b;
+  background: var(--warning-soft);
+}
+
+.privacyNotice h2,
+.result h2,
+.error h2,
+.statusGuide h2 {
+  margin-bottom: 8px;
+  font-size: 21px;
+}
+
+.privacyNotice p,
+.error p {
+  margin-bottom: 0;
+}
+
+.form {
+  display: grid;
+  gap: 14px;
+}
+
+.question {
+  min-width: 0;
+}
+
+.question > label,
+.fields > label,
+.question legend {
+  display: block;
+  padding: 0;
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 750;
+  line-height: 1.5;
+}
+
+.fields {
+  display: grid;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.fields > label {
+  display: grid;
+  gap: 8px;
+  font-size: 16px;
+}
+
+.question p {
+  margin: 6px 0 16px;
+  font-size: 14px;
+}
+
+.question select,
+.question input[type="date"],
+.question input[type="number"] {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid #aeb5aa;
+  border-radius: 10px;
+  color: var(--text);
+  background: var(--surface);
+  font: inherit;
+}
+
+.inlineFieldset {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+}
+
+.inlineFieldset legend {
+  margin-bottom: 10px;
+  font-size: 16px;
+}
+
+.answerOptions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.answerOptions label {
+  position: relative;
+  cursor: pointer;
+}
+
+.answerOptions input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.answerOptions span {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-muted);
+  font-weight: 650;
+}
+
+.answerOptions input:checked + span {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.answerOptions input:focus-visible + span {
+  outline: 3px solid color-mix(in srgb, var(--accent) 45%, white);
+  outline-offset: 3px;
+}
+
+.submitArea {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 0 8px;
+}
+
+.submitArea p {
+  max-width: 52ch;
+  margin: 0;
+  font-size: 14px;
+}
+
+.result,
+.error,
+.statusGuide {
+  margin-top: 24px;
+}
+
+.result {
+  border-left: 5px solid var(--accent);
+}
+
+.result h3 {
+  margin: 20px 0 6px;
+  font-size: 17px;
+}
+
+.result ul {
+  margin: 0 0 20px;
+  padding-left: 24px;
+}
+
+.checkList {
+  display: grid;
+  gap: 8px;
+  padding: 0 !important;
+  list-style: none;
+}
+
+.checkList li {
+  display: grid;
+  gap: 2px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--surface-muted);
+}
+
+.checkList span,
+.sourceLinks {
+  color: var(--text-muted);
+}
+
+.sourceLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.sourceLinks a {
+  color: var(--accent);
+  text-underline-offset: 3px;
+}
+
+.error {
+  border-color: #efc3c3;
+  color: var(--danger);
+  background: #fff0f0;
+}
+
+.statusGuide dl {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0 0;
+}
+
+.statusGuide dl div {
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--surface-muted);
+}
+
+.statusGuide dt {
+  font-weight: 750;
+}
+
+.statusGuide dd {
+  margin: 4px 0 0;
+}
+
+@media (max-width: 520px) {
+  .shell {
+    width: min(100% - 24px, 760px);
+  }
+
+  .answerOptions {
+    grid-template-columns: 1fr;
+  }
+
+  .submitArea {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+@media print {
+  .backLink,
+  .form,
+  .statusGuide {
+    display: none;
+  }
+
+  .shell {
+    width: 100%;
+    padding: 0;
+  }
+
+  .privacyNotice,
+  .result,
+  .error {
+    break-inside: avoid;
+    box-shadow: none;
+  }
+}

@@ -83,8 +83,9 @@ Raw user／assistant文字只保存7天；之後timeline以Typed Events與Cards�
 8. Contract stage 抽取條款、附件與費用；比較引擎產生三方矩陣。
 9. 使用者提供 synthetic 互動／付款要求，Fraud Signal stage 抽取候選事實，再由確定性規則產生風險訊號與查證行動。
 10. 官方規則引擎顯示來源、疑似差異與資料不足項目。
-11. 系統要求至少一次具體補拍／補件；使用者補傳後只重跑受影響項目。
-12. 系統產生簽約前待確認報告與中立雙方確認表。
+11. 使用者可選擇進入115年度租金補貼申請條件預檢；Server只依最小化的結構答案執行版本化規則，不收身分或所得證明，也不把預檢寫成政府資格認定。
+12. 系統要求至少一次具體補拍／補件；使用者補傳後只重跑受影響項目。
+13. 系統產生簽約前待確認報告與中立雙方確認表。
 
 上傳前必須清楚告知：廣告、照片與契約中的最小必要內容會送至 OpenAI Cloud API 分析。私有資料只可由通過安全與隱私Gate的HTTPS profile處理。
 
@@ -137,6 +138,10 @@ Claim 三態與官方規則三結果必須使用不同標籤、色彩與說明�
 風險訊號使用 `detected`、`not_detected_in_provided_data`、`insufficient_information`，並搭配 `review`、`verify_before_payment`、`stop_and_verify` 行動。它不等於詐騙判決；「未發現訊號」也不代表安全。完整定義見 [租屋詐騙風險訊號規格](FRAUD_RISK_SIGNALS.md)。
 
 Claim 三態、官方規則結果與詐騙風險訊號不得合成整體分數。
+
+### 5.5 租金補貼申請條件預檢
+
+租金補貼預檢是獨立的申請準備工具，不等同RP-010契約限制檢查，也不併入Claim、RuleCheck或FraudSignal。每項與整體結果只使用`preliminary_match`、`needs_review`、`insufficient_information`；任何正面結果都必須同時顯示「仍須主管機關正式審查」。規則固定由Server端版本化TypeScript evaluator執行，LLM與Client不得判斷或改寫結果。第一版不試算核定金額或加碼倍數。
 
 ## 6. 對話主流程與四區證據工作區
 

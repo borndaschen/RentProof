@@ -324,6 +324,7 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
           <p className="subtitle">跟著對話加入資料，我們會一步一步整理需要確認的地方。</p>
         </div>
         <nav aria-label="帳戶功能">
+          <Link href="/rent-subsidy">租屋補助預檢</Link>
           {session.status === "authenticated" ? <Link href="/history">我的案件</Link> : null}
           <Link className="header-login-button" href="/auth">
             {session.status === "guest" ? "登入" : "帳戶"}
