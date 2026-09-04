@@ -191,6 +191,8 @@ describe("user-owned PostgreSQL 18 Demo cluster scripts", () => {
     expect(startBlock).toContain("scripts\\run-next.mjs");
     expect(startBlock).not.toContain("RENTPROOF_AUTH_TOKEN_KEY=$");
     expect(startBlock).not.toContain("RENTPROOF_DATABASE_URL=$");
+    expect(manager).toContain("$status.authMode -eq 'self_hosted'");
+    expect(manager).not.toContain("self_hosted_local");
   });
 
   it("runs Auth HTTP smoke only against the validated healthy managed process", () => {

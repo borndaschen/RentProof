@@ -2,6 +2,43 @@
 
 本檔記錄已完成的事實與驗證，不把規劃中的工作寫成已完成。最新紀錄放最上方。
 
+## 2026-09-04 — 全站實機、登入／未登入、OpenAI額度與同步除錯
+
+### 本次目標
+
+- 對目前可執行功能完成全站自動化與瀏覽器實機回歸，涵蓋未登入、帳戶Auth、資料庫、Golden流程、補貼預檢、政策頁、RWD、accessibility、print與網路邊界。
+- 唯讀核對OpenAI Project spend／alerts／模型與rate-limit設定；不以本機旗標取代後台事實，也不在未完成Gate時發出Live付費request。
+
+### 已完成
+
+- 修正`Manage-RentProofPostgresDemo.ps1`的Auth health contract漂移：Runtime API現行回傳`authMode=self_hosted`，管理腳本仍檢查舊值`self_hosted_local`，導致正常啟動後被誤判並終止。同步新增script regression assertion。
+- 瀏覽器未登入實機確認首頁、Auth panel、錯誤登入泛化文案、註冊政策勾選Gate、忘記密碼泛化回應、開發驗證中心入口，以及未登入History拒絕頁；未輸入真實Email、密碼、驗證碼或租屋資料。
+- 受管理Auth HTTP smoke完成完全虛構帳號的註冊、Email驗證、登入、passive session不滑動、History主動使用滑動、登出撤銷、密碼重設、一次性碼replay拒絕及新密碼登入；結束後帳號／session／challenge殘留為0。
+- PostgreSQL Demo確認只監聽loopback、App readiness與synthetic smoke通過；Golden Demo seal、18份外部素材、runtime root與本機listener Gate通過。
+- 補貼來源離線5份snapshot通過；Live檢查第一次在官方試算頁回`SUBSIDY_SOURCE_FETCH_FAILED`，瀏覽器確認官方頁正常導向後單次重試5／5通過，判定為暫時性來源拒絕而非規則內容變更。
+- OpenAI Project後台唯讀核對：月上限US$100，alerts為US$50／US$80／US$100，只允許`gpt-5.6-luna`與`gpt-5.6-terra`；專案模型rate limits尚未override，仍繼承Tier 1的500 RPM／500,000 TPM。現況不符合文件要求的30 RPM與各模型RPD限制，因此`OPENAI_PROJECT_LIMITS_CONFIRMED`維持`false`。
+
+### 驗證
+
+- `pnpm format:check`、`pnpm lint`、`pnpm typecheck`、`pnpm test:coverage`、`pnpm security:check`與`pnpm build`通過；Coverage為171 files／1,510 passed、1個需顯式真實FFmpeg環境的預設skip，statements 85.65%、branches 80.80%、functions 90.26%、lines 88.60%。
+- Playwright首次在受限sandbox啟動Chromium回`spawn EPERM`；依既定環境規則移至允許的本機瀏覽器環境重跑後25 passed／3個mobile singleton mutation案例依設計skip，確認不是產品assertion失敗。
+- Auth health修正聚焦回歸3 files／26 tests通過；修正後`StartAuthDemo`、`StatusAuthDemo`、`AuthHttpSmoke`與`AuthHttpResidueCheck`均通過。
+- `pnpm db:demo -- Smoke`、`pnpm subsidy:sources:check`與重試後的`pnpm subsidy:sources:check:live`通過。
+
+### 尚未完成／風險
+
+- OpenAI Project雖已有US$100 hard limit與三段alert，但Luna／Terra專案級30 RPM、Terra 100 RPD、Luna 300 RPD及適用時的40 images／minute尚未在Project Limits覆寫；Live Gate不得改成confirmed。
+- 本次未執行會寄送真實Email的`email:smoke`、會產生OpenAI費用的`eval:live`、破壞資料的retention purge、Firewall狀態變更或帳戶刪除UI；對應程式路徑由既有unit／integration／security tests覆蓋，外部副作用仍需逐項明確授權後另做實機驗收。
+- Auth登入後History UI的真實瀏覽器session尚未新增專用Playwright E2E；本次以實際HTTP Cookie／PostgreSQL smoke驗證完整Auth狀態轉移，並以瀏覽器確認未登入與Auth panel畫面。
+
+### 下一步
+
+1. 在OpenAI Project Limits為Luna／Terra加入文件要求的project-level overrides；若Dashboard不支援RPD／images欄位，保留「未提供」證據而不宣稱已設定。
+2. 後台設定完成後重新唯讀核對，再把受保護啟動環境的`OPENAI_PROJECT_LIMITS_CONFIRMED`改為`true`並重跑Live Gate；不要先改旗標。
+3. 新增可自動建立並清理synthetic帳戶的Playwright登入／History E2E，避免只由HTTP smoke承擔登入後UI回歸。
+
+---
+
 ## 2026-09-04 — 對話入口、FRS擴充、OCR／影片／佇列基礎與Real Data介面
 
 ### 已完成

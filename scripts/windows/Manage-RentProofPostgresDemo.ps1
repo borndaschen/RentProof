@@ -217,7 +217,7 @@ function Test-AuthDemoHealth {
         return $status.schemaVersion -eq 'rentproof.runtime-status.v1' -and
             $status.deploymentProfile -eq 'local_development' -and
             $status.dataPolicy -eq 'synthetic_only' -and
-            $status.authMode -eq 'self_hosted_local'
+            $status.authMode -eq 'self_hosted'
     } catch { return $false }
 }
 
