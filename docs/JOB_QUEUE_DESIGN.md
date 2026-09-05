@@ -1,6 +1,6 @@
 # Bounded 工作佇列設計
 
-- 狀態：P1 Application契約、Windows JSON持久化adapter與governed worker orchestration已實作
+- 狀態：Application、Windows JSON／PostgreSQL adapters 與 Secure LAN OCR／影片背景處理已接線
 - 實作：`src/application/jobs/`、`src/adapters/storage/json-job-queue/`
 
 ## 用途與邊界
@@ -19,6 +19,10 @@ Job payload只保存opaque actor／case／artifact IDs、expected revision、pri
 - Priority固定`blocking → normal → background`，相同priority依建立時間與job ID決定，不讓LLM或user text自由排序。
 
 ## 持久化與重啟恢復
+
+- Secure LAN 依 D-104 使用 PostgreSQL `runtime_queue_state` 單列 snapshot CAS；`artifact_processing` 只保存 actor／case／reservation／confirmation metadata，原始檔和 OCR 候選仍在加密私有儲存。`case_evidence_budgets` 保存 bounded reserve／reconcile events，重啟不清空額度。
+- Server runtime 每秒嘗試 dispatch，最多兩件、同 case 一件；60 秒 lease 每 20 秒續期。Handler 在取私有資料、保存候選與發布結果前重驗執行條件。停止介面會停止 claim 並等待執行中工作；非正常中止仍由 lease expiry 復原。
+- 上傳回 202，瀏覽器每兩秒讀取進度；完成前不回傳 available artifact receipt。OCR 結果先進人工確認，影片驗證 frame bundle 後才 available。`analysis.pipeline` 尚保留既有同步入口，不在此 runtime 自動執行。
 
 - `PersistentBoundedJobQueue`只依賴application層的`JobQueueStateStore` compare-and-swap port；filesystem、Windows path與atomic replace細節留在adapter。
 - 每次enqueue、claim、complete、fail、cancel、delete、case purge與maintenance都以一份帶revision的`rentproof.job-queue.v1` snapshot原子替換。操作只在snapshot落盤後回成功；CAS衝突有限重試，超限fail closed為`JOB_QUEUE_CONTENTION`。

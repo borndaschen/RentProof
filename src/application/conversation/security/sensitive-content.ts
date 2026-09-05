@@ -52,7 +52,7 @@ const AUTH_SECRET_DETECTORS: readonly Detector<AuthSecretKind>[] = [
   },
   {
     kind: "api_key",
-    pattern: /\b(?:sk|rk|pk|ghp|github_pat)_[a-z0-9_-]{16,}\b/iu,
+    pattern: /\b(?:(?:sk|rk|pk)[_-]|(?:ghp|github_pat)_)[a-z0-9_-]{16,}\b/iu,
   },
   {
     kind: "api_key",

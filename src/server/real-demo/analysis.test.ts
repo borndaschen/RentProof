@@ -163,7 +163,7 @@ describe("runRealCaseAnalysis", () => {
     };
     let sequence = 0;
     const snapshot = await runRealCaseAnalysis(
-      { actor, caseId },
+      { actor, caseId, expectedRevision: 3 },
       {
         service,
         analyzer,
@@ -179,7 +179,7 @@ describe("runRealCaseAnalysis", () => {
       ruleSummary: { profile: "p1", checked: 10, possibleDifference: 0 },
       createdAt: "2026-09-03T12:00:00.000Z",
     });
-    expect(service.commitAnalysis).toHaveBeenCalledWith(actor, caseId, snapshot);
+    expect(service.commitAnalysis).toHaveBeenCalledWith(actor, caseId, snapshot, 3);
   });
 
   it("rejects malformed extracted contract data before any provider request", async () => {

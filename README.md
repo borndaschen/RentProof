@@ -19,6 +19,8 @@ RentProof 提供資訊整理，不是法律意見，也不會直接判定詐騙�
 
 ## 系統架構
 
+第一次閱讀專案，建議先看[整體技術說明](docs/TECHNICAL_OVERVIEW.md)：用實際例子解釋使用流程、AI 與程式分工、資料安全，以及目前完成與待完成的範圍。
+
 ```mermaid
 flowchart LR
   USER[瀏覽器<br>對話與證據工作區] --> ROUTES[Next.js Route Handlers<br>身分、權限與輸入安全]
@@ -93,10 +95,10 @@ pnpm test:e2e
 
 ## 限制與未來工作
 
-- [掃描 PDF OCR](docs/OCR_DESIGN.md) 的安全預檢、候選文字與人工確認邊界已完成，但一次性人工確認與後續契約抽取尚未接入使用者流程；目前契約仍要求清楚文字型PDF。
+- [掃描 PDF OCR](docs/OCR_DESIGN.md) 已接入Secure LAN：本機預檢後，使用者先同意雲端辨識，再逐頁核對候選文字。10分鐘內完成一次性確認後才加入契約分析；Live仍須通過Cloud／Project Gate。
 - [影片證據](docs/VIDEO_INGESTION_P1.md) 已在Secure LAN入口啟用：只接受50 MiB／30秒內MP4，使用已驗證鎖版FFmpeg探測與確定性抽幀，frame bundle加密保存並在分析時保留timestamp／frame locator；音訊不分析。
 - 付款前風險檢查已涵蓋：拒絕當面帶看或只寄鑰匙、誘導點擊陌生連結或提供網銀／信用卡／驗證碼、收款人身分不明、尚未核對出租權限、高壓搶租話術、難以追回的付款方式、不同資料互相矛盾、異常低租金伴隨其他風險，以及導向陌生客服或LINE進行帳戶認證。系統只顯示風險訊號與查證建議，不判定詐騙或提供分數；沒有可靠的官方租金資料時，低租金項目會顯示資料不足。
-- OCR、影片與分析工作已有單機持久化bounded queue與受治理worker：具10,000筆容量、全域同時2件、同案件同時1件、lease、有限重試、idempotency、重啟復原、cancel／purge及執行前owner／revision／policy／Cloud／budget Gate。多process／HA部署仍須改用具跨process transaction的adapter。
+- OCR與影片上傳已改為背景處理與進度查詢；LAN使用PostgreSQL保存queue、待確認metadata及Evidence用量，原始檔／候選加密保存。具10,000筆queue容量、全域同時2件、同案件同時1件、lease續期、idempotency、重啟復原及取消／刪除Gate。整條分析pipeline仍使用原同步入口，尚未驗收多process／HA部署。
 - 首頁導覽提供 115 年度租金補貼申請條件預檢；目前不試算核定金額或加碼倍數，且仍需主管機關正式審查。
 - `lan_secure_demo` 不是正式公開服務；Production 仍需完成正式網域與憑證、Transactional Email 營運控制、排程式清除、異地加密備份、事件處理與部署驗證。
 - 隱私政策、使用條款與 Cookie 政策均為 `DRAFT`；營運者資料、聯絡方式、處理地區、未成年人規則與爭議條款尚待補齊，並需台灣法務／隱私專業審閱。

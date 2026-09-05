@@ -4,6 +4,18 @@
 
 ## 決策摘要
 
+### D-104：Secure LAN 的 OCR 人工確認與影片背景處理接線
+
+- 日期：2026-09-05；狀態：accepted。
+- 依使用者「先補齊系統功能，再重寫文件」要求，將既有 OCR、影片與 bounded queue 接入 Secure LAN 上傳流程。
+- 影片與需 OCR 的 PDF 回 202 處理收據；收據不是 available artifact。PDF 先完成本機預檢，再取得這份檔案的明確雲端辨識同意；Fixture／Project Gate 未通過不建立 Live adapter。
+- OCR 候選以私有加密檔保存，逐頁文字／bbox／offset 驗證後才顯示。確認 ID 固定 10 分鐘、同 actor session／case／revision／policy／payload hash、一次性；資料庫 transaction 同時 consume 與建立 available artifact。失效後不延長舊 ID。
+- LAN 的 queue snapshot、processing metadata 與 Evidence budget events 由 additive migration `006_artifact_processing` 建立三張 PostgreSQL 表。既有 Windows JSON queue adapter 保留作單機用途；Web request 不執行 migration。
+- Queue 保留 10,000 筆／全域 2／同 case 1／60 秒 lease；執行器每 20 秒續期，寫入前重驗 lease、session、owner、revision 與政策。取消及案件刪除使舊工作失效。
+- 每案最多 16 筆 processing records，避免待確認或失敗工作無限累積；需取消後重傳的檔案使用新請求。此容量限制不放寬檔案或模型用量限制。
+- OCR 與三階段分析共用 PostgreSQL 持久 Evidence budget；未知用量及未完成 reservation 不會因重啟歸零。背景分析整條 pipeline 尚未改用 queue，不宣稱 multi-process／HA 或正式營運完成。
+- 不改變三態、官方規則、防詐、政策 DRAFT、公網停用與正式上線 Gate。
+
 | ID    | 日期       | 狀態                       | 決策                                                                                      |
 | ----- | ---------- | -------------------------- | ----------------------------------------------------------------------------------------- |
 | D-001 | 2026-09-01 | accepted                   | MVP 採 TypeScript 模組化單體，不做微服務或自治 Agent swarm                                |

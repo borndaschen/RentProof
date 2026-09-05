@@ -1,10 +1,11 @@
-import { createHash, randomBytes } from "node:crypto";
-import { resolve } from "node:path";
 import { z } from "zod";
-import { extractTextPdf, pdfJsEngine } from "@/adapters/documents/pdfjs";
-import { createApprovedWindowsFfmpegAdapters } from "@/adapters/ingestion/ffmpeg";
+import {
+  extractTextPdf,
+  inspectScannedPdf,
+  pdfJsEngine,
+  PdfTextExtractionError,
+} from "@/adapters/documents/pdfjs";
 import { SharpImageSanitizer } from "@/adapters/ingestion/sharp";
-import { packVerifiedVideoFrames, prepareVideoEvidence } from "@/application/video";
 import { RealArtifactKindSchema } from "@/application/real-demo";
 import { detectSensitiveConversationContent } from "@/application/conversation/security";
 import { guardSingleUploadRequest } from "@/application/uploads";
@@ -51,30 +52,52 @@ export async function POST(
     idempotencyKey: request.headers.get("idempotency-key"),
   });
   if (!headers.success) return errorResponse(400, "UPLOAD_REQUEST_INVALID");
-  const verified = await guardSingleUploadRequest(
-    {
-      files: [
-        {
-          metadata: {
-            filename: headers.data.filename.normalize("NFC"),
-            declaredMime: headers.data.mime,
-            kind: headers.data.kind,
-          },
-          stream: requestBody(request.body),
-        },
-      ],
-    },
-    { currentCaseOriginalImageBytes: 0 },
-  );
-  if (!verified.ok) return errorResponse(400, verified.code);
-
   try {
     const actor = await resolveCurrentCaseActor(request);
+    if (!actor) return errorResponse(401, "REAL_DEMO_AUTH_REQUIRED");
     const { caseId } = await context.params;
-    const service = (await getRealDemoRuntime()).service;
+    const runtimeServices = await getRealDemoRuntime();
+    const service = runtimeServices.service;
+    await service.getConversationContext(actor, caseId);
+    const verified = await guardSingleUploadRequest(
+      {
+        files: [
+          {
+            metadata: {
+              filename: headers.data.filename.normalize("NFC"),
+              declaredMime: headers.data.mime,
+              kind: headers.data.kind,
+            },
+            stream: requestBody(request.body),
+          },
+        ],
+      },
+      { currentCaseOriginalImageBytes: 0 },
+    );
+    if (!verified.ok) return errorResponse(400, verified.code);
+
     let saved;
     if (verified.upload.actualMime === "application/pdf") {
-      const extracted = await extractTextPdf({ bytes: verified.upload.bytes, engine: pdfJsEngine });
+      let extracted;
+      try {
+        extracted = await extractTextPdf({ bytes: verified.upload.bytes, engine: pdfJsEngine });
+      } catch (error) {
+        if (!(error instanceof PdfTextExtractionError) || error.code !== "PDF_LOCATOR_INSUFFICIENT")
+          throw error;
+        await inspectScannedPdf({ bytes: verified.upload.bytes, engine: pdfJsEngine });
+        if (request.headers.get("x-rentproof-ocr-consent") !== "confirmed") {
+          return errorResponse(409, "OCR_CLOUD_CONFIRMATION_REQUIRED");
+        }
+        const receipt = await runtimeServices.processing.service.enqueue({
+          actor,
+          caseId,
+          type: "contract.ocr",
+          bytes: verified.upload.bytes,
+          sha256: verified.upload.sha256,
+          idempotencyKey: headers.data.idempotencyKey,
+        });
+        return Response.json(receipt, { status: 202, headers: privateNoStoreHeaders() });
+      }
       const serialized = JSON.stringify(extracted);
       if (detectSensitiveConversationContent(serialized).decision === "hard_block") {
         return errorResponse(422, "UPLOAD_AUTH_SECRET_DETECTED");
@@ -89,38 +112,15 @@ export async function POST(
         extractedText: serialized,
       });
     } else if (verified.upload.actualMime === "video/mp4") {
-      const localAppData = process.env["LOCALAPPDATA"];
-      const configuredRoot = process.env["RENTPROOF_RUNTIME_DIR"]?.trim();
-      if (!localAppData && !configuredRoot) return errorResponse(503, "VIDEO_RUNTIME_UNAVAILABLE");
-      const runtimeRoot = configuredRoot || resolve(localAppData ?? "", "RentProof", "runtime");
-      const prepared = await prepareVideoEvidence(
-        {
-          artifactId: `video_pending_${randomBytes(16).toString("hex")}`,
-          declaredMime: "video/mp4",
-          byteLength: verified.upload.byteLength,
-        },
-        verified.upload.bytes,
-        createApprovedWindowsFfmpegAdapters({ runtimeRoot }),
-      );
-      if (!prepared.ok) return errorResponse(422, prepared.code);
-      let bundle: Uint8Array;
-      try {
-        bundle = packVerifiedVideoFrames(prepared.frames);
-      } catch {
-        return errorResponse(422, "VIDEO_FRAME_BUNDLE_INVALID");
-      }
-      saved = await service.saveArtifact({
+      const receipt = await runtimeServices.processing.service.enqueue({
         actor,
         caseId,
-        kind: "viewing_video",
-        mime: "video/mp4",
-        originalSha256: verified.upload.sha256,
-        originalBytes: verified.upload.bytes,
-        derivative: {
-          bytes: bundle,
-          sha256: createHash("sha256").update(bundle).digest("hex"),
-        },
+        type: "evidence.video_frames",
+        bytes: verified.upload.bytes,
+        sha256: verified.upload.sha256,
+        idempotencyKey: headers.data.idempotencyKey,
       });
+      return Response.json(receipt, { status: 202, headers: privateNoStoreHeaders() });
     } else {
       const sanitized = await new SharpImageSanitizer().sanitize(
         verified.upload.bytes,
@@ -155,12 +155,15 @@ export async function POST(
 }
 
 function mapError(error: unknown): Response {
+  if (error instanceof PdfTextExtractionError) return errorResponse(422, error.code);
   const code = error instanceof Error ? error.message : "";
   if (code === "REAL_DEMO_AUTH_REQUIRED") return errorResponse(401, code);
   if (code === "REAL_DEMO_CASE_NOT_FOUND_OR_FORBIDDEN") return errorResponse(404, code);
   if (code === "REAL_DEMO_DUPLICATE_ARTIFACT") return errorResponse(409, code);
   if (code === "REAL_DEMO_CASE_IMAGE_LIMIT_EXCEEDED") return errorResponse(413, code);
   if (code === "REAL_DEMO_REQUEST_INVALID") return errorResponse(400, code);
+  if (code === "OCR_LIVE_GATE_REQUIRED") return errorResponse(503, code);
+  if (code === "JOB_IDEMPOTENCY_CONFLICT") return errorResponse(409, code);
   return errorResponse(503, "REAL_DEMO_UNAVAILABLE");
 }
 

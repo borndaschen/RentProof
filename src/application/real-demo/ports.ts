@@ -66,6 +66,7 @@ export interface RealDemoRepositoryPort {
     actor: ActorContext;
     caseId: string;
     snapshot: RealAnalysisSnapshot;
+    expectedRevision?: number;
     now: Date;
   }): Promise<void>;
 }

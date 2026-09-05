@@ -38,6 +38,7 @@ const ResponseSchema = z
     service_tier: z.string().min(1).max(64).nullable().optional(),
     output_parsed: z.unknown().nullable(),
     output: z.array(z.unknown()),
+    usage: z.unknown().optional(),
   })
   .passthrough();
 
@@ -114,6 +115,7 @@ export class OpenAIScannedPdfOcrAdapter implements ScannedPdfOcrPort {
       throw new OpenAIOcrError("OCR_PROVIDER_SCHEMA_INVALID", result.attempts, response.data.id);
     }
 
+    const usage = OcrUsageSchema.safeParse(response.data.usage);
     const provenance: OcrProviderProvenance = {
       provider: "openai",
       endpoint: "responses.parse",
@@ -127,10 +129,32 @@ export class OpenAIScannedPdfOcrAdapter implements ScannedPdfOcrPort {
       schemaVersion: OCR_SCHEMA_VERSION,
       providerRequestId: response.data.id,
       providerAttempts: result.attempts,
+      usage: usage.success
+        ? {
+            known: true,
+            inputTokens: usage.data.input_tokens,
+            cachedInputTokens: usage.data.input_tokens_details.cached_tokens,
+            outputTokens: usage.data.output_tokens,
+            reasoningTokens: usage.data.output_tokens_details.reasoning_tokens,
+          }
+        : { known: false },
     };
     return { output: normalizeOutput(output.data), provenance };
   }
 }
+
+const OcrUsageSchema = z
+  .object({
+    input_tokens: z.number().int().nonnegative().safe(),
+    input_tokens_details: z.object({ cached_tokens: z.number().int().nonnegative().safe() }),
+    output_tokens: z.number().int().nonnegative().safe(),
+    output_tokens_details: z.object({ reasoning_tokens: z.number().int().nonnegative().safe() }),
+  })
+  .refine(
+    (value) =>
+      value.input_tokens_details.cached_tokens <= value.input_tokens &&
+      value.output_tokens_details.reasoning_tokens <= value.output_tokens,
+  );
 
 export function createOpenAIScannedPdfOcrAdapter(apiKey: string): OpenAIScannedPdfOcrAdapter {
   if (!apiKey) throw new OpenAIOcrError("OCR_PROVIDER_AUTH_FAILED", 0, null);

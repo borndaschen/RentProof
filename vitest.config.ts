@@ -69,6 +69,24 @@ export default defineConfig({
           functions: 90,
           branches: 90,
         },
+        "src/application/processing/**": {
+          lines: 90,
+          statements: 90,
+          functions: 90,
+          branches: 90,
+        },
+        "src/application/ocr/**": {
+          lines: 90,
+          statements: 90,
+          functions: 90,
+          branches: 90,
+        },
+        "src/application/jobs/job-worker.ts": {
+          lines: 90,
+          statements: 90,
+          functions: 90,
+          branches: 90,
+        },
         "src/adapters/**": {
           lines: 80,
           statements: 80,

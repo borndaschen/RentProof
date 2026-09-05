@@ -43,6 +43,7 @@ describe("detectSensitiveConversationContent", () => {
     ["password", "密碼是 never-share-this"],
     ["one_time_code", "驗證碼：123456"],
     ["api_key", "api key = abcdefghijklmnopqrstuv"],
+    ["api_key", `OPENAI_API_KEY=sk-${"synthetic".repeat(5)}`],
     ["authorization_token", "Authorization: Bearer abcdefghijklmnopqrstuv"],
     ["session_token", "session_token=abcdefghijklmnopqrstuv"],
     ["private_key", "-----BEGIN PRIVATE KEY-----\nabc"],

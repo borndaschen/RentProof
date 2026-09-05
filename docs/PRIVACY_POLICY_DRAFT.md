@@ -85,6 +85,8 @@ RentProof目前不登入租屋平台、不爬取任意網址，也不從地政�
 
 RentProof 的雲端分析會把完成驗證、最小化與必要遮蔽的文字、頁面或影像衍生檔，由伺服器傳送至 OpenAI Responses API。OpenAI 只用於非結構化抽取與語意候選；三態、金額、官方規則、優先序與報告由 RentProof 的確定性程式處理。
 
+依D-104，掃描PDF在額外取得該份檔案的雲端辨識同意後，會將通過安全預檢的PDF送往OpenAI逐頁辨識；候選文字在RentProof私有儲存加密保存，且需人工核對確認後才作契約分析輸入。辨識同意不代表已確認文字正確；取消、期限、存取權限與案件刪除仍適用。本段維持技術草案，不代表政策已生效。
+
 - API key 只存在 server／analysis worker；瀏覽器不直接連線 OpenAI。
 - 每次 request 設定 `store: false`，但本服務不把它描述成 Zero Data Retention。
 - Email、password、verification／reset code、session token與Email delivery provider credential不送給OpenAI。

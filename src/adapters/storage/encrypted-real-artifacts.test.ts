@@ -1,4 +1,5 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -22,6 +23,75 @@ afterEach(async () => {
 });
 
 describe("EncryptedRealArtifactStore", () => {
+  it("adds authenticated prepared data to an existing private artifact", async () => {
+    const root = await mkdtemp(resolve(tmpdir(), "rentproof-encrypted-store-"));
+    roots.push(root);
+    const store = await EncryptedRealArtifactStore.create(root, Buffer.alloc(32, 7));
+    await store.save({ reservation, originalBytes: new Uint8Array(17) });
+    const bytes = new TextEncoder().encode("synthetic OCR candidate");
+    const prepared = await store.writePrepared({
+      reservation,
+      derivative: { bytes, sha256: createHash("sha256").update(bytes).digest("hex") },
+      extractedText: "confirmed synthetic text",
+    });
+    if (!prepared.derivativeRelativePath || !prepared.extractedTextRelativePath)
+      throw new Error("MISSING_PREPARED_PATH");
+    expect(new TextDecoder().decode(await store.read(prepared.derivativeRelativePath))).toBe(
+      "synthetic OCR candidate",
+    );
+    expect(new TextDecoder().decode(await store.read(prepared.extractedTextRelativePath))).toBe(
+      "confirmed synthetic text",
+    );
+    await expect(
+      store.writePrepared({ reservation, derivative: { bytes, sha256: "b".repeat(64) } }),
+    ).rejects.toThrow("REAL_DATA_STORAGE_HASH_INVALID");
+    await expect(
+      store.writePrepared({
+        reservation,
+        derivative: { bytes: new Uint8Array(), sha256: "b".repeat(64) },
+      }),
+    ).rejects.toThrow("REAL_DATA_STORAGE_HASH_INVALID");
+  });
+
+  it("rejects a junction pointing at a different artifact inside the same private root", async () => {
+    const root = await mkdtemp(resolve(tmpdir(), "rentproof-encrypted-store-"));
+    roots.push(root);
+    const store = await EncryptedRealArtifactStore.create(root, Buffer.alloc(32, 7));
+    await store.save({ reservation, originalBytes: new Uint8Array(17) });
+    const alias = { ...reservation, artifactId: "artifact_alias_00000000000001" };
+    await symlink(
+      resolve(root, reservation.caseId, reservation.artifactId),
+      resolve(root, alias.caseId, alias.artifactId),
+      "junction",
+    );
+    await expect(
+      store.writePrepared({ reservation: alias, extractedText: "must not overwrite" }),
+    ).rejects.toThrow("REAL_DATA_STORAGE_PATH_INVALID");
+    await expect(store.read(`${alias.caseId}/${alias.artifactId}/original.enc`)).rejects.toThrow(
+      "REAL_DATA_STORAGE_PATH_INVALID",
+    );
+    await expect(store.deleteArtifact(alias)).rejects.toThrow("REAL_DATA_STORAGE_PATH_INVALID");
+    expect(
+      await store.read(`${reservation.caseId}/${reservation.artifactId}/original.enc`),
+    ).toHaveLength(17);
+  });
+
+  it("can read an allowed video larger than the previous 30 MiB read limit", async () => {
+    const root = await mkdtemp(resolve(tmpdir(), "rentproof-encrypted-store-"));
+    roots.push(root);
+    const store = await EncryptedRealArtifactStore.create(root, Buffer.alloc(32, 7));
+    const bytes = new Uint8Array(31 * 1024 * 1024);
+    const saved = await store.save({
+      reservation: {
+        ...reservation,
+        kind: "viewing_video",
+        mime: "video/mp4",
+        originalBytes: bytes.byteLength,
+      },
+      originalBytes: bytes,
+    });
+    expect(await store.read(saved.originalRelativePath)).toHaveLength(bytes.byteLength);
+  });
   it("writes only AES-GCM envelopes and returns generated relative paths", async () => {
     const root = await mkdtemp(resolve(tmpdir(), "rentproof-encrypted-store-"));
     roots.push(root);

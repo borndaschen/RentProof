@@ -33,8 +33,11 @@ export async function resolveCurrentTransferActors(request: Request): Promise<{
   }
 }
 
-export async function resolveCurrentCaseActor(request: Request): Promise<ActorContext | null> {
-  const account = await resolveCurrentAccountActor(request, true);
+export async function resolveCurrentCaseActor(
+  request: Request,
+  touch = true,
+): Promise<ActorContext | null> {
+  const account = await resolveCurrentAccountActor(request, touch);
   if (account) return account;
   try {
     const rawGuestToken = readUniqueCookie(request.headers.get("cookie"), GUEST_SESSION_COOKIE);

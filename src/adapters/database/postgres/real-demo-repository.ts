@@ -100,7 +100,11 @@ export class PostgresRealDemoRepository implements RealDemoRepositoryPort {
         if (input.reservation.mime !== "application/pdf") {
           const total = await transaction
             .selectFrom("case_artifacts")
-            .select(sql<string>`COALESCE(SUM(original_bytes), 0)`.as("total"))
+            .select(
+              sql<string>`COALESCE(SUM(original_bytes), 0) + (SELECT COALESCE(SUM((record->'reservation'->>'originalBytes')::bigint), 0) FROM artifact_processing WHERE case_id = ${input.reservation.caseId} AND record->>'state' IN ('queued', 'requires_confirmation') AND record->'reservation'->>'mime' <> 'application/pdf')`.as(
+                "total",
+              ),
+            )
             .where("case_id", "=", input.reservation.caseId)
             .where("owner_type", "=", input.actor.kind)
             .where("owner_subject_id", "=", actorSubject(input.actor))
@@ -527,7 +531,7 @@ export class PostgresRealDemoRepository implements RealDemoRepositoryPort {
     await this.database.transaction().execute(async (transaction) => {
       const current = await transaction
         .selectFrom("rental_cases")
-        .select(["id", "state"])
+        .select(["id", "state", "revision"])
         .where("id", "=", input.caseId)
         .where("owner_type", "=", input.actor.kind)
         .where("owner_subject_id", "=", actorSubject(input.actor))
@@ -538,6 +542,9 @@ export class PostgresRealDemoRepository implements RealDemoRepositoryPort {
         throw new RealDemoAccessError("REAL_DEMO_CASE_NOT_FOUND_OR_FORBIDDEN");
       }
       const currentState = current.state;
+      if (input.expectedRevision !== undefined && current.revision !== input.expectedRevision) {
+        throw new RealDemoAccessError("REAL_DEMO_CASE_REVISION_STALE");
+      }
       await transaction
         .updateTable("rental_cases")
         .set((expression) => ({

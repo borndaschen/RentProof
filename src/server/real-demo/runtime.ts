@@ -11,9 +11,13 @@ import {
   parseRealDataEncryptionKey,
 } from "@/adapters/storage/encrypted-real-artifacts";
 import { getServerEnvironment } from "@/server/env";
+import { composeArtifactProcessing } from "./processing";
+import { PostgresEvidenceBudgetRepository } from "@/adapters/database/postgres/evidence-budget-repository";
 
 export type RealDemoRuntime = Readonly<{
   service: RealDemoService;
+  processing: ReturnType<typeof composeArtifactProcessing>;
+  budget: PostgresEvidenceBudgetRepository;
 }>;
 
 let runtimePromise: Promise<RealDemoRuntime> | undefined;
@@ -44,12 +48,22 @@ async function composeRuntime(): Promise<RealDemoRuntime> {
     parseRealDataEncryptionKey(process.env["RENTPROOF_DATA_ENCRYPTION_KEY"]),
   );
   postgresRuntime = createPostgresRuntime(config);
+  const budget = new PostgresEvidenceBudgetRepository(postgresRuntime.database);
+  const processing = composeArtifactProcessing(postgresRuntime.database, store, budget);
   return {
-    service: new RealDemoService(new PostgresRealDemoRepository(postgresRuntime.database), store),
+    service: new RealDemoService(
+      new PostgresRealDemoRepository(postgresRuntime.database),
+      store,
+      () => new Date(),
+      (caseId) => processing.queue.purgeDeletedCase(caseId),
+    ),
+    processing,
+    budget,
   };
 }
 
 export async function closeRealDemoRuntimeForTests(): Promise<void> {
+  if (runtimePromise) await (await runtimePromise).processing.stop();
   await postgresRuntime?.close();
   postgresRuntime = undefined;
   runtimePromise = undefined;

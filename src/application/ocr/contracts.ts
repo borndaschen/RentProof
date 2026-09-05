@@ -12,6 +12,15 @@ export interface OcrExecutionProvenance {
   promptVersion: string;
   schemaVersion: string;
   providerAttempts: number;
+  usage?:
+    | Readonly<{
+        known: true;
+        inputTokens: number;
+        cachedInputTokens: number;
+        outputTokens: number;
+        reasoningTokens: number;
+      }>
+    | Readonly<{ known: false }>;
 }
 
 export interface ScannedPdfOcrPort {

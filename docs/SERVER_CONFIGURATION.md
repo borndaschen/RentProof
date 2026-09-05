@@ -119,6 +119,8 @@ Fixture與Live模式仍須明確設定。Live時：
 
 ## 7. 啟動 Gate
 
+D-104的OCR／影片背景處理需要先由migration專用角色套用`006_artifact_processing`，再由對應finalize SQL授予app role三張新產品表的DML權限；readiness現行要求17張產品表。Web process不執行migration。未套用時背景上傳fail closed，不能靠重試或Fixture偽裝完成。
+
 `lan_secure_demo`任一條件失敗即停止啟動：
 
 - Profile、IP、ports、HTTPS origin或exact allowlists不一致。

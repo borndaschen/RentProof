@@ -40,6 +40,7 @@ export async function POST(
     if (code === "REAL_DEMO_AUTH_REQUIRED") return errorResponse(401, code);
     if (code === "REAL_DEMO_CASE_NOT_FOUND_OR_FORBIDDEN") return errorResponse(404, code);
     if (code === "REAL_DEMO_ARTIFACT_SET_INCOMPLETE") return errorResponse(409, code);
+    if (code === "REAL_DEMO_CASE_REVISION_STALE") return errorResponse(409, code);
     if (code === "REAL_ANALYSIS_ARTIFACT_INVALID") return errorResponse(422, code);
     if (code === "REAL_ANALYSIS_BUDGET_EXCEEDED") return errorResponse(429, code, 60);
     if (code.startsWith("REAL_ANALYSIS_BUDGET_")) return errorResponse(502, code);

@@ -25,7 +25,7 @@ export type EnqueueResult =
   | Readonly<{ ok: false; code: "JOB_IDEMPOTENCY_CONFLICT" | "JOB_QUEUE_CAPACITY_EXCEEDED" }>;
 
 export type FinishResult =
-  | Readonly<{ ok: true; state: "queued" | "succeeded" | "failed" }>
+  | Readonly<{ ok: true; state: "queued" | "running" | "succeeded" | "failed" }>
   | Readonly<{ ok: false; code: "JOB_COMMAND_INVALID" | "JOB_LEASE_STALE" }>;
 
 const priorityRank = { blocking: 0, normal: 1, background: 2 } as const;

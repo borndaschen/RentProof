@@ -12,6 +12,7 @@ describe("FrozenPostgresMigrationProvider", () => {
       "003_private_case_artifacts",
       "004_guest_sessions",
       "005_viewing_video_artifacts",
+      "006_artifact_processing",
     ]);
     expect(migrations["001_initial_real_data_schema"]).toMatchObject({
       up: expect.any(Function),

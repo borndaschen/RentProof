@@ -57,6 +57,50 @@ function harness(store = new TestStateStore(), overrides: Record<string, number>
 }
 
 describe("PersistentBoundedJobQueue", () => {
+  it("renews only a live lease and makes cancellation immediately fence the old worker", async () => {
+    const { makeQueue, setNow } = harness();
+    const queue = makeQueue();
+    await queue.enqueue(command());
+    const claim = await queue.claim(workerId, ["contract.ocr"]);
+    if (!claim) throw new Error("CLAIM_MISSING");
+    const lease = { jobId: claim.jobId, leaseId: claim.leaseId, workerId };
+    setNow(50_000);
+    expect(await queue.renew(lease)).toMatchObject({ ok: true, state: "running" });
+    setNow(70_000);
+    expect(await queue.claim(workerId, ["contract.ocr"])).toBeNull();
+    await queue.cancel({ actorRef, caseId, jobId: claim.jobId, expectedRevision: 4 });
+    expect(await queue.renew(lease)).toEqual({ ok: false, code: "JOB_LEASE_STALE" });
+    expect(await queue.complete({ ...lease, resultRef })).toEqual({
+      ok: false,
+      code: "JOB_LEASE_STALE",
+    });
+  });
+
+  it("cannot renew an expired or malformed lease", async () => {
+    const { makeQueue, setNow } = harness();
+    const queue = makeQueue();
+    await queue.enqueue(command());
+    const claim = await queue.claim(workerId, ["contract.ocr"]);
+    if (!claim) throw new Error("CLAIM_MISSING");
+    setNow(61_000);
+    expect(await queue.renew({ jobId: claim.jobId, leaseId: claim.leaseId, workerId })).toEqual({
+      ok: false,
+      code: "JOB_LEASE_STALE",
+    });
+    expect(await queue.renew({})).toEqual({ ok: false, code: "JOB_COMMAND_INVALID" });
+  });
+
+  it("purges a deleted case across session bindings while preserving another case", async () => {
+    const { makeQueue } = harness();
+    const queue = makeQueue();
+    await queue.enqueue(command());
+    await queue.enqueue(command("idempotency_another_0001", caseId, otherActorRef));
+    const kept = await queue.enqueue(command("idempotency_another_0002", otherCaseId));
+    await queue.purgeDeletedCase(caseId);
+    const claim = await queue.claim(workerId, ["contract.ocr"]);
+    expect(claim?.work.caseId).toBe(otherCaseId);
+    expect(kept.ok && kept.jobId).toBe(claim?.jobId);
+  });
   it("persists enqueue, idempotency and completion across queue instances", async () => {
     const { makeQueue } = harness();
     const firstQueue = makeQueue();

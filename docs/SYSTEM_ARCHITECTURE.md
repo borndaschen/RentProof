@@ -8,12 +8,14 @@
 
 本文件是系統邊界、模組、依賴方向、分析流程、儲存、API、部署與失敗模式的架構來源。Server profile／listener／本機HTTP／LAN HTTPS／Production HTTPS的canonical contract見[Server配置](SERVER_CONFIGURATION.md)；詳細domain schema／演算法見[技術設計](TECHNICAL_DESIGN.md)，前端與RWD見[UI設計](UI_DESIGN.md)，OpenAI呼叫契約見[OpenAI整合](OPENAI_INTEGRATION.md)，安全Gate見[安全與隱私規格](SECURITY_PRIVACY.md)，guest／account contract見[選用帳戶、登入與歷史租約架構](AUTH_AND_HISTORY.md)。
 
+2026-09-05 接線更新（D-104）：Secure LAN 的影片與掃描PDF改由受控背景worker處理，upload回202、owner-scoped endpoint供進度／OCR人工確認／取消。OCR只有確認後才進contract.extract。LAN新增PostgreSQL queue CAS、processing metadata與持久Evidence budget；Windows JSON adapter仍保留。下列早期P0不引入queue的限制不再代表LAN現況；完整流程見[OCR](OCR_DESIGN.md)與[工作佇列](JOB_QUEUE_DESIGN.md)。
+
 ## 1. 架構目標
 
 1. 每個結果都能回到廣告、照片、契約頁碼、互動原文或官方來源。
 2. OpenAI 只處理非結構化抽取；分類、金額、規則、風險訊號與報告由本機程式決定。
 3. 每個分析 stage 可重跑、快取、失敗、局部失效，不必重跑整案。
-4. 保持單人可維護，不導入queue、微服務或自治Agent swarm。
+4. 保持單人可維護；OCR／影片使用受限queue，不導入微服務或自治Agent swarm。
 5. Demo truth、fallback、runtime data 與 repository 清楚分離。
 6. 未知與錯誤安全失敗，不能被顯示為「沒有問題」。
 7. 後續可替換儲存與執行器，而不改domain contract。
@@ -22,8 +24,8 @@
 ## 2. 目前的約束與非目標
 
 - 本機測試流程保留一個sealed測試案件；LAN HTTPS另提供owner-scoped私有案件。
-- 現行Secure LAN使用者入口支援最多12份看屋來源、清楚文字PDF、廣告、補拍，以及單份50 MiB／30秒內MP4；影片使用pinned FFmpeg確定性抽幀、加密frame bundle與video locator。掃描OCR的candidate與安全Gate已實作，但人工確認接線前UI維持停用。
-- 規則profile可啟用6或10個official-rule evaluators；防詐目前實作`FRS-001`。
+- 現行Secure LAN支援看屋圖片、文字PDF、廣告、補拍與單份50 MiB／30秒內MP4；影片使用pinned FFmpeg背景抽幀、加密frame bundle與video locator。掃描PDF已接入背景OCR與一次性逐頁人工確認，Live仍須通過Cloud／Project Gate。
+- 規則profile可啟用6或10個official-rule evaluators；FRS-001至FRS-010已有typed evaluators，仍受設定與資料完整性限制。
 - 一個 Node process；不支援多 instance／水平擴展。
 - 本機測試使用filesystem＋JSON state；`lan_secure_demo`使用loopback PostgreSQL與AES-256-GCM私有檔案儲存。
 - 不使用 OpenAI Conversations、Assistants、File Search、Web Search、background mode、MCP 或 tools。
@@ -598,7 +600,7 @@ sequenceDiagram
   API-->>UI: 200 + run/snapshot status
 ```
 
-目前foreground runner 在 request 內執行，不回 `202 Accepted` 暗示 durable background work。相同 key 已在執行時回既有 run；GET run status 供斷線恢復／另一 request 查詢。後續queue／worker 才採真正非同步 `202`。
+整條分析的foreground runner仍在request內執行，不回202暗示背景分析。D-104另將OCR／影片上傳接入持久queue並回202，透過processing endpoint查詢／確認／取消；兩種入口的完成語意不能混用。
 
 ## 15. Follow-up Sequence
 
@@ -731,7 +733,7 @@ flowchart LR
 
 ## 19. Fraud Signal Architecture
 
-目前只實作 `FRS-001`：首次實地看屋前要求付款。
+FRS-001至FRS-010已實作typed evaluators；下圖以FRS-001（首次實地看屋前要求付款）說明候選抽取與程式判定的分工，其餘訊號依[FRAUD_RISK_SIGNALS](FRAUD_RISK_SIGNALS.md)。
 
 ```mermaid
 flowchart LR

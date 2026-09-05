@@ -1,13 +1,15 @@
 import "server-only";
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { lstat, mkdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve, win32 } from "node:path";
 import {
   SafeRelativeStoragePathSchema,
+  RealArtifactReservationSchema,
   type EncryptedRealArtifactStorePort,
   type RealArtifactReservation,
   type StoredArtifactPaths,
 } from "@/application/real-demo";
+import type { PreparedArtifactWriter } from "@/application/processing/contracts";
 
 const FILE_MAGIC = Buffer.from("RENTPROOF-AESGCM-2\0", "ascii");
 
@@ -20,7 +22,9 @@ export function parseRealDataEncryptionKey(value: string | undefined): Buffer {
   return key;
 }
 
-export class EncryptedRealArtifactStore implements EncryptedRealArtifactStorePort {
+export class EncryptedRealArtifactStore
+  implements EncryptedRealArtifactStorePort, PreparedArtifactWriter
+{
   private constructor(
     private readonly root: string,
     private readonly key: Buffer,
@@ -112,11 +116,12 @@ export class EncryptedRealArtifactStore implements EncryptedRealArtifactStorePor
     const stat = await lstat(resolved);
     if (
       !rel ||
+      resolved.toLowerCase() !== path.toLowerCase() ||
       rel.startsWith("..") ||
       win32.isAbsolute(rel) ||
       stat.isSymbolicLink() ||
       !stat.isFile() ||
-      stat.size > 30 * 1024 * 1024
+      stat.size > 50 * 1024 * 1024 + FILE_MAGIC.byteLength + 28
     ) {
       throw new Error("REAL_DATA_STORAGE_PATH_INVALID");
     }
@@ -151,6 +156,56 @@ export class EncryptedRealArtifactStore implements EncryptedRealArtifactStorePor
     return resolve(this.root, reservation.caseId, reservation.artifactId);
   }
 
+  async writePrepared(
+    input: Parameters<PreparedArtifactWriter["writePrepared"]>[0],
+  ): Promise<StoredArtifactPaths> {
+    const reservation = RealArtifactReservationSchema.parse(input.reservation);
+    const directory = this.artifactPath(reservation);
+    await this.assertContainedDirectory(directory);
+    if (
+      (input.derivative?.bytes.byteLength ?? 0) > 25 * 1024 * 1024 ||
+      (input.extractedText !== undefined &&
+        Buffer.byteLength(input.extractedText) > 4 * 1024 * 1024)
+    ) {
+      throw new Error("REAL_DATA_STORAGE_PAYLOAD_TOO_LARGE");
+    }
+    if (
+      input.derivative &&
+      (input.derivative.bytes.byteLength === 0 ||
+        createHash("sha256").update(input.derivative.bytes).digest("hex") !==
+          input.derivative.sha256)
+    ) {
+      throw new Error("REAL_DATA_STORAGE_HASH_INVALID");
+    }
+    const originalRelativePath = relativePath(reservation, "original.enc");
+    const derivativeRelativePath = input.derivative
+      ? relativePath(reservation, "derivative.enc")
+      : null;
+    const extractedTextRelativePath =
+      input.extractedText === undefined ? null : relativePath(reservation, "extracted-text.enc");
+    if (input.derivative && derivativeRelativePath) {
+      await this.writeEncrypted(
+        resolve(this.root, ...derivativeRelativePath.split("/")),
+        derivativeRelativePath,
+        input.derivative.bytes,
+      );
+    }
+    if (input.extractedText !== undefined && extractedTextRelativePath) {
+      await this.writeEncrypted(
+        resolve(this.root, ...extractedTextRelativePath.split("/")),
+        extractedTextRelativePath,
+        new TextEncoder().encode(input.extractedText),
+      );
+    }
+    return {
+      originalRelativePath,
+      derivativeRelativePath,
+      extractedTextRelativePath,
+      derivativeSha256: input.derivative?.sha256 ?? null,
+      derivativeBytes: input.derivative?.bytes.byteLength ?? null,
+    };
+  }
+
   private async writeEncrypted(
     path: string,
     relativePath: string,
@@ -176,7 +231,13 @@ export class EncryptedRealArtifactStore implements EncryptedRealArtifactStorePor
     const resolved = await realpath(directory);
     const rel = relative(this.root, resolved);
     const stat = await lstat(resolved);
-    if (!rel || rel.startsWith("..") || win32.isAbsolute(rel) || stat.isSymbolicLink()) {
+    if (
+      !rel ||
+      resolved.toLowerCase() !== directory.toLowerCase() ||
+      rel.startsWith("..") ||
+      win32.isAbsolute(rel) ||
+      stat.isSymbolicLink()
+    ) {
       throw new Error("REAL_DATA_STORAGE_PATH_INVALID");
     }
   }
@@ -193,6 +254,7 @@ export class EncryptedRealArtifactStore implements EncryptedRealArtifactStorePor
     const stat = await lstat(resolved);
     if (
       !rel ||
+      resolved.toLowerCase() !== directory.toLowerCase() ||
       rel.startsWith("..") ||
       win32.isAbsolute(rel) ||
       !rel.split(/[\\/]/u).includes(requiredSegment) ||

@@ -4,6 +4,8 @@
 - 版本：0.4
 - 日期：2026-09-02
 
+2026-09-05 更新：D-104已接入Secure LAN的OCR人工確認與影片背景處理。`/api/real-cases/[caseId]/uploads`對需背景處理的素材回202；`/processing/[artifactId]`的GET／POST／DELETE分別提供進度、一次性OCR確認及取消。PostgreSQL migration 006保存processing metadata、queue snapshot與共用Evidence budget events；只有確認交易成功後才建立available artifact，後續contract.extract沿用逐頁文字與locator。分析提交另綁expectedRevision，避免補件完成後被較舊分析覆蓋。詳細契約見[OCR](OCR_DESIGN.md)與[工作佇列](JOB_QUEUE_DESIGN.md)。
+
 系統上下文、layer／module、ports／adapters、stage DAG、state machine與失效矩陣以 [系統架構](SYSTEM_ARCHITECTURE.md) 為準；listener、本機HTTP、LAN HTTPS與Production HTTPS以 [Server 配置](SERVER_CONFIGURATION.md) 為準；guest／account、Email password reset、history與policy events以 [選用帳戶、登入與歷史租約架構](AUTH_AND_HISTORY.md) 為準。本文件保留domain schema、判定演算法與API細節。
 
 ## 1. 技術決策摘要

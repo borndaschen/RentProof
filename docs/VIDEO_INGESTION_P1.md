@@ -14,4 +14,4 @@ Windows packaged desktop process 若由作業系統把 LocalAppData 寫入透明
 
 實際抽幀使用固定 timestamp plan、單執行緒與 bitexact flags，JPEG 不放大且最長邊最多 3200 px；每一幀會以 Sharp 重新解碼驗證並計算 SHA-256。Secure LAN upload route沿用既有CSRF／Origin／owner與Cloud Processing Notice Gate，將原始MP4與不含base64的受驗frame bundle加密保存；分析載入時重新驗bundle、逐幀雜湊與順序，並把同一影片artifact ID及精確`timestampMs／frameNo`送入strict evidence contract。
 
-目前入口同步完成受限抽幀後才回傳receipt；持久化queue與governed worker已可供較長工作切換為背景執行，但HTTP route尚未改為非同步job polling。多process／HA部署仍須改用具跨process transaction與locking的queue adapter。
+依D-104，入口現在回202 processing receipt，背景worker完成受限抽幀後才發布available artifact。瀏覽器透過owner-scoped endpoint查詢進度與取消，polling不延長session；案件刪除會移除相關queue refs，舊lease不能完成。LAN的queue snapshot以PostgreSQL CAS保存；多process／HA整體部署仍未驗收。

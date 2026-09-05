@@ -1,6 +1,6 @@
 # 掃描 PDF OCR 設計
 
-- 狀態：P1 工程邊界已實作；尚未接入共用 upload route
+- 狀態：Secure LAN upload、背景辨識、逐頁人工確認與 contract.extract 輸入已接線；Live 仍需 Cloud／Project Gate
 - Stage：`contract.ocr`
 - Provider：OpenAI Responses API，`gpt-5.6-terra`／`medium`
 - Prompt／Schema：`contract.ocr.prompt.v1`／`rentproof.contract-ocr.v1`
@@ -12,6 +12,12 @@
 無論模型回報多少 confidence，OCR 候選都固定為 `humanVerificationRequired: true` 且 `mayProduceAffirmativeFindings: false`。只有另行完成 actor／case／revision／payload-hash 綁定的確認流程後，確認文字才可作為 `contract.extract` 的輸入。低 confidence、模糊頁、缺頁、重複頁、無文字、超過 300,000 Unicode code points 或 schema／locator 不合格，一律回 `insufficient_evidence`。
 
 ## 固定流程
+
+依 D-104，`POST /api/real-cases/[caseId]/uploads` 先驗 owner，再消耗 bounded upload stream。文字型 PDF 維持原流程；只有 `PDF_LOCATOR_INSUFFICIENT` 可進掃描預檢，其他 PDF 安全錯誤不降級。掃描檔須由使用者明確同意該檔案雲端辨識，才可建立 202 processing receipt。
+
+`GET /api/real-cases/[caseId]/processing/[artifactId]` 提供 owner-scoped 進度與待確認頁面，polling 不延長 account session。`POST` 只接受 opaque confirmation ID 與 explicit confirmation，不接受 client 傳回或修改的 OCR 文字；`DELETE` 取消未完成處理並清除該素材。確認與發布 available artifact 在同一個 PostgreSQL transaction 完成，未確認文字不能進 `contract.extract`。
+
+OCR usage 由 adapter 記錄並在共用 Evidence budget reserve／reconcile；unknown usage 不填零、錯誤 reason 不合併，Fixture 不建立 Live adapter。候選保存為加密 derivative，確認後建立含 page／text／segments／provenance 的加密契約文字。
 
 1. Upload 層維持單份 PDF、15 MiB stream cap、magic bytes、owner 與 private storage Gate。
 2. `ScannedPdfPreflightPort` 由 PDF.js adapter 實作，只讀 server 已驗證 bytes；確認 1–30 頁並拒絕加密、JavaScript／actions、附件、表單與外部連結。此步不要求文字層。

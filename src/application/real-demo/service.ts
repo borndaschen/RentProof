@@ -24,6 +24,7 @@ export class RealDemoService {
     private readonly repository: RealDemoRepositoryPort,
     private readonly store: EncryptedRealArtifactStorePort,
     private readonly now: () => Date = () => new Date(),
+    private readonly purgeJobs: ((caseId: string) => Promise<void>) | undefined = undefined,
   ) {}
 
   async createCase(actor: ActorContext | null, input: unknown): Promise<{ caseId: string }> {
@@ -157,6 +158,7 @@ export class RealDemoService {
     });
     if (!deleted) throw new RealDemoAccessError("REAL_DEMO_CASE_NOT_FOUND_OR_FORBIDDEN");
     try {
+      await this.purgeJobs?.(parsed.data);
       await this.store.deleteCase(parsed.data);
       await this.repository.completeCaseDeletion({
         actor,
@@ -338,6 +340,7 @@ export class RealDemoService {
     actor: ActorContext | null,
     caseId: unknown,
     snapshot: unknown,
+    expectedRevision?: number,
   ): Promise<void> {
     if (!actor) throw new RealDemoAccessError("REAL_DEMO_AUTH_REQUIRED");
     const parsedCaseId = OpaqueIdSchema.safeParse(caseId);
@@ -353,6 +356,7 @@ export class RealDemoService {
       actor,
       caseId: parsedCaseId.data,
       snapshot: parsedSnapshot.data,
+      ...(expectedRevision === undefined ? {} : { expectedRevision }),
       now: this.now(),
     });
   }

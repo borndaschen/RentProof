@@ -7,6 +7,7 @@ import {
   EnqueueJobSchema,
   FailJobSchema,
   JobWorkSchema,
+  JobLeaseCommandSchema,
   PurgeCaseJobsSchema,
   type ClaimedJob,
   type EnqueueJob,
@@ -241,6 +242,15 @@ export class PersistentBoundedJobQueue {
     });
   }
 
+  async renew(input: unknown): Promise<FinishResult> {
+    const parsed = JobLeaseCommandSchema.safeParse(input);
+    if (!parsed.success) return { ok: false, code: "JOB_COMMAND_INVALID" };
+    return this.#finish(parsed.data, (record, now) => ({
+      ...record,
+      leaseExpiresAtMs: now + this.#options.leaseMs,
+    }));
+  }
+
   async complete(input: unknown): Promise<FinishResult> {
     const parsed = CompleteJobSchema.safeParse(input);
     if (!parsed.success) return { ok: false, code: "JOB_COMMAND_INVALID" };
@@ -376,6 +386,17 @@ export class PersistentBoundedJobQueue {
     }));
   }
 
+  /** Caller must first deny access through the owner-scoped case deletion transaction. */
+  async purgeDeletedCase(caseId: string): Promise<void> {
+    OpaqueIdSchema.parse(caseId);
+    await this.#mutate((records) => {
+      const retained = records.filter((record) => record.work.caseId !== caseId);
+      const changed = retained.length !== records.length;
+      if (changed) records.splice(0, records.length, ...retained);
+      return { result: undefined, changed };
+    });
+  }
+
   async #finish(
     command: { jobId: string; leaseId: string; workerId: string },
     update: (record: JobRecord, now: number) => JobRecord,
@@ -393,7 +414,10 @@ export class PersistentBoundedJobQueue {
       const next = update(record, now);
       records[index] = next;
       return {
-        result: { ok: true as const, state: next.state as "queued" | "succeeded" | "failed" },
+        result: {
+          ok: true as const,
+          state: next.state as "queued" | "running" | "succeeded" | "failed",
+        },
         changed: true,
       };
     });

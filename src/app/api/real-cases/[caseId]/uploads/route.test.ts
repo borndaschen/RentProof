@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   guardUpload: vi.fn(),
   resolveActor: vi.fn(),
   saveArtifact: vi.fn(),
+  getContext: vi.fn(),
+  enqueue: vi.fn(),
   prepareVideo: vi.fn(),
   packFrames: vi.fn(),
   createAdapters: vi.fn(() => ({ marker: "approved" })),
@@ -20,7 +22,10 @@ vi.mock("@/server/env", () => ({
   getServerEnvironment: () => ({ RENTPROOF_DEPLOYMENT_PROFILE: "lan_secure_demo" }),
 }));
 vi.mock("@/server/real-demo", () => ({
-  getRealDemoRuntime: async () => ({ service: { saveArtifact: mocks.saveArtifact } }),
+  getRealDemoRuntime: async () => ({
+    service: { saveArtifact: mocks.saveArtifact, getConversationContext: mocks.getContext },
+    processing: { service: { enqueue: mocks.enqueue } },
+  }),
 }));
 vi.mock("@/application/uploads", () => ({ guardSingleUploadRequest: mocks.guardUpload }));
 vi.mock("@/application/video", () => ({
@@ -30,7 +35,11 @@ vi.mock("@/application/video", () => ({
 vi.mock("@/adapters/ingestion/ffmpeg", () => ({
   createApprovedWindowsFfmpegAdapters: mocks.createAdapters,
 }));
-vi.mock("@/adapters/documents/pdfjs", () => ({ extractTextPdf: vi.fn(), pdfJsEngine: {} }));
+vi.mock("@/adapters/documents/pdfjs", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/adapters/documents/pdfjs")>()),
+  extractTextPdf: vi.fn(),
+  pdfJsEngine: {},
+}));
 vi.mock("@/adapters/ingestion/sharp", () => ({ SharpImageSanitizer: vi.fn() }));
 
 import { POST } from "./route";
@@ -51,6 +60,13 @@ describe("POST real-case video upload", () => {
     mocks.guardRequest.mockReset().mockReturnValue(true);
     mocks.resolveActor.mockReset().mockResolvedValue(actor);
     mocks.saveArtifact.mockReset().mockResolvedValue({ artifactId: "artifact_video_000000000001" });
+    mocks.getContext.mockReset().mockResolvedValue({ revision: 1 });
+    mocks.enqueue.mockReset().mockResolvedValue({
+      artifactId: "artifact_video_000000000001",
+      kind: "viewing_video",
+      mime: "video/mp4",
+      state: "queued",
+    });
     mocks.createAdapters.mockClear();
     mocks.packFrames.mockReset().mockReturnValue(bundle);
     mocks.prepareVideo.mockReset().mockResolvedValue({
@@ -69,26 +85,19 @@ describe("POST real-case video upload", () => {
     });
   });
 
-  it("uses only the approved runtime, bundles verified frames and stores the original privately", async () => {
+  it("queues privately after owner verification without pretending frames are already available", async () => {
     const response = await POST(videoRequest(), { params: Promise.resolve({ caseId }) });
-    expect(response.status).toBe(201);
+    expect(response.status).toBe(202);
     expect(response.headers.get("Cache-Control")).toBe("private, no-store");
-    expect(mocks.createAdapters).toHaveBeenCalledWith({
-      runtimeRoot: "C:\\Users\\tester\\AppData\\Local\\RentProof\\runtime",
-    });
-    expect(mocks.prepareVideo).toHaveBeenCalledWith(
-      expect.objectContaining({ declaredMime: "video/mp4", byteLength: videoBytes.byteLength }),
-      videoBytes,
-      { marker: "approved" },
-    );
-    expect(mocks.saveArtifact).toHaveBeenCalledWith(
+    expect(mocks.getContext).toHaveBeenCalledBefore(mocks.guardUpload);
+    expect(mocks.prepareVideo).not.toHaveBeenCalled();
+    expect(mocks.saveArtifact).not.toHaveBeenCalled();
+    expect(mocks.enqueue).toHaveBeenCalledWith(
       expect.objectContaining({
         actor,
         caseId,
-        kind: "viewing_video",
-        mime: "video/mp4",
-        originalBytes: videoBytes,
-        derivative: expect.objectContaining({ bytes: bundle }),
+        type: "evidence.video_frames",
+        bytes: videoBytes,
       }),
     );
     await expect(response.json()).resolves.toMatchObject({
@@ -98,14 +107,22 @@ describe("POST real-case video upload", () => {
     });
   });
 
-  it("fails closed without saving when runtime processing rejects the video", async () => {
-    mocks.prepareVideo.mockResolvedValueOnce({ ok: false, code: "VIDEO_DURATION_EXCEEDED" });
+  it("fails closed without saving when the processing queue cannot persist", async () => {
+    mocks.enqueue.mockRejectedValueOnce(new Error("JOB_QUEUE_CAPACITY_EXCEEDED"));
     const response = await POST(videoRequest(), { params: Promise.resolve({ caseId }) });
-    expect(response.status).toBe(422);
+    expect(response.status).toBe(503);
     await expect(response.json()).resolves.toEqual({
-      error: { code: "VIDEO_DURATION_EXCEEDED" },
+      error: { code: "REAL_DEMO_UNAVAILABLE" },
     });
     expect(mocks.saveArtifact).not.toHaveBeenCalled();
+  });
+
+  it("does not consume upload bytes for a different owner", async () => {
+    mocks.getContext.mockRejectedValueOnce(new Error("REAL_DEMO_CASE_NOT_FOUND_OR_FORBIDDEN"));
+    const response = await POST(videoRequest(), { params: Promise.resolve({ caseId }) });
+    expect(response.status).toBe(404);
+    expect(mocks.guardUpload).not.toHaveBeenCalled();
+    expect(mocks.enqueue).not.toHaveBeenCalled();
   });
 });
 

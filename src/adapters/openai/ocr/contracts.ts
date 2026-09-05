@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { OcrExecutionProvenance } from "@/application/ocr/contracts";
 
 const id = z
   .string()
@@ -82,6 +83,7 @@ export interface OcrProviderProvenance {
   schemaVersion: "rentproof.contract-ocr.v1";
   providerRequestId: string;
   providerAttempts: number;
+  usage: NonNullable<OcrExecutionProvenance["usage"]>;
 }
 
 export interface ScannedPdfOcrSuccess {

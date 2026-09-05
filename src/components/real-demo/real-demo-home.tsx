@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { REAL_DEMO_CLOUD_CONSENT_TEXT } from "@/application/real-demo/contracts";
+import { ProcessingCard, isProcessingReceipt, type ProcessingReceipt } from "./processing-card";
 
 type Session =
   | { status: "loading"; csrfToken: "" }
@@ -40,6 +41,18 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
   const [receipts, setReceipts] = useState<readonly Receipt[]>([]);
   const [listingUrlAdded, setListingUrlAdded] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [processing, setProcessing] = useState<ProcessingReceipt | null>(null);
+  const [ocrConsentFile, setOcrConsentFile] = useState<File | null>(null);
+  const uploadIdentity = useRef<{ file: File; caseId: string; key: string } | null>(null);
+  const finishProcessing = useCallback((receipt: ProcessingReceipt | null) => {
+    if (receipt)
+      setReceipts((current) =>
+        current.some((item) => item.artifactId === receipt.artifactId)
+          ? current
+          : [...current, receipt],
+      );
+    setProcessing(null);
+  }, []);
   const [analysis, setAnalysis] = useState<AnalysisSummary | null>(null);
   const [operationBusy, setBusy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -160,8 +173,8 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
     }
   }
 
-  async function upload() {
-    if (!hasCaseSession(session) || !caseId || busy) return;
+  async function upload(allowOcr = false) {
+    if (!hasCaseSession(session) || !caseId || busy || processing) return;
     const file = selectedFile;
     const accompanyingText = draftMessage.trim();
     if (!file || file.size === 0) return;
@@ -184,6 +197,10 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
             : "jpg";
     setBusy(true);
     setMessage("正在安全處理檔案…");
+    if (uploadIdentity.current?.file !== file || uploadIdentity.current.caseId !== caseId) {
+      uploadIdentity.current = { file, caseId, key: crypto.randomUUID() };
+    }
+    const uploadKey = uploadIdentity.current.key;
     try {
       const response = await request(
         `/api/real-cases/${encodeURIComponent(caseId)}/uploads`,
@@ -195,14 +212,40 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
             "X-RentProof-Upload-Filename": `upload.${extension}`,
             "X-RentProof-Upload-Mime": mime,
             "X-RentProof-Upload-Kind": kind,
-            "Idempotency-Key": crypto.randomUUID(),
+            "Idempotency-Key": uploadKey,
+            ...(allowOcr && ocrConsentFile === file
+              ? { "X-RentProof-OCR-Consent": "confirmed" }
+              : {}),
           },
           body: file,
         },
         mime === "video/mp4" ? 240_000 : 60_000,
       );
       const data = (await response.json()) as unknown;
+      if (
+        response.status === 409 &&
+        typeof data === "object" &&
+        data !== null &&
+        typeof Reflect.get(data, "error") === "object" &&
+        Reflect.get(data, "error") !== null &&
+        Reflect.get(Reflect.get(data, "error") as object, "code") ===
+          "OCR_CLOUD_CONFIRMATION_REQUIRED"
+      ) {
+        setOcrConsentFile(file);
+        setMessage("這份 PDF 需要辨識文字。請先確認是否同意雲端辨識。");
+        return;
+      }
+      if (response.status === 202 && isProcessingReceipt(data)) {
+        uploadIdentity.current = null;
+        setProcessing(data);
+        setOcrConsentFile(null);
+        setSelectedFile(null);
+        setDraftMessage("");
+        setMessage("檔案已排入處理。完成前不會加入分析。");
+        return;
+      }
       if (!response.ok || !isReceipt(data)) throw new Error("UPLOAD_FAILED");
+      uploadIdentity.current = null;
       setReceipts((current) => [...current, data]);
       if (accompanyingText) {
         setFreeTextTurns((current) => [...current, accompanyingText]);
@@ -218,6 +261,7 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
   }
 
   function clearCaseProjection() {
+    uploadIdentity.current = null;
     setCaseId(null);
     setCaseName("");
     setReceipts([]);
@@ -225,6 +269,8 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
     setListingUrlAdded(false);
     setAccountSession(null);
     setSelectedFile(null);
+    setProcessing(null);
+    setOcrConsentFile(null);
     setDraftMessage("");
     setFreeTextTurns([]);
     setPiiAcknowledgement(null);
@@ -518,6 +564,36 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
           </div>
         ))}
 
+        {caseId && processing ? (
+          <ProcessingCard
+            key={`${caseId}:${processing.artifactId}`}
+            caseId={caseId}
+            receipt={processing}
+            csrfToken={session.csrfToken}
+            onFinished={finishProcessing}
+          />
+        ) : null}
+        {ocrConsentFile && ocrConsentFile === selectedFile ? (
+          <div className="real-message assistant">
+            <p className="message-label">RentProof</p>
+            <p>
+              掃描租約需要把這份 PDF 傳送至 OpenAI
+              辨識。請先確認檔案沒有密碼、驗證碼、完整金融帳號或其他不必要個資；辨識完成後仍需你逐頁核對。
+            </p>
+            <button
+              type="button"
+              disabled={busy || !analysisEnabled}
+              className="primary-button"
+              onClick={() => {
+                void upload(true);
+              }}
+            >
+              同意雲端辨識這份租約
+            </button>
+            {!analysisEnabled ? <p>雲端分析尚未開啟，請改提供清楚的文字型 PDF。</p> : null}
+          </div>
+        ) : null}
+
         {message ? (
           <div className="real-message assistant real-status-message">
             <p className="message-label">RentProof</p>
@@ -525,7 +601,10 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
           </div>
         ) : null}
 
-        {hasCaseSession(session) && caseId && !hasRequiredArtifacts(receipts, listingUrlAdded) ? (
+        {hasCaseSession(session) &&
+        caseId &&
+        !processing &&
+        !hasRequiredArtifacts(receipts, listingUrlAdded) ? (
           <div className="real-message assistant">
             <p className="message-label">RentProof</p>
             <p>{nextConversationReply(receipts, listingUrlAdded)}</p>

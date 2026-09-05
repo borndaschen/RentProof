@@ -10,10 +10,7 @@ import type {
   TerraAnalysisOutput,
   TerraAnalysisSuccess,
 } from "@/adapters/openai/analysis/contracts";
-import {
-  InMemoryEvidenceBudgetRepository,
-  type EvidenceBudgetRepository,
-} from "@/application/analysis-budget";
+import { type EvidenceBudgetRepository } from "@/application/analysis-budget";
 import type { ActorContext } from "@/application/repositories";
 import {
   RealAnalysisSnapshotSchema,
@@ -25,7 +22,6 @@ import { deterministicFinding } from "@/server/analysis/live/live-analysis-servi
 import { getRealDemoRuntime } from "./runtime";
 
 const stages = ["listing.extract", "evidence.extract", "contract.extract"] as const;
-const budget = new InMemoryEvidenceBudgetRepository({ now: () => new Date() });
 const ExtractedContractSchema = z
   .object({
     pages: z
@@ -55,19 +51,24 @@ export async function analyzeRealCase(input: {
   apiKey: string;
 }) {
   const runtime = await getRealDemoRuntime();
-  return runRealCaseAnalysis(input, {
-    service: runtime.service,
-    analyzer: createOpenAITerraAnalysisAdapter(input.apiKey),
-    budget,
-    nextId: () => randomBytes(24).toString("hex"),
-    now: () => new Date(),
-  });
+  const current = await runtime.service.getConversationContext(input.actor, input.caseId);
+  return runRealCaseAnalysis(
+    { ...input, expectedRevision: current.revision },
+    {
+      service: runtime.service,
+      analyzer: createOpenAITerraAnalysisAdapter(input.apiKey),
+      budget: runtime.budget,
+      nextId: () => randomBytes(24).toString("hex"),
+      now: () => new Date(),
+    },
+  );
 }
 
 export async function runRealCaseAnalysis(
   input: {
     actor: ActorContext;
     caseId: string;
+    expectedRevision?: number;
   },
   dependencies: {
     service: Pick<RealDemoService, "loadAnalysisPayloads" | "commitAnalysis">;
@@ -188,7 +189,12 @@ export async function runRealCaseAnalysis(
     nextActions,
     createdAt: dependencies.now().toISOString(),
   });
-  await dependencies.service.commitAnalysis(input.actor, input.caseId, snapshot);
+  await dependencies.service.commitAnalysis(
+    input.actor,
+    input.caseId,
+    snapshot,
+    input.expectedRevision,
+  );
   return snapshot;
 }
 

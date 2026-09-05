@@ -172,6 +172,16 @@ export interface CaseArtifactsTable {
 }
 
 export interface RentProofDatabase {
+  artifact_processing: {
+    id: string;
+    case_id: string;
+    actor_ref: string;
+    idempotency_hash: string;
+    record: JsonColumn;
+    created_at: TimestampColumn;
+  };
+  runtime_queue_state: { id: string; payload: string | null };
+  case_evidence_budgets: { case_id: string; events: JsonColumn };
   internal_users: InternalUsersTable;
   auth_credentials: AuthCredentialsTable;
   auth_sessions: AuthSessionsTable;
