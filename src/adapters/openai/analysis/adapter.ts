@@ -301,6 +301,54 @@ function validateListingTextLocators(
   );
 }
 
+function validateContractClauseLocators(
+  input: TerraAnalysisInput,
+  output: TerraAnalysisProviderOutput,
+): boolean {
+  if (input.stage !== "contract.extract" || output.stage !== "contract.extract") return true;
+  return output.clauses.every((clause) => {
+    const locator = clause.locator;
+    return (
+      locator.type === "pdf" &&
+      exactPageExcerpt(
+        input.pages.find((page) => page.page === locator.page)?.text,
+        locator.start,
+        locator.end,
+        locator.excerpt,
+      )
+    );
+  });
+}
+
+function resolveContractClauseLocators(
+  input: TerraAnalysisInput,
+  output: TerraAnalysisProviderOutput,
+): TerraAnalysisProviderOutput {
+  if (input.stage !== "contract.extract" || output.stage !== "contract.extract") return output;
+  return {
+    ...output,
+    clauses: output.clauses.map((clause) => {
+      const locator = clause.locator;
+      if (locator.type !== "pdf") return clause;
+      const pageText = input.pages.find((page) => page.page === locator.page)?.text;
+      if (
+        exactPageExcerpt(pageText, locator.start, locator.end, locator.excerpt) ||
+        pageText === undefined
+      )
+        return clause;
+      // Resolve only a unique verbatim excerpt on the specified page. Preserve the
+      // original provider candidate; never fuzzy-match or search other pages.
+      const first = pageText.indexOf(locator.excerpt);
+      if (first < 0 || pageText.indexOf(locator.excerpt, first + 1) >= 0) return clause;
+      const start = [...pageText.slice(0, first)].length;
+      return {
+        ...clause,
+        locator: { ...locator, start, end: start + [...locator.excerpt].length },
+      };
+    }),
+  };
+}
+
 function validateEvidenceMediaLocators(
   input: TerraAnalysisInput,
   output: TerraAnalysisProviderOutput,
@@ -443,7 +491,10 @@ export class OpenAITerraAnalysisAdapter {
         response.id,
       );
     }
-    const providerOutput = providerOutputResult.data;
+    const providerOutput = resolveContractClauseLocators(input, providerOutputResult.data);
+    if (!validateContractClauseLocators(input, providerOutput)) {
+      throw new OpenAIAnalysisError("ANALYSIS_LOCATOR_INVALID", clientResult.attempts, response.id);
+    }
     if (!validateDisclosureProviderOwnership(input, providerOutput)) {
       throw new OpenAIAnalysisError("ANALYSIS_LOCATOR_INVALID", clientResult.attempts, response.id);
     }

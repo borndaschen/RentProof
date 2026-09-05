@@ -15,6 +15,8 @@
 
 ## 1. 決策摘要
 
+2026-09-05 Live 驗收：Luna／Terra 最小 Responses 請求皆 completed／default；listing、evidence、contract 三階段以封存展示素材通過真實 provider 與 schema／locator 驗證，HTTPS 網站也取得同案201分析結果。D-105補上generic contract clause逐字定位驗證：原range不符時僅接受指定頁面唯一exact excerpt重建code-point range，否則拒絕。此驗收不代表重新查核Project月額度後台，也不代表所有素材品質均已通過。
+
 目前只實作 OpenAI Cloud，不實作本機模型或第二個雲端 provider。程式仍保留窄的 `ModelGateway` interface，目的是隔離 SDK 與 domain，不是同時支援多家服務。
 
 目前Evidence extraction使用`gpt-5.6-terra`＋medium，因OpenAI官方將它定位為智慧與成本的平衡，且支援image input、Responses API與Structured Outputs：[GPT-5.6 Terra](https://developers.openai.com/api/docs/models/gpt-5.6-terra)。Conversation intent／read-only explanation使用`gpt-5.6-luna`＋low；官方將Luna定位為成本敏感、高流量工作負載，並確認支援Responses與Structured Outputs：[GPT-5.6 Luna](https://developers.openai.com/api/docs/models/gpt-5.6-luna)。

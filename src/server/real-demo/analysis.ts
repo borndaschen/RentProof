@@ -22,6 +22,21 @@ import { deterministicFinding } from "@/server/analysis/live/live-analysis-servi
 import { getRealDemoRuntime } from "./runtime";
 
 const stages = ["listing.extract", "evidence.extract", "contract.extract"] as const;
+const claimActionLabels: ReadonlyMap<string, string> = new Map([
+  ["monthly_rent", "每月租金"],
+  ["management_fee", "管理費"],
+  ["electricity_unit_rate", "電費單價"],
+  ["internet_included", "網路費是否包含在租金內"],
+  ["deposit_amount", "押金金額"],
+  ["washing_machine", "洗衣機"],
+  ["air_conditioner", "冷氣"],
+  ["refrigerator", "冰箱"],
+  ["individual_electric_meter", "獨立電表"],
+  ["rent_subsidy", "租金補貼申請相關約定"],
+  ["independent_suite", "獨立套房的設備與使用範圍"],
+  ["wall_discoloration", "牆面色差的補拍與說明"],
+  ["non_natural_death_disclosure", "非自然死亡相關告知內容"],
+]);
 const ExtractedContractSchema = z
   .object({
     pages: z
@@ -162,7 +177,10 @@ export async function runRealCaseAnalysis(
   const nextActions = findings
     .filter((finding) => finding.status !== "supported")
     .slice(0, 3)
-    .map((finding) => `簽約前確認「${finding.key}」，並把結果寫入契約或附件。`);
+    .map(
+      (finding) =>
+        `簽約前確認「${claimActionLabels.get(finding.key) ?? "這項承諾"}」，並把結果寫入契約或附件。`,
+    );
   if (nextActions.length === 0) nextActions.push("簽約前再次核對設備、費用與契約附件。");
   const artifactSetHash = createHash("sha256")
     .update(

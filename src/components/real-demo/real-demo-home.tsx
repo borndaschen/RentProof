@@ -341,14 +341,18 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
     setBusy(true);
     setMessage("正在整理資料…");
     try {
-      const response = await request(`/api/real-cases/${encodeURIComponent(caseId)}/analysis`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-RentProof-CSRF": session.csrfToken,
+      const response = await request(
+        `/api/real-cases/${encodeURIComponent(caseId)}/analysis`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-RentProof-CSRF": session.csrfToken,
+          },
+          body: "{}",
         },
-        body: "{}",
-      });
+        180_000,
+      );
       const data = (await response.json()) as unknown;
       if (!response.ok || !isAnalysis(data)) throw new Error("ANALYSIS_FAILED");
       setAnalysis(data);

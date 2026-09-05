@@ -113,7 +113,7 @@ const outputs = {
           artifactId: contractArtifactId,
           page: 1,
           start: 0,
-          end: 7,
+          end: 6,
           excerpt: "電費每度六元",
         },
       },
@@ -325,6 +325,73 @@ describe("buildTerraAnalysisRequest", () => {
 });
 
 describe("OpenAITerraAnalysisAdapter", () => {
+  it.each(["電費每度六元。", "😀電費每度六元。"])(
+    "resolves a unique verbatim excerpt with server code-point offsets: %s",
+    async (text) => {
+      const provider = structuredClone(toProviderOutput(outputs.contract)) as {
+        clauses: Array<{ locator: Record<string, unknown> }>;
+        nonNaturalDeathDisclosureStatements: unknown[];
+      };
+      const clause = provider.clauses[0];
+      if (!clause) throw new Error("CLAUSE_REQUIRED");
+      clause.locator["end"] = 8;
+      provider.nonNaturalDeathDisclosureStatements = [];
+      const client = new FakeClient(async () => ({
+        response: providerResponse(provider),
+        attempts: 1,
+      }));
+      const result = await new OpenAITerraAnalysisAdapter(client).analyze({
+        ...inputs.contract,
+        pages: [{ page: 1, text }],
+      });
+      const start = text.startsWith("😀") ? 1 : 0;
+      expect(result.sourceLocators[0]).toMatchObject({
+        start,
+        end: start + 6,
+        excerpt: "電費每度六元",
+      });
+      expect(clause.locator["end"]).toBe(8);
+    },
+  );
+  it("rejects ambiguous repeated excerpts when the supplied range is wrong", async () => {
+    const provider = structuredClone(toProviderOutput(outputs.contract)) as {
+      clauses: Array<{ locator: Record<string, unknown> }>;
+      nonNaturalDeathDisclosureStatements: unknown[];
+    };
+    const clause = provider.clauses[0];
+    if (!clause) throw new Error("CLAUSE_REQUIRED");
+    clause.locator["end"] = 7;
+    provider.nonNaturalDeathDisclosureStatements = [];
+    const client = new FakeClient(async () => ({
+      response: providerResponse(provider),
+      attempts: 1,
+    }));
+    await expect(
+      new OpenAITerraAnalysisAdapter(client).analyze({
+        ...inputs.contract,
+        pages: [{ page: 1, text: "電費每度六元。電費每度六元。" }],
+      }),
+    ).rejects.toMatchObject({ code: "ANALYSIS_LOCATOR_INVALID" });
+  });
+  it.each([{ page: 2 }, { excerpt: "電費每度五元" }, { type: "text" }])(
+    "rejects unlocated generic contract evidence: %s",
+    async (overrides) => {
+      const provider = structuredClone(toProviderOutput(outputs.contract)) as {
+        clauses: Array<{ locator: Record<string, unknown> }>;
+      };
+      const clause = provider.clauses[0];
+      if (!clause) throw new Error("CLAUSE_REQUIRED");
+      Object.assign(clause.locator, overrides);
+      if (overrides.type === "text") delete clause.locator["page"];
+      const client = new FakeClient(async () => ({
+        response: providerResponse(provider),
+        attempts: 1,
+      }));
+      await expect(
+        new OpenAITerraAnalysisAdapter(client).analyze(inputs.contract),
+      ).rejects.toMatchObject({ code: "ANALYSIS_LOCATOR_INVALID" });
+    },
+  );
   it("normalizes located interaction facts without allowing provider signals or actions", async () => {
     const providerOutput = structuredClone(toProviderOutput(outputs.interaction)) as {
       fraudCandidates: Record<string, unknown>;

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
@@ -25,7 +25,10 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 
 describe("RealDemoHome", () => {
   it("aborts an in-flight session request when the page unmounts", () => {
@@ -267,6 +270,107 @@ describe("RealDemoHome", () => {
     expect(await screen.findByText("案件已刪除並停止存取。")).toBeVisible();
     expect(fetchMock.mock.calls[5]?.[1]).toMatchObject({ method: "DELETE" });
   });
+
+  it.each(["complete", "timeout"] as const)(
+    "keeps whole-case analysis pending beyond 60 seconds and handles %s within its bound",
+    async (outcome) => {
+      let resolveAnalysis: (response: Response) => void = () => {
+        throw new Error("ANALYSIS_NOT_STARTED");
+      };
+      const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
+        const url = String(input);
+        if (url === "/api/auth/session")
+          return Response.json({ status: "authenticated", csrfToken: "c".repeat(43) });
+        if (url === "/api/real-cases")
+          return Response.json(
+            { caseId: "case_abcdefghijklmnopqrstuvwxyz1234567890" },
+            { status: 201 },
+          );
+        if (url.endsWith("/uploads")) {
+          const headers = new Headers(init?.headers);
+          return Response.json(
+            {
+              artifactId: `artifact_${headers.get("X-RentProof-Upload-Kind")}`,
+              kind: headers.get("X-RentProof-Upload-Kind"),
+              mime: headers.get("X-RentProof-Upload-Mime"),
+            },
+            { status: 201 },
+          );
+        }
+        if (url.endsWith("/conversation"))
+          return Response.json({ intent: { kind: "start_analysis" }, reply: "已理解你的訊息。" });
+        if (url.endsWith("/analysis"))
+          return new Promise<Response>((resolve, reject) => {
+            resolveAnalysis = resolve;
+            init?.signal?.addEventListener(
+              "abort",
+              () => reject(new DOMException("Aborted", "AbortError")),
+              { once: true },
+            );
+          });
+        return Response.json({}, { status: 500 });
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      const user = userEvent.setup();
+      render(<RealDemoHome analysisEnabled />);
+      await user.type(await screen.findByLabelText("輸入訊息"), "測試案件");
+      await user.click(screen.getByRole("checkbox"));
+      await user.click(screen.getByRole("button", { name: "傳送" }));
+      await screen.findByText("案件已建立，可以開始加入資料。");
+      for (const [name, type, message] of [
+        ["listing.png", "image/png", "租屋廣告已安全加入。"],
+        ["viewing.jpg", "image/jpeg", "看屋照片已安全加入。"],
+        ["contract.pdf", "application/pdf", "租約已安全加入。"],
+      ] as const) {
+        await user.upload(screen.getByLabelText("加入附件"), new File(["test"], name, { type }));
+        await user.click(screen.getByRole("button", { name: "傳送" }));
+        await screen.findByText(message);
+      }
+      await user.type(screen.getByLabelText("輸入訊息"), "開始分析");
+      vi.useFakeTimers();
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "傳送" }));
+      });
+      const signal = fetchMock.mock.calls.find(([input]) =>
+        String(input).endsWith("/analysis"),
+      )?.[1]?.signal;
+      expect(signal).toBeInstanceOf(AbortSignal);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(90_000);
+      });
+      expect(signal?.aborted).toBe(false);
+      expect(screen.getByText("正在整理資料…")).toBeVisible();
+      expect(
+        screen.queryByRole("heading", { name: "這些是目前的比對結果" }),
+      ).not.toBeInTheDocument();
+      if (outcome === "complete") {
+        await act(async () => {
+          resolveAnalysis(
+            Response.json(
+              {
+                findings: [{ status: "insufficient_evidence" }],
+                nextActions: ["請補拍洗衣機。"],
+              },
+              { status: 201 },
+            ),
+          );
+        });
+        expect(screen.getByRole("heading", { name: "這些是目前的比對結果" })).toBeVisible();
+        expect(screen.getByText("請補拍洗衣機。")).toBeVisible();
+      } else {
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(90_000);
+        });
+        expect(signal?.aborted).toBe(true);
+        expect(
+          screen.getByText("目前無法完成整理；已加入的資料不會被標示為分析成功。"),
+        ).toBeVisible();
+        expect(
+          screen.queryByRole("heading", { name: "這些是目前的比對結果" }),
+        ).not.toBeInTheDocument();
+      }
+    },
+  );
 
   it("uploads the required sources, shows analysis results, and deletes the case", async () => {
     let uploadNumber = 0;

@@ -772,6 +772,15 @@ Server templates、deterministic policy、Fixture adapter、validation failure�
 
 ## 新決策模板
 
+### D-105：Live 契約定位採指定頁面的唯一逐字原文核對
+
+- 日期：2026-09-05；狀態：accepted。
+- 真實 Live 驗收發現模型可正確引用原文，但回傳錯誤字元計數。所有 generic contract clause 現在都必須通過 page／range／excerpt 精確驗證。
+- 若原 range 不符，只允許在模型指定的同一頁找到唯一且完全相同的 excerpt 時，由 Server 重建 Unicode code-point range。錯頁、找不到、重複而無有效 range、非 PDF locator 仍 fail closed；不做模糊比對、跨頁猜測或改寫原文。
+- 此步是來源定位正規化，不改變三態、官方規則或 finding 優先序；原 provider candidate 不被原地修改。修正與負面案例測試完成後，契約抽取重新通過真實 Live 驗收。
+- 整案分析的瀏覽器等待上限改為180秒，其他fetch及provider attempts／token／cost caps不變；超時仍顯示失敗，不轉Fixture。
+- 簽約前建議使用Server固定中文名稱，未知key以「這項承諾」表示，不回顯模型任意欄位名稱或指令文字。
+
 ### D-097：Email驗證與密碼重設採6位數字碼
 
 - 日期：2026-09-03
