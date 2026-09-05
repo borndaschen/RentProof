@@ -41,7 +41,10 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
   const [listingUrlAdded, setListingUrlAdded] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [analysis, setAnalysis] = useState<AnalysisSummary | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [operationBusy, setBusy] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const submissionLock = useRef(false);
+  const busy = operationBusy || submitting;
   const [message, setMessage] = useState("");
   const [accountSession, setAccountSession] = useState<{ csrfToken: string } | null>(null);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
@@ -193,7 +196,6 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
             "X-RentProof-Upload-Mime": mime,
             "X-RentProof-Upload-Kind": kind,
             "Idempotency-Key": crypto.randomUUID(),
-            ...(piiAcknowledgement ? { "PII-Acknowledgement": piiAcknowledgement } : {}),
           },
           body: file,
         },
@@ -215,6 +217,22 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
     }
   }
 
+  function clearCaseProjection() {
+    setCaseId(null);
+    setCaseName("");
+    setReceipts([]);
+    setAnalysis(null);
+    setListingUrlAdded(false);
+    setAccountSession(null);
+    setSelectedFile(null);
+    setDraftMessage("");
+    setFreeTextTurns([]);
+    setPiiAcknowledgement(null);
+    setCloudAcknowledged(false);
+    setIsDraggingFile(false);
+    setMessage("");
+  }
+
   async function deleteCase() {
     if (!hasCaseSession(session) || !caseId || busy) return;
     setBusy(true);
@@ -228,12 +246,7 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
         body: "{}",
       });
       if (!response.ok) throw new Error("DELETE_FAILED");
-      setCaseId(null);
-      setCaseName("");
-      setReceipts([]);
-      setAnalysis(null);
-      setListingUrlAdded(false);
-      setAccountSession(null);
+      clearCaseProjection();
       setMessage("案件已刪除並停止存取。");
     } catch {
       setMessage("目前無法刪除案件，請稍後重試。");
@@ -245,6 +258,7 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
   async function logout() {
     if (session.status !== "authenticated" || busy) return;
     setBusy(true);
+    let revoked = false;
     try {
       const response = await request("/api/auth/logout", {
         method: "POST",
@@ -255,22 +269,22 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
         body: "{}",
       });
       if (!response.ok) throw new Error("LOGOUT_FAILED");
+      revoked = true;
+      clearCaseProjection();
+      setSession({ status: "loading", csrfToken: "" });
       const guest = await request("/api/guest/session", {
         cache: "no-store",
         credentials: "same-origin",
       });
       if (!guest.ok) throw new Error("GUEST_SESSION_FAILED");
       setSession({ status: "guest", csrfToken: session.csrfToken });
-      setCaseId(null);
-      setCaseName("");
-      setReceipts([]);
-      setAnalysis(null);
-      setListingUrlAdded(false);
-      setSelectedFile(null);
-      setAccountSession(null);
-      setMessage("");
     } catch {
-      setMessage("目前無法安全登出，請稍後再試。");
+      if (revoked) setSession({ status: "unavailable", csrfToken: "" });
+      setMessage(
+        revoked
+          ? "已登出。訪客功能暫時無法使用，請重新整理頁面後再試。"
+          : "目前無法安全登出，請稍後再試。",
+      );
     } finally {
       setBusy(false);
     }
@@ -302,6 +316,18 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
 
   async function submitComposer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy || submissionLock.current) return;
+    submissionLock.current = true;
+    setSubmitting(true);
+    try {
+      await submitDraft();
+    } finally {
+      submissionLock.current = false;
+      setSubmitting(false);
+    }
+  }
+
+  async function submitDraft() {
     const text = draftMessage.trim();
     if (!hasCaseSession(session) || busy) return;
     if (!caseId) {
@@ -351,6 +377,7 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
             "Content-Type": "application/json",
             "X-RentProof-CSRF": session.csrfToken,
             "Idempotency-Key": crypto.randomUUID(),
+            ...(piiAcknowledgement ? { "PII-Acknowledgement": piiAcknowledgement } : {}),
           },
           body: JSON.stringify({ text }),
         },
@@ -524,6 +551,7 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
         {hasCaseSession(session) ? (
           <form
             className="real-composer"
+            aria-busy={busy}
             data-dragging={isDraggingFile || undefined}
             onSubmit={submitComposer}
             onDragOver={(event) => {
@@ -557,6 +585,7 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
                   <input
                     key={nextUploadStep(receipts, listingUrlAdded).kind}
                     type="file"
+                    disabled={busy}
                     aria-label="加入附件"
                     accept={nextUploadStep(receipts, listingUrlAdded).accepts.join(",")}
                     onChange={(event) => {
@@ -569,6 +598,7 @@ export function RealDemoHome({ analysisEnabled = false }: { analysisEnabled?: bo
               <label className="real-composer-input">
                 <span className="sr-only">輸入訊息</span>
                 <textarea
+                  disabled={busy}
                   value={draftMessage}
                   onChange={(event) => {
                     setDraftMessage(event.currentTarget.value);

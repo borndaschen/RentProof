@@ -11,6 +11,10 @@ type State =
   | { status: "loaded"; rentalCase: CaseHistoryDetail };
 
 export function HistoryDetailClientPage({ caseId }: { caseId: string }) {
+  return <ScopedHistoryDetail key={caseId} caseId={caseId} />;
+}
+
+function ScopedHistoryDetail({ caseId }: { caseId: string }) {
   const [state, setState] = useState<State>({ status: "loading" });
   useEffect(() => {
     let active = true;
@@ -24,7 +28,7 @@ export function HistoryDetailClientPage({ caseId }: { caseId: string }) {
         if (response.status === 404 || response.status === 401) return { status: "not_found" };
         if (!response.ok) return { status: "unavailable" };
         const parsed = parseHistoryDetailResponse((await response.json()) as unknown);
-        return parsed === null
+        return parsed === null || parsed.caseId !== caseId
           ? { status: "unavailable" }
           : { status: "loaded", rentalCase: parsed };
       })
